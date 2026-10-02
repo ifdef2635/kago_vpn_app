@@ -1,0 +1,19 @@
+include: package:flutter_lints/flutter.yaml
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    invalid_use_of_visible_for_testing_member: error
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - windows/**
+linter:
+  rules:
+    always_declare_return_types: true
+    avoid_print: true
+    prefer_const_constructors: true
+    prefer_final_locals: true

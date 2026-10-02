@@ -1,0 +1,412 @@
+diff -ruN a/lib/core/network/mihomo_process_manager.dart b/lib/core/network/mihomo_process_manager.dart
+--- a/lib/core/network/mihomo_process_manager.dart	2026-10-01 19:50:59.978479702 +0000
++++ b/lib/core/network/mihomo_process_manager.dart	2026-10-01 19:50:59.984047308 +0000
+@@ -35,6 +35,16 @@
+     if (!_logs.isClosed) _logs.add(line);
+   }
+ 
++  /// Last core output lines, so a failed start explains itself (the log panel
++  /// in settings is only shown while the core is running).
++  String _logTail([int lines = 6]) {
++    if (_recentLogs.isEmpty) return '';
++    final tail = _recentLogs.length > lines
++        ? _recentLogs.sublist(_recentLogs.length - lines)
++        : _recentLogs;
++    return '\nЛог ядра:\n${tail.join('\n')}';
++  }
++
+   Future<String?> get executable async {
+     final prefs = await SharedPreferences.getInstance();
+     return prefs.getString(_binaryKey);
+@@ -70,10 +80,11 @@
+ 
+   Future<void> start({required String configPath}) async {
+     if (_process != null) return;
+-    final override = await executable;
++    final overridePath = (await executable)?.trim() ?? '';
++    final usingOverride = overridePath.isNotEmpty;
+     final String binary;
+-    if (override != null && override.trim().isNotEmpty) {
+-      binary = override.trim();
++    if (usingOverride) {
++      binary = overridePath;
+     } else if (Platform.isWindows) {
+       final core = await _coreUpdater.ensureInstalled(onLog: _writeLog);
+       binary = core.executable.path;
+@@ -83,7 +94,11 @@
+           'Для этой desktop-платформы укажите путь к Mihomo в настройках.');
+     }
+     if (!await File(binary).exists()) {
+-      throw FileSystemException('Файл Mihomo не найден', binary);
++      throw FileSystemException(
++          usingOverride
++              ? 'Файл Mihomo из настроек не найден. Исправьте путь или очистите поле, чтобы использовать встроенное ядро'
++              : 'Встроенный Mihomo не найден на диске. Нажмите «Проверить и установить обновление» в настройках',
++          binary);
+     }
+     if (!await File(configPath).exists()) {
+       throw FileSystemException(
+@@ -152,7 +167,7 @@
+     for (var attempt = 0; attempt < 12; attempt++) {
+       if (!identical(_process, process)) {
+         throw StateError(
+-            'Mihomo завершился при запуске. Проверьте права и логи.');
++            'Mihomo завершился при запуске. Проверьте права и логи.${_logTail()}');
+       }
+       await Future<void>.delayed(const Duration(milliseconds: 300));
+       try {
+@@ -169,7 +184,7 @@
+     }
+     await stop();
+     throw StateError(
+-        'External Controller не стал доступен за 12 секунд: $lastError');
++        'External Controller не стал доступен за 12 секунд: $lastError${_logTail()}');
+   }
+ 
+   Future<void> stop() async {
+diff -ruN a/lib/core/network/mihomo_windows_core_updater.dart b/lib/core/network/mihomo_windows_core_updater.dart
+--- a/lib/core/network/mihomo_windows_core_updater.dart	2026-10-01 19:50:59.978777617 +0000
++++ b/lib/core/network/mihomo_windows_core_updater.dart	2026-10-01 19:50:59.984016874 +0000
+@@ -1,3 +1,4 @@
++import 'dart:async';
+ import 'dart:convert';
+ import 'dart:io';
+ 
+@@ -19,9 +20,30 @@
+   final bool updated;
+ }
+ 
++/// Mihomo is not installed yet and GitHub could not be reached, so there is
++/// nothing to fall back to. [toString] is user-facing Russian text, so existing
++/// `'$error'` call sites show it without exposing a raw DioException.
++class MihomoCoreNetworkException implements Exception {
++  const MihomoCoreNetworkException(this.reason, {this.cause});
++
++  /// Short technical reason, e.g. `HTTP 403` or the OS socket error text.
++  final String reason;
++  final Object? cause;
++
++  String get message =>
++      'Не удалось связаться с GitHub ($reason), а встроенное ядро Mihomo ещё не установлено. '
++      'Проверьте интернет и доступ к github.com либо укажите путь к mihomo.exe в настройках.';
++
++  @override
++  String toString() => message;
++}
++
+ class MihomoWindowsCoreUpdater {
+-  MihomoWindowsCoreUpdater({Dio? dio, MihomoReleaseApi? releases})
+-      : _dio = dio ??
++  /// [isWindows] exists so tests can exercise the update flow on any host OS.
++  MihomoWindowsCoreUpdater(
++      {Dio? dio, MihomoReleaseApi? releases, bool? isWindows})
++      : _isWindows = isWindows ?? Platform.isWindows,
++        _dio = dio ??
+             Dio(BaseOptions(
+               connectTimeout: const Duration(seconds: 15),
+               receiveTimeout: const Duration(minutes: 3),
+@@ -39,6 +61,7 @@
+   static const _maxArchiveBytes = 100 * 1024 * 1024;
+   static const _maxExecutableBytes = 250 * 1024 * 1024;
+ 
++  final bool _isWindows;
+   final Dio _dio;
+   final MihomoReleaseApi _releases;
+   Future<MihomoCoreInstall>? _operation;
+@@ -67,12 +90,16 @@
+ 
+   Future<MihomoCoreInstall> _ensureInstalled(
+       {required bool forceCheck, ValueChanged<String>? onLog}) async {
+-    if (!Platform.isWindows) {
++    if (!_isWindows) {
+       throw UnsupportedError(
+           'Встроенное автоматическое ядро пока поддерживает Windows x64.');
+     }
+     final preferences = await SharedPreferences.getInstance();
+     final current = await installed();
++    if (current == null && preferences.getString(_pathKey) != null) {
++      onLog?.call(
++          'Сохранённый mihomo.exe не найден на диске; ядро будет установлено заново.');
++    }
+     final checkedText = preferences.getString(_checkedAtKey);
+     final checkedAt =
+         checkedText == null ? null : DateTime.tryParse(checkedText)?.toUtc();
+@@ -86,13 +113,14 @@
+     try {
+       onLog?.call('Проверка обновлений Mihomo…');
+       release = await _releases.latestStable();
+-    } catch (error) {
++    } catch (error, stackTrace) {
+       if (current != null) {
+         onLog?.call(
+             'GitHub недоступен; используется Mihomo ${current.version}: $error');
+         return current;
+       }
+-      rethrow;
++      onLog?.call('GitHub недоступен, встроенное ядро не установлено: $error');
++      Error.throwWithStackTrace(_explainNetworkFailure(error), stackTrace);
+     }
+ 
+     final latest = release.version;
+@@ -191,7 +219,7 @@
+       onLog?.call('Mihomo $latest установлен и проверен.');
+       return MihomoCoreInstall(
+           version: latest, executable: installedBinary, updated: true);
+-    } catch (error) {
++    } catch (error, stackTrace) {
+       if (current != null) {
+         await preferences.setString(
+             _checkedAtKey, DateTime.now().toUtc().toIso8601String());
+@@ -199,12 +227,37 @@
+             'Обновление Mihomo не завершилось; оставлено ${current.version}: $error');
+         return current;
+       }
+-      rethrow;
++      Error.throwWithStackTrace(_explainNetworkFailure(error), stackTrace);
+     } finally {
+       if (await staging.exists()) await staging.delete(recursive: true);
+     }
+   }
+ 
++  /// Network failures become [MihomoCoreNetworkException]; integrity and format
++  /// errors (digest mismatch, bad ZIP, ...) are returned unchanged so they are
++  /// never disguised as connectivity problems.
++  static Object _explainNetworkFailure(Object error) {
++    if (error is DioException) {
++      final status = error.response?.statusCode;
++      final inner = error.error;
++      final String reason;
++      if (status != null) {
++        reason = 'HTTP $status';
++      } else if (inner is SocketException) {
++        final os = inner.osError?.message.trim();
++        reason = os == null || os.isEmpty ? inner.message : os;
++      } else {
++        reason = error.type.name;
++      }
++      return MihomoCoreNetworkException(reason, cause: error);
++    }
++    if (error is SocketException || error is TimeoutException) {
++      return MihomoCoreNetworkException(error.runtimeType.toString(),
++          cause: error);
++    }
++    return error;
++  }
++
+   Future<void> _probe(File executable, String expectedVersion) async {
+     final process = await Process.start(executable.path, const <String>['-v'],
+         runInShell: false);
+diff -ruN a/lib/features/dashboard/dashboard_screen.dart b/lib/features/dashboard/dashboard_screen.dart
+--- a/lib/features/dashboard/dashboard_screen.dart	2026-10-01 19:50:59.979279717 +0000
++++ b/lib/features/dashboard/dashboard_screen.dart	2026-10-01 19:50:59.984138757 +0000
+@@ -150,9 +150,11 @@
+                     ]);
+                   },
+                   loading: () => const LinearProgressIndicator(minHeight: 2),
+-                  error: (_, __) => const Text(
+-                      'Контроллер недоступен — задайте адрес в настройках.',
+-                      style: TextStyle(color: KaGoColors.muted)),
++                  error: (_, __) => Text(
++                      !Platform.isAndroid && !coreRunning
++                          ? 'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.'
++                          : 'Контроллер недоступен — проверьте адрес в настройках.',
++                      style: const TextStyle(color: KaGoColors.muted)),
+                 ),
+                 const SizedBox(height: 14),
+                 const Row(children: <Widget>[
+@@ -239,6 +241,13 @@
+         ]);
+   }
+ 
++  /// The proxy list and version are cached futures; without this they keep the
++  /// old "controller unavailable" error after the core starts or stops.
++  void _refreshCoreData(WidgetRef ref) {
++    ref.invalidate(coreVersionProvider);
++    ref.invalidate(proxyGroupsProvider);
++  }
++
+   Future<void> _tryConnect(
+       BuildContext context, WidgetRef ref, bool androidConnected) async {
+     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+@@ -247,6 +256,7 @@
+         if (manager.isRunning) {
+           await manager.stop();
+           ref.read(desktopCoreRunningProvider.notifier).state = false;
++          _refreshCoreData(ref);
+           if (context.mounted) {
+             _showMessage(context, 'Ядро Mihomo остановлено.');
+           }
+@@ -255,11 +265,13 @@
+         final config = await const MihomoConfigBuilder().activeConfigFile();
+         await manager.start(configPath: config.path);
+         ref.read(desktopCoreRunningProvider.notifier).state = true;
++        _refreshCoreData(ref);
+         if (context.mounted) {
+           _showMessage(context, 'Mihomo запущен и controller отвечает.');
+         }
+       } catch (error) {
+         ref.read(desktopCoreRunningProvider.notifier).state = manager.isRunning;
++        _refreshCoreData(ref);
+         if (context.mounted) {
+           _showMessage(context, 'Не удалось запустить Mihomo: $error');
+         }
+diff -ruN a/lib/features/settings/settings_screen.dart b/lib/features/settings/settings_screen.dart
+--- a/lib/features/settings/settings_screen.dart	2026-10-01 19:50:59.979817884 +0000
++++ b/lib/features/settings/settings_screen.dart	2026-10-01 19:50:59.984231825 +0000
+@@ -4,6 +4,7 @@
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+ import '../../core/network/app_providers.dart';
++import '../../core/network/mihomo_windows_core_updater.dart';
+ import '../../core/theme/app_widgets.dart';
+ import '../../core/theme/kago_theme.dart';
+ 
+@@ -34,7 +35,7 @@
+         _endpoint.text = value;
+         _binary.text = binary ?? '';
+         _windowsCoreStatus = core == null
+-            ? 'Mihomo установится автоматически перед первым подключением.'
++            ? 'Mihomo не установлен: он скачается с GitHub перед первым подключением. Если GitHub недоступен, укажите путь к mihomo.exe ниже.'
+             : 'Установлен Mihomo ${core.version}.';
+         _loading = false;
+       });
+@@ -277,7 +278,9 @@
+       }
+     } catch (error) {
+       if (mounted) {
+-        setState(() => _windowsCoreStatus = 'Обновление не выполнено: $error');
++        setState(() => _windowsCoreStatus = error is MihomoCoreNetworkException
++            ? error.message
++            : 'Обновление не выполнено: $error');
+       }
+     } finally {
+       if (mounted) setState(() => _coreUpdating = false);
+diff -ruN a/test/mihomo_core_updater_test.dart b/test/mihomo_core_updater_test.dart
+--- a/test/mihomo_core_updater_test.dart	1970-01-01 00:00:00.000000000 +0000
++++ b/test/mihomo_core_updater_test.dart	2026-10-01 19:50:59.985480549 +0000
+@@ -0,0 +1,125 @@
++import 'dart:io';
++import 'dart:typed_data';
++
++import 'package:dio/dio.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:kago_vpn/core/network/mihomo_release_api.dart';
++import 'package:kago_vpn/core/network/mihomo_windows_core_updater.dart';
++import 'package:shared_preferences/shared_preferences.dart';
++
++/// Reproduces the field error: api.github.com refuses the connection
++/// (Windows errno 1225).
++class _RefusedAdapter implements HttpClientAdapter {
++  @override
++  Future<ResponseBody> fetch(RequestOptions options,
++      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
++    throw DioException(
++      requestOptions: options,
++      type: DioExceptionType.connectionError,
++      error: const SocketException(
++        'The connection errored',
++        osError: OSError(
++            'Удаленный компьютер отклонил это сетевое подключение', 1225),
++      ),
++    );
++  }
++
++  @override
++  void close({bool force = false}) {}
++}
++
++/// GitHub answers, but with a payload that is not a Mihomo release.
++class _BadPayloadAdapter implements HttpClientAdapter {
++  @override
++  Future<ResponseBody> fetch(RequestOptions options,
++      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
++    return ResponseBody.fromString('{}', 200, headers: <String, List<String>>{
++      Headers.contentTypeHeader: <String>[Headers.jsonContentType],
++    });
++  }
++
++  @override
++  void close({bool force = false}) {}
++}
++
++MihomoWindowsCoreUpdater _updater(HttpClientAdapter adapter) =>
++    MihomoWindowsCoreUpdater(
++      isWindows: true,
++      releases: MihomoReleaseApi(dio: Dio()..httpClientAdapter = adapter),
++    );
++
++void main() {
++  TestWidgetsFlutterBinding.ensureInitialized();
++
++  late Directory temp;
++
++  setUp(() {
++    temp = Directory.systemTemp.createTempSync('kago_core_updater_test');
++  });
++
++  tearDown(() {
++    if (temp.existsSync()) temp.deleteSync(recursive: true);
++  });
++
++  group('GitHub unreachable', () {
++    test('no core installed: clear Russian error instead of raw DioException',
++        () async {
++      SharedPreferences.setMockInitialValues(<String, Object>{});
++      final logs = <String>[];
++
++      await expectLater(
++        _updater(_RefusedAdapter())
++            .ensureInstalled(forceCheck: true, onLog: logs.add),
++        throwsA(
++          isA<MihomoCoreNetworkException>()
++              .having((e) => e.message, 'message', contains('GitHub'))
++              .having((e) => e.message, 'message', contains('mihomo.exe'))
++              .having((e) => e.toString(), 'toString',
++                  isNot(contains('DioException'))),
++        ),
++      );
++      expect(logs.any((line) => line.contains('GitHub недоступен')), isTrue);
++    });
++
++    test('stale saved path (file deleted) is treated as not installed',
++        () async {
++      SharedPreferences.setMockInitialValues(<String, Object>{
++        'mihomo.builtin.version': 'v1.19.32',
++        'mihomo.builtin.path': '${temp.path}${Platform.pathSeparator}gone.exe',
++      });
++      final logs = <String>[];
++
++      await expectLater(
++        _updater(_RefusedAdapter()).ensureInstalled(onLog: logs.add),
++        throwsA(isA<MihomoCoreNetworkException>()),
++      );
++      expect(logs.any((line) => line.contains('не найден на диске')), isTrue);
++    });
++
++    test('installed core is kept when the update check fails', () async {
++      final exe = File('${temp.path}${Platform.pathSeparator}mihomo.exe')
++        ..writeAsBytesSync(<int>[1]);
++      SharedPreferences.setMockInitialValues(<String, Object>{
++        'mihomo.builtin.version': 'v1.19.32',
++        'mihomo.builtin.path': exe.path,
++      });
++
++      final install =
++          await _updater(_RefusedAdapter()).ensureInstalled(forceCheck: true);
++
++      expect(install.version, 'v1.19.32');
++      expect(install.executable.path, exe.path);
++      expect(install.updated, isFalse);
++    });
++
++    test('non-network errors are not disguised as connectivity problems',
++        () async {
++      SharedPreferences.setMockInitialValues(<String, Object>{});
++
++      await expectLater(
++        _updater(_BadPayloadAdapter()).ensureInstalled(forceCheck: true),
++        throwsA(isA<FormatException>()),
++      );
++    });
++  });
++}

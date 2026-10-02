@@ -1,0 +1,10 @@
+name: MihomoNativeBindings
+description: Generated bindings for the KaGo VPN Mihomo native bridge.
+output: lib/core/network/generated/mihomo_native_bindings.dart
+headers:
+  entry-points:
+    - native/include/kago_mihomo_bridge.h
+compiler-opts:
+  - '-Inative/include'
+comments:
+  style: any

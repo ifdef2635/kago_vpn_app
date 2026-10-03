@@ -13,6 +13,7 @@ class ProxiesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final online = ref.watch(vpnActiveProvider);
     final groupsAsync = ref.watch(proxyGroupsProvider);
     final sort = ref.watch(proxySortProvider);
     final pending = ref.watch(proxyDelayTestingProvider);
@@ -28,7 +29,7 @@ class ProxiesScreen extends ConsumerWidget {
             const Expanded(child: SectionTitle('Серверы и группы')),
             IconButton(
                 tooltip: 'Проверить задержку',
-                onPressed: active == null || pending.isNotEmpty
+                onPressed: active == null || pending.isNotEmpty || !online
                     ? null
                     : () => _testGroupDelays(context, ref, active),
                 icon: pending.isNotEmpty
@@ -57,8 +58,11 @@ class ProxiesScreen extends ConsumerWidget {
                 icon: const Icon(Icons.refresh_rounded)),
           ]),
           const SizedBox(height: 6),
-          const Text('Выберите активный узел. Данные берутся из ядра Mihomo.',
-              style: TextStyle(color: KaGoColors.muted, fontSize: 13)),
+          Text(
+              online
+                  ? 'Выберите активный узел. Данные берутся из ядра Mihomo.'
+                  : 'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.',
+              style: const TextStyle(color: KaGoColors.muted, fontSize: 13)),
           const SizedBox(height: 16),
           groupsAsync.when(
             loading: () => const LoadingPanel(),
@@ -93,9 +97,11 @@ class ProxiesScreen extends ConsumerWidget {
                                 .toList(growable: false))),
                     const SizedBox(height: 12),
                     Text(
-                        group.isSelectable
+                        !online
                             ? '${group.type} · ${group.nodes.length} шт.'
-                            : '${group.type} · узел выбирается автоматически',
+                            : group.isSelectable
+                                ? '${group.type} · ${group.nodes.length} шт.'
+                                : '${group.type} · узел выбирается автоматически',
                         style: const TextStyle(
                             color: KaGoColors.muted, fontSize: 12)),
                     if (group.description != null &&
@@ -129,7 +135,7 @@ class ProxiesScreen extends ConsumerWidget {
                                     child: _NodeCard(
                                         node: node,
                                         selected: node.name == group.selected,
-                                        enabled: group.isSelectable,
+                                        enabled: group.isSelectable && online,
                                         delay: delays[node.name] ?? node.delay,
                                         testing: pending.contains(node.name),
                                         onTap: () => _selectNode(

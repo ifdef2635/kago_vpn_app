@@ -2,7 +2,7 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-03 (second change set)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-03 (third change set)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
 
 ## Implemented and verified in source
 
@@ -17,6 +17,13 @@ _Last updated: 2026-10-03 (second change set)._ This file is updated with every 
 ## Implemented in source, not yet verified
 
 These changes were written after the last full `flutter analyze` / `flutter test` run. The authoring sandbox has no Flutter SDK, so **none of them has been analyzed, unit-tested or run**; the patch was only checked to apply cleanly to the source archive. Run `flutter analyze` and `flutter test` first (new tests: `mihomo_core_updater_test`, `proxy_groups_test`, `connections_snapshot_test`, `ip_info_test`, `subscription_usage_test`, plus additions to the parser and widget tests), then test on a real Windows machine and an Android device.
+
+### 2026-10-03 — core-off states (third change set)
+
+- **Servers tab with the core off:** shows the servers and groups of the saved profile (read from the active config; protocol per server, nested groups, `include-all`/`filter` groups) instead of a controller error. Which node is selected is unknown without the core, so none is highlighted; choosing a node and the latency test are disabled until connected, and the tab says so. The list switches to live controller data when the VPN turns on.
+- **Connections tab with the core off:** shows "no active connections" instead of an error and does not poll.
+- **Build fix:** the owner's first `flutter run -d windows` of this series failed with one compile error (`connections_screen.dart`: a `const` card containing a runtime value). Fixed; a scan of the other changed files found no further `const` problems. `flutter analyze` and `flutter test` are still not run.
+- **Dashboard "Ваш сервер" card with the core off:** shows the group name and server count instead of an error.
 
 ### 2026-10-03 — audit fixes (second change set)
 

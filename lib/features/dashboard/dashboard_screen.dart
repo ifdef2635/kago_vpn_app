@@ -134,12 +134,16 @@ class DashboardScreen extends ConsumerWidget {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                            Text(node ?? 'Добавьте подписку',
+                            Text(node ?? group?.name ?? 'Добавьте подписку',
                                 style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w700)),
                             const SizedBox(height: 4),
                             Text(
-                                group?.name ?? 'Список серверов появится здесь',
+                                node != null
+                                    ? group!.name
+                                    : group != null
+                                        ? '${group.nodes.length} серверов · выбор доступен после подключения'
+                                        : 'Список серверов появится здесь',
                                 style: const TextStyle(
                                     fontSize: 12, color: KaGoColors.muted))
                           ])),
@@ -161,8 +165,10 @@ class DashboardScreen extends ConsumerWidget {
                   const SizedBox(width: 7),
                   Expanded(
                       child: Text(
-                          _delayText(groups.asData?.value,
-                              ref.watch(proxyDelaysProvider)),
+                          _delayText(
+                              groups.asData?.value,
+                              ref.watch(proxyDelaysProvider),
+                              coreRunning || androidConnected),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -508,8 +514,10 @@ ProxyGroup? _primaryGroup(List<ProxyGroup> groups) {
   return groups.isEmpty ? null : groups.first;
 }
 
-String _delayText(List<ProxyGroup>? groups, Map<String, int> measured) {
+String _delayText(
+    List<ProxyGroup>? groups, Map<String, int> measured, bool online) {
   const idle = 'Задержка появится после подключения ядра';
+  if (!online) return idle;
   final group = groups == null ? null : _primaryGroup(groups);
   final selected = group?.selected;
   if (group == null || selected == null) return idle;

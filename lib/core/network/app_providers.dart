@@ -12,12 +12,18 @@ import 'ip_info_service.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_process_manager.dart';
 import 'mihomo_release_api.dart';
+import 'offline_proxy_groups.dart';
 import 'mihomo_windows_core_updater.dart';
 
 final mihomoControllerProvider =
     Provider<MihomoController>((ref) => MihomoController());
-final proxyGroupsProvider = FutureProvider<List<ProxyGroup>>(
-    (ref) => ref.watch(mihomoControllerProvider).proxies());
+/// Groups and servers. With the core running they come from the controller (with
+/// protocol and latency); otherwise from the saved profile, so the servers tab
+/// is not an error just because the core is off.
+final proxyGroupsProvider = FutureProvider<List<ProxyGroup>>((ref) async {
+  if (!ref.watch(vpnActiveProvider)) return loadOfflineProxyGroups();
+  return ref.watch(mihomoControllerProvider).proxies();
+});
 
 /// Polls `/connections` once per second while something watches it, and derives
 /// the current download/upload speed from the cumulative counters.

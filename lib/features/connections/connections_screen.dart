@@ -16,7 +16,12 @@ class ConnectionsScreen extends ConsumerWidget {
     return _buildList(context, ref);
   }
 
-  Widget _buildList(BuildContext context, WidgetRef ref) => ListView(
+  Widget _buildList(BuildContext context, WidgetRef ref) {
+    final online = ref.watch(vpnActiveProvider);
+    return _list(context, ref, online);
+  }
+
+  Widget _list(BuildContext context, WidgetRef ref, bool online) => ListView(
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
           children: <Widget>[
             Row(children: <Widget>[
@@ -30,20 +35,30 @@ class ConnectionsScreen extends ConsumerWidget {
                 'Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.',
                 style: TextStyle(color: KaGoColors.muted, fontSize: 13)),
             const SizedBox(height: 18),
-            ref.watch(connectionsSnapshotProvider).when(
+            // With the core off there is nothing to ask: show "no connections"
+            // instead of a controller error, and do not poll.
+            (online
+                    ? ref.watch(connectionsSnapshotProvider)
+                    : const AsyncValue<ConnectionsSnapshot>.data(
+                        ConnectionsSnapshot(connections: <ActiveConnection>[])))
+                .when(
                   loading: () => const LoadingPanel(),
                   error: (error, _) => ErrorPanel(
                       message: 'Контроллер недоступен: $error',
                       onRetry: () => ref.invalidate(connectionsSnapshotProvider)),
                   data: (snapshot) => snapshot.connections.isEmpty
-                      ? const SurfaceCard(
+                      ? SurfaceCard(
                           child: Row(children: <Widget>[
-                          Icon(Icons.check_circle_outline,
+                          const Icon(Icons.check_circle_outline,
                               color: KaGoColors.accent),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
-                              child: Text('Активных соединений нет.',
-                                  style: TextStyle(color: KaGoColors.muted)))
+                              child: Text(
+                                  online
+                                      ? 'Активных соединений нет.'
+                                      : 'Ядро выключено — активных соединений нет.',
+                                  style:
+                                      const TextStyle(color: KaGoColors.muted)))
                         ]))
                       : Column(children: <Widget>[
                           Align(

@@ -6,6 +6,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -17,6 +18,45 @@ class MainActivity : FlutterActivity() {
     private val permissionRequestCode = 7402
     private var pendingResult: MethodChannel.Result? = null
     private var pendingConfigPath: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestHighestRefreshRate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The user may have switched display mode or moved to another display.
+        requestHighestRefreshRate()
+    }
+
+    /**
+     * Many phones keep apps at 60 Hz unless they ask for more. Pick the mode with
+     * the highest refresh rate at the current resolution so Flutter animations
+     * and scrolling run at the panel's full rate (90/120/144 Hz).
+     */
+    @Suppress("DEPRECATION")
+    private fun requestHighestRefreshRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        runCatching {
+            val currentDisplay = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display
+            } else {
+                windowManager.defaultDisplay
+            }) ?: return@runCatching
+            val current = currentDisplay.mode
+            val best = currentDisplay.supportedModes
+                .filter {
+                    it.physicalWidth == current.physicalWidth &&
+                        it.physicalHeight == current.physicalHeight
+                }
+                .maxByOrNull { it.refreshRate } ?: return@runCatching
+            if (best.modeId == current.modeId) return@runCatching
+            val params = window.attributes
+            params.preferredDisplayModeId = best.modeId
+            window.attributes = params
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

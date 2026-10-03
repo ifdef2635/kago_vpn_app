@@ -30,10 +30,6 @@ class DashboardScreen extends ConsumerWidget {
     final androidEvent = androidVpn?.asData?.value;
     final androidState = androidEvent?['state'] as String?;
     final androidConnected = androidState == 'connected';
-    // Polls the controller only while a core is actually running.
-    final traffic = coreRunning || androidConnected
-        ? ref.watch(connectionsSnapshotProvider).asData?.value
-        : null;
     final width = MediaQuery.sizeOf(context).width;
     return ListView(
         padding: EdgeInsets.fromLTRB(
@@ -226,27 +222,7 @@ class DashboardScreen extends ConsumerWidget {
                 style: const TextStyle(color: KaGoColors.muted, fontSize: 12)),
           ])),
           const SizedBox(height: 20),
-          Row(children: <Widget>[
-            Expanded(
-                child: _MetricCard(
-                    icon: Icons.arrow_downward_rounded,
-                    label: 'Загрузка',
-                    value:
-                        traffic == null ? '—' : formatSpeed(traffic.downloadSpeed),
-                    caption: traffic == null
-                        ? null
-                        : 'всего ${formatBytes(traffic.downloadTotal)}')),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _MetricCard(
-                    icon: Icons.arrow_upward_rounded,
-                    label: 'Отдача',
-                    value:
-                        traffic == null ? '—' : formatSpeed(traffic.uploadSpeed),
-                    caption: traffic == null
-                        ? null
-                        : 'всего ${formatBytes(traffic.uploadTotal)}')),
-          ]),
+          _TrafficMetrics(active: coreRunning || androidConnected),
           const SizedBox(height: 18),
           const Center(
               child: Text('Поддержка: usekago.net',
@@ -541,6 +517,42 @@ String _delayText(List<ProxyGroup>? groups, Map<String, int> measured) {
     return value > 0 ? 'Задержка: $value мс' : 'Узел не отвечает';
   }
   return idle;
+}
+
+/// Upload/download cards. Only this widget listens to the once-per-second
+/// traffic poll, so the rest of the dashboard is not rebuilt every second, and
+/// polling runs only while the dashboard tab is visible and a core is running.
+class _TrafficMetrics extends ConsumerWidget {
+  const _TrafficMetrics({required this.active});
+  final bool active;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = ref.watch(rootTabIndexProvider) == 0;
+    final traffic = active && visible
+        ? ref.watch(connectionsSnapshotProvider).asData?.value
+        : null;
+    return RepaintBoundary(
+        child: Row(children: <Widget>[
+      Expanded(
+          child: _MetricCard(
+              icon: Icons.arrow_downward_rounded,
+              label: 'Загрузка',
+              value: traffic == null ? '—' : formatSpeed(traffic.downloadSpeed),
+              caption: traffic == null
+                  ? null
+                  : 'всего ${formatBytes(traffic.downloadTotal)}')),
+      const SizedBox(width: 12),
+      Expanded(
+          child: _MetricCard(
+              icon: Icons.arrow_upward_rounded,
+              label: 'Отдача',
+              value: traffic == null ? '—' : formatSpeed(traffic.uploadSpeed),
+              caption: traffic == null
+                  ? null
+                  : 'всего ${formatBytes(traffic.uploadTotal)}')),
+    ]));
+  }
 }
 
 class _MetricCard extends StatelessWidget {

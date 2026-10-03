@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kago_vpn/core/network/mihomo_release_api.dart';
@@ -110,7 +111,8 @@ void main() {
             .ensureInstalled(onLog: logs.add),
         throwsA(isA<MihomoCoreNetworkException>()),
       );
-      expect(logs.any((line) => line.contains('не найден на диске')), isTrue);
+      expect(logs.any((line) => line.contains('будет установлено заново')),
+          isTrue);
     });
 
     test('installed core is kept when the update check fails', () async {
@@ -140,6 +142,134 @@ void main() {
             .ensureInstalled(forceCheck: true),
         throwsA(isA<FormatException>()),
       );
+    });
+  });
+
+  group('integrity check', () {
+    test('a modified mihomo.exe is treated as not installed', () async {
+      final exe = File('${temp.path}${Platform.pathSeparator}mihomo.exe')
+        ..writeAsBytesSync(<int>[1, 2, 3]);
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'mihomo.builtin.version': 'v1.19.32',
+        'mihomo.builtin.path': exe.path,
+        'mihomo.builtin.sha256': sha256.convert(<int>[1, 2, 3]).toString(),
+      });
+      final updater = _updater(_RefusedAdapter(), temp);
+
+      expect(await updater.installed(), isNotNull);
+
+      exe.writeAsBytesSync(<int>[9, 9, 9, 9]);
+      // Different size, so the cached "verified" marker no longer applies.
+      expect(await updater.installed(), isNull);
+    });
+
+    test('an install from an older build is recorded on first use', () async {
+      final exe = File('${temp.path}${Platform.pathSeparator}mihomo.exe')
+        ..writeAsBytesSync(<int>[4, 5, 6]);
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'mihomo.builtin.version': 'v1.19.30',
+        'mihomo.builtin.path': exe.path,
+      });
+
+      expect(await _updater(_RefusedAdapter(), temp).installed(), isNotNull);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('mihomo.builtin.sha256'),
+          sha256.convert(<int>[4, 5, 6]).toString());
+    });
+  });
+
+  group('old version cleanup', () {
+    test('keeps only the active version and drops stale staging folders',
+        () async {
+      final root = Directory('${temp.path}${Platform.pathSeparator}core')
+        ..createSync();
+      Directory dir(String name) =>
+          Directory('${root.path}${Platform.pathSeparator}$name')
+            ..createSync();
+      final keepDir = dir('v1.19.32-bbbbbbbbbbbb');
+      final keepExe = File('${keepDir.path}${Platform.pathSeparator}mihomo.exe')
+        ..writeAsBytesSync(<int>[1]);
+      final old = dir('v1.19.30-aaaaaaaaaaaa');
+      File('${old.path}${Platform.pathSeparator}mihomo.exe')
+          .writeAsBytesSync(<int>[2]);
+      final staging = dir('.staging-123');
+      File('${staging.path}${Platform.pathSeparator}mihomo.exe')
+          .writeAsBytesSync(<int>[3]);
+      final logs = <String>[];
+
+      await _updater(_RefusedAdapter(), root).cleanupOldVersions(
+        MihomoCoreInstall(
+            version: 'v1.19.32', executable: keepExe, updated: false),
+        onLog: logs.add,
+      );
+
+      expect(keepDir.existsSync(), isTrue);
+      expect(keepExe.existsSync(), isTrue);
+      expect(old.existsSync(), isFalse);
+      expect(staging.existsSync(), isFalse);
+      expect(logs.where((line) => line.contains('Удалена старая версия')),
+          hasLength(2));
+    });
+
+    test('does nothing when the active core lives outside the install root',
+        () async {
+      final root = Directory('${temp.path}${Platform.pathSeparator}core')
+        ..createSync();
+      final other = Directory('${root.path}${Platform.pathSeparator}v1')
+        ..createSync();
+      final external = File('${temp.path}${Platform.pathSeparator}other.exe')
+        ..writeAsBytesSync(<int>[1]);
+
+      await _updater(_RefusedAdapter(), root).cleanupOldVersions(
+        MihomoCoreInstall(
+            version: 'v1.19.32', executable: external, updated: false),
+      );
+
+      expect(other.existsSync(), isTrue);
+    });
+  });
+
+  group('pinned release digest', () {
+    const name = MihomoPinnedCore.assetName;
+    const hex =
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const neighbour =
+        'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
+
+    test('is read from GitHub HTML next to the asset link', () {
+      final page = '''
+<li><a href="/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-windows-amd64-v1-v1.19.32.zip"><span>mihomo-windows-amd64-v1-v1.19.32.zip</span></a>
+<span class="text-mono">sha256:$neighbour</span></li>
+<li><a href="/MetaCubeX/mihomo/releases/download/v1.19.32/$name"><span>$name</span></a>
+<span class="text-mono">sha256:${hex.toUpperCase()}</span></li>
+''';
+
+      expect(MihomoPinnedCore.digestFromReleasePage(page), hex);
+    });
+
+    test('works with the markdown-style listing too', () {
+      const page =
+          '[$name](https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/$name)\n  sha256:$hex  \n 21.3 MB';
+
+      expect(MihomoPinnedCore.digestFromReleasePage(page), hex);
+    });
+
+    test('never takes the digest of the next asset', () {
+      final page = '''
+<a href="/MetaCubeX/mihomo/releases/download/v1.19.32/$name">$name</a>
+<a href="/MetaCubeX/mihomo/releases/download/v1.19.32/other.zip">other.zip</a>
+<span>sha256:$neighbour</span>
+''';
+
+      expect(MihomoPinnedCore.digestFromReleasePage(page), isNull);
+    });
+
+    test('release() carries the digest into the asset for verification', () {
+      final asset = MihomoPinnedCore.release(hex).assets.single;
+
+      expect(asset.digest, 'sha256:$hex');
+      expect(MihomoPinnedCore.release().assets.single.digest, '');
     });
   });
 }

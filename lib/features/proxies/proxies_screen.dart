@@ -235,29 +235,35 @@ class _GroupTab extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-      color: selected
-          ? KaGoColors.accent.withValues(alpha: .16)
-          : KaGoColors.surfaceRaised,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-          onTap: onTap,
+  Widget build(BuildContext context) => AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+          color: selected
+              ? KaGoColors.accent.withValues(alpha: .16)
+              : KaGoColors.surfaceRaised,
           borderRadius: BorderRadius.circular(20),
-          child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: selected
-                          ? KaGoColors.accent.withValues(alpha: .55)
-                          : KaGoColors.border)),
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? KaGoColors.accentSoft
-                          : KaGoColors.muted)))));
+          border: Border.all(
+              color: selected
+                  ? KaGoColors.accent.withValues(alpha: .55)
+                  : KaGoColors.border)),
+      child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? KaGoColors.accentSoft
+                              : KaGoColors.muted),
+                      child: Text(label))))));
 }
 
 class _NodeCard extends StatelessWidget {
@@ -276,23 +282,26 @@ class _NodeCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-      color: selected
-          ? KaGoColors.accent.withValues(alpha: .12)
-          : KaGoColors.surface,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+  Widget build(BuildContext context) => AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 78),
+      decoration: BoxDecoration(
+          color: selected
+              ? KaGoColors.accent.withValues(alpha: .12)
+              : KaGoColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: selected
+                  ? KaGoColors.accent.withValues(alpha: .6)
+                  : KaGoColors.border)),
+      child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
           onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-              constraints: const BoxConstraints(minHeight: 78),
+          child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: selected
-                          ? KaGoColors.accent.withValues(alpha: .6)
-                          : KaGoColors.border)),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -317,7 +326,7 @@ class _NodeCard extends StatelessWidget {
                                   color: KaGoColors.muted))),
                       _DelayLabel(delay: delay, testing: testing),
                     ]),
-                  ]))));
+                  ])))));
 }
 
 class _DelayLabel extends StatelessWidget {

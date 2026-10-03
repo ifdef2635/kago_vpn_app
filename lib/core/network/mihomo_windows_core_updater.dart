@@ -53,8 +53,25 @@ abstract final class MihomoPinnedCore {
   static final Uri url = Uri.https('github.com',
       '/MetaCubeX/mihomo/releases/download/$version/$assetName');
 
-  static MihomoReleaseInfo release() {
-    final hex = sha256Hex;
+  /// Public asset list of the release on github.com (not the API), which is
+  /// usually reachable together with the download itself.
+  static final Uri assetsPageUrl = Uri.https(
+      'github.com', '/MetaCubeX/mihomo/releases/expanded_assets/$version');
+
+  /// Finds this asset's `sha256:<hex>` in the release page HTML. The match must
+  /// start at this asset's own download link and may not cross into the next
+  /// asset, so a neighbour's digest is never picked up. Returns lowercase hex.
+  static String? digestFromReleasePage(String page) {
+    final match = RegExp(
+      'releases/download/${RegExp.escape(version)}/${RegExp.escape(assetName)}'
+      r'(?:(?!/releases/download/)[\s\S]){0,1200}?sha256:([0-9a-fA-F]{64})',
+    ).firstMatch(page);
+    return match?.group(1)?.toLowerCase();
+  }
+
+  /// [pageDigest] is used only when no digest is compiled in via [sha256Hex].
+  static MihomoReleaseInfo release([String? pageDigest]) {
+    final hex = sha256Hex ?? pageDigest;
     return MihomoReleaseInfo(
       version: version,
       assets: <MihomoReleaseAsset>[
@@ -92,6 +109,7 @@ class MihomoWindowsCoreUpdater {
   static const _versionKey = 'mihomo.builtin.version';
   static const _pathKey = 'mihomo.builtin.path';
   static const _checkedAtKey = 'mihomo.builtin.checkedAt';
+  static const _exeDigestKey = 'mihomo.builtin.sha256';
   static const _checkInterval = Duration(hours: 12);
   static const _maxArchiveBytes = 100 * 1024 * 1024;
   static const _maxExecutableBytes = 250 * 1024 * 1024;
@@ -101,12 +119,17 @@ class MihomoWindowsCoreUpdater {
   final Dio _dio;
   final MihomoReleaseApi _releases;
   Future<MihomoCoreInstall>? _operation;
+  String? _verifiedFileKey;
 
   Future<MihomoCoreInstall> ensureInstalled(
       {bool forceCheck = false, ValueChanged<String>? onLog}) {
     final running = _operation;
     if (running != null) return running;
-    final operation = _ensureInstalled(forceCheck: forceCheck, onLog: onLog);
+    final operation =
+        _ensureInstalled(forceCheck: forceCheck, onLog: onLog).then((install) async {
+      await cleanupOldVersions(install, onLog: onLog);
+      return install;
+    });
     _operation = operation;
     return operation.whenComplete(() {
       _operation = null;
@@ -120,9 +143,74 @@ class MihomoWindowsCoreUpdater {
     if (path == null || version == null || !await File(path).exists()) {
       return null;
     }
-    return MihomoCoreInstall(
-        version: version, executable: File(path), updated: false);
+    final file = File(path);
+    if (!await _isIntact(file, preferences)) return null;
+    return MihomoCoreInstall(version: version, executable: file, updated: false);
   }
+
+  /// The SHA-256 of mihomo.exe is recorded when it is installed and re-checked
+  /// before use, so a corrupted, truncated or modified binary is replaced
+  /// instead of being launched. Installs from older builds have no record yet;
+  /// their current file is recorded on first use. The (path, size, mtime) of the
+  /// last good check is cached, so the 30 MB file is not re-hashed every call.
+  Future<bool> _isIntact(File file, SharedPreferences preferences) async {
+    final stat = await file.stat();
+    final key =
+        '${file.path}|${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    if (_verifiedFileKey == key) return true;
+    final actual = await _fileDigest(file);
+    final expected = preferences.getString(_exeDigestKey);
+    if (expected == null) {
+      await preferences.setString(_exeDigestKey, actual);
+    } else if (!constantTimeEquals(actual, expected)) {
+      return false;
+    }
+    _verifiedFileKey = key;
+    return true;
+  }
+
+  Future<String> _fileDigest(File file) async =>
+      (await sha256.bind(file.openRead()).first).toString();
+
+  /// Deletes every other version folder (and leftover `.staging-*` folders of
+  /// interrupted downloads) from the install root, keeping only [keep]. A
+  /// version that is still running cannot be deleted on Windows; it is skipped
+  /// and removed on a later run. Never throws.
+  Future<void> cleanupOldVersions(MihomoCoreInstall keep,
+      {ValueChanged<String>? onLog}) async {
+    try {
+      final root = await _installRoot();
+      if (!await root.exists()) return;
+      final keepDir = keep.executable.parent.path;
+      // Only clean when the kept core lives inside the root; otherwise the
+      // folders here are not "old versions" of it.
+      if (!_samePath(keepDir, root.path) && !_isUnder(keepDir, root.path)) {
+        return;
+      }
+      for (final entity in await root.list(followLinks: false).toList()) {
+        if (entity is! Directory) continue;
+        if (_samePath(entity.path, keepDir)) continue;
+        try {
+          await entity.delete(recursive: true);
+          onLog?.call('Удалена старая версия ядра: ${_basename(entity.path)}');
+        } on FileSystemException catch (error) {
+          onLog?.call(
+              'Не удалось удалить ${_basename(entity.path)} (возможно, оно запущено): ${error.message}');
+        }
+      }
+    } catch (error) {
+      onLog?.call('Очистка старых версий ядра не удалась: $error');
+    }
+  }
+
+  static String _normalized(String path) =>
+      path.replaceAll('\\', '/').replaceAll(RegExp(r'/+$'), '').toLowerCase();
+
+  static bool _samePath(String left, String right) =>
+      _normalized(left) == _normalized(right);
+
+  static bool _isUnder(String child, String parent) =>
+      _normalized(child).startsWith('${_normalized(parent)}/');
 
   /// `%APPDATA%\KaGo\core` (created on demand). Falls back to the app support
   /// directory only if APPDATA is not set.
@@ -147,7 +235,7 @@ class MihomoWindowsCoreUpdater {
     final current = await installed();
     if (current == null && preferences.getString(_pathKey) != null) {
       onLog?.call(
-          'Сохранённый mihomo.exe не найден на диске; ядро будет установлено заново.');
+          'Сохранённый mihomo.exe отсутствует или не прошёл проверку SHA-256; ядро будет установлено заново.');
     }
     final checkedText = preferences.getString(_checkedAtKey);
     final checkedAt =
@@ -175,7 +263,7 @@ class MihomoWindowsCoreUpdater {
       }
       onLog?.call(
           'Загружается закреплённая версия ${MihomoPinnedCore.version} напрямую с github.com.');
-      release = MihomoPinnedCore.release();
+      release = MihomoPinnedCore.release(await _pinnedDigestFromPage(onLog));
     }
 
     final latest = release.version;
@@ -267,11 +355,17 @@ class MihomoWindowsCoreUpdater {
       await versionFolder.create(recursive: true);
       final installedBinary =
           File('${versionFolder.path}${Platform.pathSeparator}mihomo.exe');
-      if (await installedBinary.exists()) {
+      final executableDigest = sha256.convert(executableBytes).toString();
+      if (await installedBinary.exists() &&
+          constantTimeEquals(
+              await _fileDigest(installedBinary), executableDigest)) {
         await _probe(installedBinary, latest);
       } else {
+        if (await installedBinary.exists()) await installedBinary.delete();
         await stagedBinary.rename(installedBinary.path);
       }
+      await preferences.setString(_exeDigestKey, executableDigest);
+      _verifiedFileKey = null;
       await preferences.setString(_versionKey, latest);
       await preferences.setString(_pathKey, installedBinary.path);
       await preferences.setString(
@@ -290,6 +384,29 @@ class MihomoWindowsCoreUpdater {
       Error.throwWithStackTrace(_explainNetworkFailure(error), stackTrace);
     } finally {
       if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  /// Best effort: reads the pinned asset's SHA-256 from the release page on
+  /// github.com so the fallback download can be verified like the API one.
+  Future<String?> _pinnedDigestFromPage(ValueChanged<String>? onLog) async {
+    if (MihomoPinnedCore.sha256Hex != null) return null;
+    try {
+      final response = await _dio.get<String>(
+        MihomoPinnedCore.assetsPageUrl.toString(),
+        options: Options(
+            responseType: ResponseType.plain,
+            receiveTimeout: const Duration(seconds: 20),
+            headers: const <String, String>{'Accept': 'text/html'}),
+      );
+      final digest = MihomoPinnedCore.digestFromReleasePage(response.data ?? '');
+      onLog?.call(digest == null
+          ? 'На странице релиза не найден SHA-256 для ${MihomoPinnedCore.assetName}.'
+          : 'SHA-256 для ${MihomoPinnedCore.assetName} получен со страницы релиза.');
+      return digest;
+    } catch (error) {
+      onLog?.call('Не удалось получить SHA-256 со страницы релиза: $error');
+      return null;
     }
   }
 

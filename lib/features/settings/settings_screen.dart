@@ -8,6 +8,45 @@ import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 
+/// "Экран: 144 Гц": the refresh rate Flutter currently renders at. Updates when
+/// the window moves to another monitor or the display mode changes.
+class _RefreshRateLabel extends StatefulWidget {
+  const _RefreshRateLabel();
+
+  @override
+  State<_RefreshRateLabel> createState() => _RefreshRateLabelState();
+}
+
+class _RefreshRateLabelState extends State<_RefreshRateLabel>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hz = View.of(context).display.refreshRate;
+    return Text(
+        hz > 0
+            ? 'Экран: ${hz.round()} Гц. Анимации и прокрутка используют полную частоту.'
+            : 'Частота экрана не определена.',
+        style: const TextStyle(fontSize: 12, color: KaGoColors.muted));
+  }
+}
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -108,6 +147,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     icon: const Icon(Icons.save_outlined),
                     label: const Text('Сохранить настройки')),
               ])),
+          const Padding(
+              padding: EdgeInsets.fromLTRB(6, 10, 6, 0),
+              child: _RefreshRateLabel()),
           const SizedBox(height: 14),
           SurfaceCard(
               child: SwitchListTile(

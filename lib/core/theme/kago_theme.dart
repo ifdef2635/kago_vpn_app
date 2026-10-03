@@ -23,6 +23,15 @@ abstract final class KaGoTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+        },
+      ),
       colorScheme: scheme,
       scaffoldBackgroundColor: pureBlack ? Colors.black : KaGoColors.canvas,
       cardColor: pureBlack ? Colors.black : KaGoColors.surface,

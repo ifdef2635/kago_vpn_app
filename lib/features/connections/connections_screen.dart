@@ -9,7 +9,14 @@ import '../../core/theme/kago_theme.dart';
 class ConnectionsScreen extends ConsumerWidget {
   const ConnectionsScreen({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) => ListView(
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The tabs stay mounted in an IndexedStack. Rendering nothing while this tab
+    // is hidden stops the once-per-second poll and its rebuilds off-screen.
+    if (ref.watch(rootTabIndexProvider) != 2) return const SizedBox.shrink();
+    return _buildList(context, ref);
+  }
+
+  Widget _buildList(BuildContext context, WidgetRef ref) => ListView(
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
           children: <Widget>[
             Row(children: <Widget>[

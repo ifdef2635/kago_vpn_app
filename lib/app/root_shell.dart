@@ -11,11 +11,12 @@ import '../features/settings/settings_screen.dart';
 class RootShell extends ConsumerWidget {
   const RootShell({super.key});
 
+  // Each tab repaints on its own, so an animation on one never repaints others.
   static const _screens = <Widget>[
-    DashboardScreen(),
-    ProxiesScreen(),
-    ConnectionsScreen(),
-    SettingsScreen(),
+    RepaintBoundary(child: DashboardScreen()),
+    RepaintBoundary(child: ProxiesScreen()),
+    RepaintBoundary(child: ConnectionsScreen()),
+    RepaintBoundary(child: SettingsScreen()),
   ];
   static const _destinations = <NavigationDestination>[
     NavigationDestination(
@@ -74,7 +75,10 @@ class RootShell extends ConsumerWidget {
               ],
             ),
           if (wide) const VerticalDivider(width: 1, color: KaGoColors.border),
-          Expanded(child: IndexedStack(index: index, children: _screens)),
+          Expanded(
+              child: _TabTransition(
+                  index: index,
+                  child: IndexedStack(index: index, children: _screens))),
         ]),
       ),
       bottomNavigationBar: wide
@@ -104,4 +108,52 @@ class _BrandMark extends StatelessWidget {
                     fontSize: 25,
                     fontWeight: FontWeight.w900))),
       );
+}
+
+/// Fades and slightly lifts the content whenever the selected tab changes. The
+/// tabs stay mounted inside the IndexedStack (their state is kept); only the
+/// container animates. Motion is time-based, so it stays smooth at any refresh
+/// rate, and it is skipped when the system asks for reduced motion.
+class _TabTransition extends StatefulWidget {
+  const _TabTransition({required this.index, required this.child});
+  final int index;
+  final Widget child;
+
+  @override
+  State<_TabTransition> createState() => _TabTransitionState();
+}
+
+class _TabTransitionState extends State<_TabTransition>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 260), value: 1);
+  late final Animation<double> _curve =
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+  late final Animation<double> _opacity =
+      Tween<double>(begin: .25, end: 1).animate(_curve);
+  late final Animation<Offset> _offset =
+      Tween<Offset>(begin: const Offset(0, .02), end: Offset.zero)
+          .animate(_curve);
+
+  @override
+  void didUpdateWidget(_TabTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index == widget.index) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    } else {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _offset, child: widget.child));
 }

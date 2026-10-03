@@ -205,8 +205,13 @@ class DashboardScreen extends ConsumerWidget {
                           padding: const EdgeInsets.all(37),
                           backgroundColor: coreRunning || androidConnected
                               ? KaGoColors.danger
-                              : KaGoColors.accent,
-                          foregroundColor: const Color(0xFF071009)),
+                              : KaGoColors.brand,
+                          foregroundColor: coreRunning || androidConnected
+                              ? const Color(0xFF200A0A)
+                              : Colors.white,
+                          side: BorderSide(
+                              color: KaGoColors.accent.withValues(alpha: .55),
+                              width: 2)),
                       child: Icon(
                           coreRunning || androidConnected
                               ? Icons.stop_rounded

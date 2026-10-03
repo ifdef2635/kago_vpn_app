@@ -109,12 +109,11 @@ class _BrandMark extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-            color: KaGoColors.accent.withValues(alpha: .13),
-            borderRadius: BorderRadius.circular(14)),
+            color: KaGoColors.brand, borderRadius: BorderRadius.circular(14)),
         child: const Center(
             child: Text('K',
                 style: TextStyle(
-                    color: KaGoColors.accent,
+                    color: Colors.white,
                     fontSize: 25,
                     fontWeight: FontWeight.w900))),
       );

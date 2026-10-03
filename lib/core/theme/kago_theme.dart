@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
 abstract final class KaGoColors {
-  static const accent = Color(0xFF22C55E);
-  static const accentSoft = Color(0xFF86EFAC);
-  static const canvas = Color(0xFF0B0F0D);
-  static const surface = Color(0xFF131A16);
-  static const surfaceRaised = Color(0xFF1A231D);
-  static const border = Color(0xFF28342C);
-  static const text = Color(0xFFF1F5F2);
-  static const muted = Color(0xFF93A198);
+  /// The KAGO logo blue (#1A4780): filled buttons, the brand mark. Too dark to
+  /// be used as text or an icon color on the dark surfaces, so [accent] is its
+  /// lighter tint of the same hue.
+  static const brand = Color(0xFF1A4780);
+  static const accent = Color(0xFF5C9CE6);
+  static const accentSoft = Color(0xFFBFD8FA);
+  static const canvas = Color(0xFF08111F);
+  static const surface = Color(0xFF0E1B31);
+  static const surfaceRaised = Color(0xFF152744);
+  static const border = Color(0xFF22395E);
+  static const text = Color(0xFFF4F8FF);
+  static const muted = Color(0xFF93A7C4);
   static const danger = Color(0xFFF87171);
   static const warning = Color(0xFFFBBF24);
 }
@@ -16,9 +20,17 @@ abstract final class KaGoColors {
 abstract final class KaGoTheme {
   static ThemeData dark({bool pureBlack = false}) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: KaGoColors.accent,
+      seedColor: KaGoColors.brand,
       brightness: Brightness.dark,
       surface: pureBlack ? Colors.black : KaGoColors.surface,
+    ).copyWith(
+      // Bright tint for indicators, focus rings and switches; the logo blue
+      // itself is used for filled buttons below.
+      primary: KaGoColors.accent,
+      onPrimary: KaGoColors.canvas,
+      secondary: KaGoColors.accent,
+      primaryContainer: KaGoColors.brand,
+      onPrimaryContainer: Colors.white,
     );
     return ThemeData(
       useMaterial3: true,
@@ -59,6 +71,14 @@ abstract final class KaGoTheme {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: KaGoColors.border),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: KaGoColors.brand,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: KaGoColors.surfaceRaised,
+          disabledForegroundColor: KaGoColors.muted,
         ),
       ),
       textTheme: const TextTheme(

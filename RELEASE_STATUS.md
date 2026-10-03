@@ -2,7 +2,7 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-03. This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-03 (second change set)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
 
 ## Implemented and verified in source
 
@@ -17,6 +17,15 @@ _Last updated: 2026-10-03. This file is updated with every change set; the newes
 ## Implemented in source, not yet verified
 
 These changes were written after the last full `flutter analyze` / `flutter test` run. The authoring sandbox has no Flutter SDK, so **none of them has been analyzed, unit-tested or run**; the patch was only checked to apply cleanly to the source archive. Run `flutter analyze` and `flutter test` first (new tests: `mihomo_core_updater_test`, `proxy_groups_test`, `connections_snapshot_test`, `ip_info_test`, `subscription_usage_test`, plus additions to the parser and widget tests), then test on a real Windows machine and an Android device.
+
+### 2026-10-03 — audit fixes (second change set)
+
+Read-only audit of the Windows system proxy, process lifecycle, config generation and the core updater. Android `VpnService`/Go adapter and the share-link parsers were **not** re-audited in this pass. Fixed:
+
+- **UI stayed "connected" after the core crashed.** The proxy was already restored, so traffic went direct while the app showed protection. The process manager now emits unexpected exits and the UI switches to disconnected (`MihomoProcessManager.exits`).
+- **Closing the desktop window could leave `mihomo.exe` running** with the system proxy still set. The app now stops the core on exit (6 s limit). A core orphaned by a hard crash/kill is **not** yet detected at the next start (no stored PID): it can keep ports 7890/9090 busy and answer the controller with the old config. Open item below.
+- **Hostile subscription YAML could expose the proxy to the LAN.** The generated config now forces `allow-lan: false`, `bind-address: 127.0.0.1` and removes `listeners`, `tunnels`, `authentication`, `external-ui*`, `external-controller-tls/unix/pipe/cors`, `tls`; the same lock is re-applied at core start on desktop and Android.
+- **Update button reported plain success when GitHub was unreachable** and a core was already installed. It now says the update check failed and why.
 
 ### 2026-10-03
 
@@ -37,6 +46,8 @@ These changes were written after the last full `flutter analyze` / `flutter test
 - **Controller secret** is generated automatically and stored in secure storage; the Secret field was removed. A custom secret for a remote controller can no longer be entered.
 
 ## Still required before a public release
+
+00. **Orphaned core detection (Windows):** store the core PID at start and, at the next start, stop a leftover `mihomo.exe` from a crashed session (verify the image name first). Also redact subscription URLs/tokens from core logs before the "copy logs" action.
 
 0. **Verify the unverified changes above:** run `flutter analyze` and `flutter test`; on Windows check core auto-install into `%APPDATA%\KaGo\core` (also with `api.github.com` blocked), old-version cleanup, the IP card showing the VPN address while connected, usage refresh and the settings screens; on Android check the 90/120 Hz request and that the IP card shows the VPN address.
 

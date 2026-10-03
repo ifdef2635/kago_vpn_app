@@ -20,7 +20,7 @@ class MihomoConfigBuilder {
           'В подписке не найдены proxies или proxy-providers.');
     }
     config.putIfAbsent('mixed-port', () => 7890);
-    config.putIfAbsent('allow-lan', () => false);
+    _lockToLoopback(config);
     config.putIfAbsent('mode', () => 'rule');
     config.putIfAbsent('log-level', () => 'info');
     config['external-controller'] = '127.0.0.1:9090';
@@ -83,6 +83,7 @@ class MihomoConfigBuilder {
     // Do not let Mihomo create a second OS TUN or rewrite the routes itself.
     tun['enable'] = false;
     tun['auto-route'] = false;
+    _lockToLoopback(decoded);
     decoded['external-controller'] = '${uri.host}:${uri.port}';
     if (secret == null || secret.isEmpty) {
       decoded.remove('secret');
@@ -90,6 +91,34 @@ class MihomoConfigBuilder {
       decoded['secret'] = secret;
     }
     await file.writeAsString(jsonEncode(decoded), flush: true);
+  }
+
+  /// Subscription YAML is untrusted. It must not expose the local proxy or the
+  /// controller to other machines, start extra listeners, or make the core
+  /// download/serve an external web UI.
+  static const _dropped = <String>[
+    'listeners',
+    'tunnels',
+    'authentication',
+    'skip-auth-prefixes',
+    'lan-allowed-ips',
+    'lan-disallowed-ips',
+    'external-ui',
+    'external-ui-name',
+    'external-ui-url',
+    'external-controller-tls',
+    'external-controller-unix',
+    'external-controller-pipe',
+    'external-controller-cors',
+    'tls',
+  ];
+
+  static void _lockToLoopback(Map<String, dynamic> config) {
+    config['allow-lan'] = false;
+    config['bind-address'] = '127.0.0.1';
+    for (final key in _dropped) {
+      config.remove(key);
+    }
   }
 
   Map<String, dynamic> _convertMap(YamlMap input) => <String, dynamic>{

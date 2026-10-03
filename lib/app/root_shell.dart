@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,6 +48,11 @@ class RootShell extends ConsumerWidget {
     void select(int value) =>
         ref.read(rootTabIndexProvider.notifier).state = value;
     final wide = MediaQuery.sizeOf(context).width >= 760;
+    return _ExitGuard(child: _buildShell(context, ref, index, select, wide));
+  }
+
+  Widget _buildShell(BuildContext context, WidgetRef ref, int index,
+      void Function(int) select, bool wide) {
     return Scaffold(
       body: SafeArea(
         child: Row(children: <Widget>[
@@ -157,4 +166,45 @@ class _TabTransitionState extends State<_TabTransition>
   Widget build(BuildContext context) => FadeTransition(
       opacity: _opacity,
       child: SlideTransition(position: _offset, child: widget.child));
+}
+
+/// On desktop, closing the window must not leave mihomo running with the Windows
+/// system proxy still pointing at it. Stops the core (which restores the proxy)
+/// before the app exits, with a hard time limit so closing never hangs.
+class _ExitGuard extends ConsumerStatefulWidget {
+  const _ExitGuard({required this.child});
+  final Widget child;
+
+  @override
+  ConsumerState<_ExitGuard> createState() => _ExitGuardState();
+}
+
+class _ExitGuardState extends ConsumerState<_ExitGuard> {
+  AppLifecycleListener? _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isAndroid || Platform.isIOS) return;
+    _listener = AppLifecycleListener(onExitRequested: () async {
+      try {
+        await ref
+            .read(mihomoProcessProvider)
+            .stop()
+            .timeout(const Duration(seconds: 6));
+      } catch (_) {
+        // Exit anyway; a stale proxy is repaired at the next start.
+      }
+      return AppExitResponse.exit;
+    });
+  }
+
+  @override
+  void dispose() {
+    _listener?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -13,11 +13,21 @@ import 'mihomo_release_api.dart';
 
 class MihomoCoreInstall {
   const MihomoCoreInstall(
-      {required this.version, required this.executable, required this.updated});
+      {required this.version,
+      required this.executable,
+      required this.updated,
+      this.note});
 
   final String version;
   final File executable;
   final bool updated;
+
+  /// Why the update check failed while the installed core was kept
+  /// (for example `HTTP 403`); null when the check succeeded or was not due.
+  final String? note;
+
+  MihomoCoreInstall withNote(String reason) => MihomoCoreInstall(
+      version: version, executable: executable, updated: updated, note: reason);
 }
 
 /// Mihomo is not installed yet and GitHub could not be reached, so there is
@@ -254,7 +264,7 @@ class MihomoWindowsCoreUpdater {
       if (current != null) {
         onLog?.call(
             'GitHub недоступен; используется Mihomo ${current.version}: $error');
-        return current;
+        return current.withNote(_failureReason(error));
       }
       onLog?.call(
           'GitHub API недоступен, встроенное ядро не установлено: $error');
@@ -379,7 +389,7 @@ class MihomoWindowsCoreUpdater {
             _checkedAtKey, DateTime.now().toUtc().toIso8601String());
         onLog?.call(
             'Обновление Mihomo не завершилось; оставлено ${current.version}: $error');
-        return current;
+        return current.withNote(_failureReason(error));
       }
       Error.throwWithStackTrace(_explainNetworkFailure(error), stackTrace);
     } finally {
@@ -408,6 +418,13 @@ class MihomoWindowsCoreUpdater {
       onLog?.call('Не удалось получить SHA-256 со страницы релиза: $error');
       return null;
     }
+  }
+
+  static String _failureReason(Object error) {
+    final explained = _explainNetworkFailure(error);
+    return explained is MihomoCoreNetworkException
+        ? explained.reason
+        : error.toString();
   }
 
   /// Network failures become [MihomoCoreNetworkException]; integrity and format

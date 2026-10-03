@@ -24,6 +24,11 @@ class MihomoProcessManager {
   StreamSubscription<String>? _stderr;
   final StreamController<String> _logs = StreamController<String>.broadcast();
   final List<String> _recentLogs = <String>[];
+  final StreamController<int> _exits = StreamController<int>.broadcast();
+
+  /// Emits the exit code when the core stops on its own (crash, killed from
+  /// outside). Not emitted for a normal [stop].
+  Stream<int> get exits => _exits.stream;
 
   bool get isRunning => _process != null;
   Stream<String> get logs => _logs.stream;
@@ -153,6 +158,8 @@ class MihomoProcessManager {
       config['tun'] = tun;
     }
     final host = controllerUri.host == '::1' ? '[::1]' : controllerUri.host;
+    config['allow-lan'] = false;
+    config['bind-address'] = '127.0.0.1';
     config['external-controller'] = '$host:${controllerUri.port}';
     config['secret'] = await controller.ensureSecret();
     await configFile.writeAsString(jsonEncode(config), flush: true);
@@ -174,6 +181,7 @@ class MihomoProcessManager {
       if (identical(_process, process)) {
         _process = null;
         if (Platform.isWindows) unawaited(_windowsSystemProxy.restoreIfOwned());
+        if (!_exits.isClosed) _exits.add(code);
       }
       _writeLog('Mihomo завершился с кодом $code.');
     }));
@@ -222,6 +230,7 @@ class MihomoProcessManager {
 
   Future<void> dispose() async {
     await stop();
+    await _exits.close();
     await _logs.close();
   }
 }

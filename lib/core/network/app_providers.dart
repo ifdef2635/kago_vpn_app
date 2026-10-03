@@ -147,7 +147,17 @@ final mihomoProcessProvider = Provider<MihomoProcessManager>((ref) {
     unawaited(manager.recoverStaleSystemProxy());
     unawaited(manager.prepareCore());
   }
-  ref.onDispose(() => unawaited(manager.dispose()));
+  // If the core dies by itself the system proxy is already restored; make the
+  // UI say "disconnected" instead of staying on "connected".
+  final exitSubscription = manager.exits.listen((_) {
+    ref.read(desktopCoreRunningProvider.notifier).state = false;
+    ref.invalidate(proxyGroupsProvider);
+    ref.invalidate(coreVersionProvider);
+  });
+  ref.onDispose(() {
+    unawaited(exitSubscription.cancel());
+    unawaited(manager.dispose());
+  });
   return manager;
 });
 final desktopCoreRunningProvider = StateProvider<bool>((ref) => false);

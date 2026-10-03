@@ -309,8 +309,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final install = await ref.read(mihomoProcessProvider).updateCore();
       if (mounted) {
-        setState(
-            () => _windowsCoreStatus = 'Установлен Mihomo ${install.version}.');
+        setState(() => _windowsCoreStatus = install.note == null
+            ? 'Установлен Mihomo ${install.version}.'
+            : 'Установлен Mihomo ${install.version}. Проверить обновление не удалось (${install.note}).');
       }
     } catch (error) {
       if (mounted) {

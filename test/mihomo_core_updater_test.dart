@@ -130,6 +130,8 @@ void main() {
       expect(install.version, 'v1.19.32');
       expect(install.executable.path, exe.path);
       expect(install.updated, isFalse);
+      // The user is told the update check failed instead of seeing plain success.
+      expect(install.note, isNotNull);
     });
 
     test('non-network errors are not disguised as connectivity problems',

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kago_vpn/app/kago_app.dart';
 import 'package:kago_vpn/core/models/mihomo_models.dart';
 import 'package:kago_vpn/core/network/app_providers.dart';
+import 'package:kago_vpn/core/network/ip_info_service.dart';
 import 'package:kago_vpn/core/network/mihomo_controller.dart';
 import 'package:kago_vpn/core/network/mihomo_process_manager.dart';
 import 'package:kago_vpn/core/network/mihomo_windows_core_updater.dart';
@@ -26,6 +27,10 @@ void main() {
           connectionsSnapshotProvider
               .overrideWith((ref) => const Stream<ConnectionsSnapshot>.empty()),
           importedSubscriptionProvider.overrideWith((ref) async => null),
+          // No network and no timers in widget tests.
+          ipInfoProvider
+              .overrideWith((ref) async => const IpInfo(ip: '203.0.113.7')),
+          subscriptionUsageRefresherProvider.overrideWith((ref) {}),
         ],
         child: const KaGoApp(),
       ),

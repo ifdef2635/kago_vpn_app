@@ -4,7 +4,11 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
+import '../../features/subscriptions/subscription_providers.dart';
+import '../../features/subscriptions/subscription_repository.dart';
 import '../models/mihomo_models.dart';
+import 'android_vpn_events.dart';
+import 'ip_info_service.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_process_manager.dart';
 import 'mihomo_release_api.dart';
@@ -147,6 +151,64 @@ final mihomoProcessProvider = Provider<MihomoProcessManager>((ref) {
   return manager;
 });
 final desktopCoreRunningProvider = StateProvider<bool>((ref) => false);
+
+/// True while a VPN core is up: the desktop core process or the Android service.
+final vpnActiveProvider = Provider<bool>((ref) {
+  final desktop = ref.watch(desktopCoreRunningProvider);
+  final android = Platform.isAndroid &&
+      ref.watch(androidVpnEventProvider
+          .select((event) => event.value?['state'] == 'connected'));
+  return desktop || android;
+});
+
+final ipInfoServiceProvider = Provider<IpInfoService>((ref) => IpInfoService());
+
+/// Hides the address on screen (for screenshots and screen sharing).
+final ipHiddenProvider = StateProvider<bool>((ref) => false);
+
+/// The IP the internet currently sees. Re-checked when the VPN turns on or off
+/// and every three minutes; call `ref.invalidate` after changing the node.
+/// While the desktop core runs the request goes through its local proxy,
+/// otherwise the app's own client would show the real IP.
+final ipInfoProvider = FutureProvider.autoDispose<IpInfo>((ref) async {
+  final active = ref.watch(vpnActiveProvider);
+  final timer = Timer(const Duration(minutes: 3), ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
+  // Give the proxy / VPN a moment to come up or go away after a state change.
+  await Future<void>.delayed(const Duration(milliseconds: 1200));
+  return ref
+      .read(ipInfoServiceProvider)
+      .fetch(proxyPort: !Platform.isAndroid && active ? 7890 : null);
+});
+
+/// Keeps the traffic counters of the saved subscription fresh. Without this
+/// they changed only when the subscription was re-imported. Runs at start and
+/// whenever the VPN turns on or off, then every minute while connected and
+/// every five minutes otherwise. Only the counters are re-read; the saved
+/// profile config is untouched.
+final subscriptionUsageRefresherProvider = Provider<void>((ref) {
+  final active = ref.watch(vpnActiveProvider);
+  var busy = false;
+
+  Future<void> refresh() async {
+    if (busy) return;
+    busy = true;
+    try {
+      final updated = await SubscriptionRepository().refreshUsage();
+      if (updated != null) ref.invalidate(importedSubscriptionProvider);
+    } catch (_) {
+      // Offline or the panel is down: keep showing the last known numbers.
+    } finally {
+      busy = false;
+    }
+  }
+
+  final timer = Timer.periodic(
+      active ? const Duration(minutes: 1) : const Duration(minutes: 5),
+      (_) => unawaited(refresh()));
+  ref.onDispose(timer.cancel);
+  unawaited(refresh());
+});
 
 /// Index of the selected root tab (0 = home, 1 = servers, 2 = traffic,
 /// 3 = settings), so any screen can jump to another tab.

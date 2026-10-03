@@ -184,6 +184,7 @@ Future<void> _selectNode(BuildContext context, WidgetRef ref, ProxyGroup group,
   try {
     await ref.read(mihomoControllerProvider).selectProxy(group.name, node);
     ref.invalidate(proxyGroupsProvider);
+    ref.invalidate(ipInfoProvider);
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

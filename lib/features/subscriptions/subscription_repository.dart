@@ -71,14 +71,8 @@ class SubscriptionRepository {
     final metadata = SubscriptionMetadata.parse(
         yaml: normalized, responseHeaders: response.headers.map);
     await const MihomoConfigBuilder().writeConfig(normalized);
-    final info = _header(response.headers.map, 'subscription-userinfo');
-    final fields = <String, int>{};
-    for (final token in (info ?? '').split(';')) {
-      final pair = token.trim().split('=');
-      if (pair.length == 2) {
-        fields[pair.first.trim()] = int.tryParse(pair.last.trim()) ?? 0;
-      }
-    }
+    final fields = parseUserInfo(
+        _header(response.headers.map, 'subscription-userinfo'));
     final profile = ImportedSubscription(
       name: metadata.serviceName,
       url: uri.toString(),
@@ -106,6 +100,81 @@ class SubscriptionRepository {
     });
     await _storage.write(key: _key, value: jsonEncode(profiles));
     return profile;
+  }
+
+  /// Parses `upload=1; download=2; total=3; expire=4` from the
+  /// `subscription-userinfo` header. Malformed tokens are skipped.
+  static Map<String, int> parseUserInfo(String? header) {
+    final fields = <String, int>{};
+    for (final token in (header ?? '').split(';')) {
+      final pair = token.trim().split('=');
+      if (pair.length == 2) {
+        final value = int.tryParse(pair.last.trim());
+        if (value != null) fields[pair.first.trim()] = value;
+      }
+    }
+    return fields;
+  }
+
+  /// Re-reads only the traffic counters and expiry from the saved subscription's
+  /// `subscription-userinfo` header and stores them. The saved profile config is
+  /// not touched, so this is safe while the core is running. Returns the updated
+  /// profile, or null when nothing is saved or the server sent no counters.
+  Future<ImportedSubscription?> refreshUsage({Dio? dio}) async {
+    final stored = await _storage.read(key: _key);
+    if (stored == null) return null;
+    final decoded = jsonDecode(stored);
+    if (decoded is! List<dynamic> ||
+        decoded.isEmpty ||
+        decoded.last is! Map<String, dynamic>) {
+      return null;
+    }
+    final item = decoded.last as Map<String, dynamic>;
+    final url = item['url'] as String? ?? '';
+    if (url.isEmpty) return null;
+    final uri = validateSubscriptionUrl(url);
+    final client = dio ??
+        Dio(BaseOptions(
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+            responseType: ResponseType.plain));
+    Map<String, int> fields = const <String, int>{};
+    // HEAD is cheap, but some panels only send the header on GET.
+    for (final method in const <String>['HEAD', 'GET']) {
+      try {
+        final response = await client.request<String>(uri.toString(),
+            options: Options(
+                method: method,
+                validateStatus: (status) =>
+                    status != null && status >= 200 && status < 300));
+        fields = parseUserInfo(
+            _header(response.headers.map, 'subscription-userinfo'));
+        if (fields.isNotEmpty) break;
+      } on DioException {
+        // Try the next method; a failed refresh just keeps the old numbers.
+      }
+    }
+    final hasCounters = fields.containsKey('upload') ||
+        fields.containsKey('download') ||
+        fields.containsKey('total');
+    if (!hasCounters) return null;
+    final used = (fields['upload'] ?? 0) + (fields['download'] ?? 0);
+    final total = fields['total'] ?? 0;
+    final expire = fields['expire'];
+    final newExpire = expire == null
+        ? item['expire']
+        : expire > 0
+            ? expire * 1000
+            : null;
+    if (item['used'] != used ||
+        item['total'] != total ||
+        item['expire'] != newExpire) {
+      item['used'] = used;
+      item['total'] = total;
+      item['expire'] = newExpire;
+      await _storage.write(key: _key, value: jsonEncode(decoded));
+    }
+    return latest();
   }
 
   static Uri validateSubscriptionUrl(String rawUrl) {

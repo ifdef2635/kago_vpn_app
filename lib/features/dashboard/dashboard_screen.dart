@@ -110,7 +110,7 @@ class DashboardScreen extends ConsumerWidget {
           ],
           const SizedBox(height: 20),
           _SubscriptionCard(
-              profile: profile.asData?.value,
+              profile: profile.value,
               onAdd: () => _showAddSubscription(context, ref)),
           const SizedBox(height: 16),
           SurfaceCard(
@@ -221,6 +221,9 @@ class DashboardScreen extends ConsumerWidget {
                     : 'Нажмите, чтобы запустить VPN',
                 style: const TextStyle(color: KaGoColors.muted, fontSize: 12)),
           ])),
+          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          _IpCard(connected: coreRunning || androidConnected),
           const SizedBox(height: 20),
           _TrafficMetrics(active: coreRunning || androidConnected),
           const SizedBox(height: 18),
@@ -517,6 +520,85 @@ String _delayText(List<ProxyGroup>? groups, Map<String, int> measured) {
     return value > 0 ? 'Задержка: $value мс' : 'Узел не отвечает';
   }
   return idle;
+}
+
+/// "Ваш IP": the address the internet currently sees, with country, city and
+/// provider. Tap the eye to hide it for screenshots.
+class _IpCard extends ConsumerWidget {
+  const _IpCard({required this.connected});
+  final bool connected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ip = ref.watch(ipInfoProvider);
+    final hidden = ref.watch(ipHiddenProvider);
+    final info = ip.value;
+    final loading = ip.isLoading;
+    final failed = ip.hasError && info == null;
+    final title = connected ? 'IP через VPN' : 'Ваш IP';
+    final String address;
+    if (info != null) {
+      address = hidden ? '•••.•••.•••.•••' : info.ip;
+    } else {
+      address = failed ? 'Не определён' : 'Определяем…';
+    }
+    final details = <String>[
+      if (info != null && info.place.isNotEmpty) info.place,
+      if (info?.isp != null) info!.isp!,
+    ].join(' · ');
+    return SurfaceCard(
+        child: Row(children: <Widget>[
+      Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+              color: KaGoColors.accent.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(14)),
+          alignment: Alignment.center,
+          child: info != null && info.flag.isNotEmpty && !hidden
+              ? Text(info.flag, style: const TextStyle(fontSize: 22))
+              : const Icon(Icons.public_rounded, color: KaGoColors.accent)),
+      const SizedBox(width: 12),
+      Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+            Text(title,
+                style: const TextStyle(fontSize: 12, color: KaGoColors.muted)),
+            const SizedBox(height: 3),
+            SelectableText(address,
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: failed ? KaGoColors.muted : KaGoColors.text)),
+            if (details.isNotEmpty && !hidden)
+              Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(details,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12, color: KaGoColors.muted))),
+          ])),
+      IconButton(
+          tooltip: hidden ? 'Показать IP' : 'Скрыть IP',
+          onPressed: () => ref.read(ipHiddenProvider.notifier).state = !hidden,
+          icon: Icon(
+              hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+              color: KaGoColors.muted)),
+      loading
+          ? const Padding(
+              padding: EdgeInsets.all(12),
+              child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2)))
+          : IconButton(
+              tooltip: 'Проверить IP',
+              onPressed: () => ref.invalidate(ipInfoProvider),
+              icon: const Icon(Icons.refresh_rounded, color: KaGoColors.muted)),
+    ]));
+  }
 }
 
 /// Upload/download cards. Only this widget listens to the once-per-second

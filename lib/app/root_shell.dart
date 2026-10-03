@@ -39,6 +39,7 @@ class RootShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(subscriptionUsageRefresherProvider);
     final index = ref.watch(rootTabIndexProvider);
     void select(int value) =>
         ref.read(rootTabIndexProvider.notifier).state = value;

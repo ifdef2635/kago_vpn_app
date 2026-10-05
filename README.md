@@ -1,67 +1,101 @@
 # KaGo VPN
 
-Flutter/Dart 3 VPN client for [usekago.net](https://usekago.net), using Riverpod and the official Mihomo core. This repository now contains the Android Go/cgo/JNI integration and the Windows-managed-core path; it is a **release candidate scaffold**, not yet a store-certified production release.
+VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) со встроенным официальным ядром Mihomo (Clash Meta) и Riverpod. Основные платформы — Android и Windows x64. Это **релиз-кандидат**, а не сертифицированный для магазинов выпуск; текущее состояние и что осталось — в [RELEASE_STATUS.md](RELEASE_STATUS.md).
 
-## Implemented
+## Возможности
 
-- Responsive Dashboard, Proxies, Connections and Settings screens.
-- Mihomo External Controller REST client, Riverpod state, secure controller secret storage and live desktop core logs.
-- Subscription import over HTTPS, clipboard paste, Clash/Mihomo YAML, base64-encoded YAML, and common `vless://`, `vmess://`, `trojan://`, `ss://`, `hysteria2://`/`hy2://`, and `tuic://` node links.
-- Windows x64: official Mihomo stable-release updater, GitHub API SHA-256 digest verification, safe ZIP extraction, versioned app-support install, binary version probe, 12-hour check interval and last-known-good fallback.
-- Windows connection: Mihomo mixed port plus reversible per-user Windows system proxy. Original proxy settings are backed up and restored on disconnect/core exit. This routes apps that honor Windows proxy settings; it is **not** a full-device Wintun tunnel.
-- Android: `VpnService`, system consent, foreground service, TUN descriptor lifecycle, JNI/CGo callback for `VpnService.protect()`, embedded official Mihomo `v1.19.32`, and native libraries for `arm64-v8a` and `x86_64` produced by the Android NDK build script.
-- Android core version is compared with the latest upstream release. New Android core versions must be shipped inside a newly signed app through the chosen store/channel; the app deliberately does not download and execute a replacement `.so`.
-- KaGo-branded Android and Windows runners/icons; tests cover config generation, subscription parsing, release selection, network policy, and widgets.
+- **Вкладки:** «Главная», «Серверы», «Трафик», «Кабинет», «Настройки»; адаптивная разметка (на широком экране — боковая панель).
+- **Личный кабинет usekago.net:** вход и регистрация по email и паролю, подписка (тариф, срок, устройства, трафик), «Подключить это устройство» (ссылка из аккаунта импортируется и VPN запускается), перевыпуск ключа, список устройств с отключением, промокод, смена пароля и email, подтверждение email, реферальная программа. Работает через API сайта (Remnashop, `https://usekago.net/api/v1/public`), сессия — httpOnly-cookie в защищённом хранилище.
+- **Оформление как на сайте:** светлая и тёмная темы с цветами из `globals.css` usekago.net, вариант «чисто чёрный» для OLED.
+- **Языки:** русский и английский, выбор «Авто / Русский / English» в настройках.
+- **Импорт подписки** по HTTPS или из буфера: Clash/Mihomo YAML, YAML в base64, ссылки `vless://`, `vmess://`, `trojan://`, `ss://`, `hysteria2://`/`hy2://`, `tuic://`. Имена серверов декодируются из `%`-кодировки. Счётчики трафика и срок обновляются сами.
+- **Главная:** состояние ядра, подписка, «Ваш сервер» (ведёт на «Серверы»), кнопка подключения, текущий IP, скорость и объём загрузки/отдачи.
+- **Серверы и группы** в стиле FlClashX: группы в порядке конфига, протокол и задержка узлов, проверка задержки группы, сортировка.
+- **Соединения:** активные сессии ядра с автообновлением, закрытие одного или всех.
 
-## Import a subscription
+### Android
 
-In Dashboard, choose **Добавить подписку**, paste a subscription URL or use **Вставить из буфера**. External subscription URLs must use HTTPS; HTTP is allowed only for loopback development endpoints. The response must contain a Clash/Mihomo YAML profile, a base64-encoded YAML profile, or a supported URI list. The imported config is normalized, validated and written to the app's support directory. Subscription-specific metadata headers are parsed separately from the config body.
+- `VpnService` с системным разрешением, foreground-служба, TUN-дескриптор передаётся ядру; исходящие сокеты ядра защищаются `VpnService.protect()`.
+- Встроенный Mihomo `v1.19.32` (тег сборки `cmfa`), библиотеки для `arm64-v8a` и `x86_64`.
+- **Защита:** DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля блокируется системой, локальные прокси-порты закрыты (другие приложения не могут обнаружить VPN через 127.0.0.1), подписка не может открыть входящие серверы, логи ядра без истории сайтов. Kill switch — через системные «Постоянная VPN» и «Блокировать соединения без VPN» (кнопка в «Настройки → Безопасность»).
+- Новое ядро поставляется только вместе с новой подписанной версией приложения; подмена `.so` по сети отключена.
 
-`ssr://`, provider-specific encrypted formats, and arbitrary proprietary subscription responses are not decoded by the current importer; add a compatible provider export or convert to a supported format first.
+### Windows x64
 
-## Build Android
+- Ядро скачивается и обновляется автоматически (сборка compatible, ZIP, `v1.19.32`) в `%APPDATA%\KaGo\core`, с проверкой SHA-256; при недоступном `api.github.com` — запасная загрузка с `github.com`.
+- Подключение через обратимый системный прокси Windows (`127.0.0.1:7890`). Это **не** полноценный TUN: приложения, которые не используют системный прокси, идут мимо VPN.
 
-Prerequisites: Flutter stable, JDK 17+, Go (use the version supported by your Mihomo module), Android SDK/NDK, and accepted Android SDK licenses.
+## Сборка Android
 
-On Linux/macOS/WSL:
+### В GitHub Actions (рекомендуется)
+
+Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает release APK и выкладывает в раздел **Artifacts**: универсальный APK, APK только для arm64 (меньше) и `SHA256SUMS.txt`. Тег `v*` дополнительно создаёт GitHub Release.
+
+Подпись: если в секретах репозитория есть `KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`, APK подписывается ключом владельца. Иначе — одноразовым тестовым ключом: такой APK можно установить для проверки, но нельзя публиковать, и он не встанет поверх предыдущей тестовой сборки.
+
+### Локально
+
+Нужны: Flutter stable, JDK 17+, Go, Android SDK/NDK с принятыми лицензиями.
+
+Linux/macOS/WSL:
 
 ```bash
 export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
 ./tool/build_android_release.sh
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 .\tool\build_android_release.ps1
 ```
 
-The release Gradle configuration reads a private upload key only from environment variables: `KAGO_ANDROID_KEYSTORE`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, and `KAGO_ANDROID_KEY_PASSWORD`. Without those variables Gradle can emit an **unsigned** build artifact; it is not installable/distributable as a production release. Generate an upload key locally with `tool/create_android_upload_key.ps1`, keep it out of the repository and back it up securely. Do not send the key or passwords in chat.
+Скрипт собирает ядро Mihomo `v1.19.32` для обоих ABI, запускает `flutter analyze` и `flutter test`, собирает AAB/APK и копирует их в `dist/android/`. Ключ подписи читается только из переменных окружения `KAGO_ANDROID_KEYSTORE`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`; без них сборка не подписана. Создать ключ можно скриптом `tool/create_android_upload_key.ps1`. Храните ключ вне репозитория, сделайте резервную копию и не пересылайте ключ и пароли в чатах.
 
-The release script builds Mihomo pinned at `v1.19.32` for both declared ABIs, runs `flutter analyze` and `flutter test`, builds the AAB/APK, and copies them into `dist/android/`. The Android app only connects after the core has attached to the Android-owned TUN descriptor; startup fails closed if the native library/core fails. It selects the highest installed side-by-side NDK unless `ANDROID_NDK_HOME` is explicitly set.
+## Сборка Windows
 
-## Build Windows
-
-Run on Windows with Flutter stable and Visual Studio 2022 **Desktop development with C++** workload:
+На Windows с Flutter stable и Visual Studio 2022 (компонент **Desktop development with C++**):
 
 ```powershell
 .\tool\build_windows_release.ps1
 ```
 
-It runs format/analyze/tests, builds `flutter build windows --release`, and creates `dist/KaGoVPN-Windows-x64.zip`. Mihomo downloads on first connection if the optional custom binary path is empty. Public distribution should code-sign the Windows executable/installer; no signing certificate is included.
+Скрипт проверяет форматирование, запускает analyze и тесты, выполняет `flutter build windows --release` и создаёт `dist/KaGoVPN-Windows-x64.zip`. Ядро Mihomo скачивается при первом подключении. Для публичного распространения нужен сертификат подписи кода; его в репозитории нет.
 
-The Windows runtime currently uses system-proxy mode, not full TUN. Only software that honors Windows Internet Settings is routed. If product requirements demand all-device traffic capture, a Wintun/elevation/service implementation and device-level route/DNS/leak tests remain necessary.
+## Структура
 
-## Android update policy
+```
+lib/
+  app/                # MaterialApp, навигация
+  core/l10n/          # tr(), английская таблица строк
+  core/network/       # контроллер Mihomo, процесс ядра, обновление ядра Windows, IP
+  core/theme/         # палитра KaGoPalette, тема, общие виджеты
+  features/account/   # личный кабинет и клиент API usekago.net
+  features/dashboard/ # главная
+  features/proxies/   # серверы и группы
+  features/connections/
+  features/settings/
+  features/subscriptions/  # импорт и разбор подписок, генерация конфига
+android/              # Kotlin: VpnService, JNI-мост, jniLibs
+native/android/       # Go/cgo-адаптер ядра для Android
+native/mihomo/        # исходники Mihomo v1.19.32 (upstream)
+tool/                 # скрипты сборки
+```
 
-Android `.so` code remains inside the signed APK/AAB. When a newer stable Mihomo release is detected, Settings shows that a newer KaGo VPN app build is needed. Publish that app through Google Play or another trusted update channel. Remote native-library replacement is intentionally disabled under Android dynamic-code-loading guidance: <https://developer.android.com/privacy-and-security/risks/dynamic-code-loading>.
+## Команды
 
-## Release-critical notes
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run -d windows
+flutter build windows --release
+```
 
-- Android AAB/APK artifacts and native libraries for `arm64-v8a` and `x86_64` have been built in the Sandbox; both artifacts are unsigned because the product-owner upload key is not present. The Windows release still must be compiled on Windows/MSVC. Neither compilation nor unit tests substitute for Android VPN end-to-end testing on physical devices.
-- Android production artifacts need the product owner's private upload key. Windows public distribution needs an appropriate code-signing certificate.
-- Mihomo is GPL-3.0. Review the app's licensing/distribution model and provide required corresponding source and notices before public distribution. See `native/CORE_PIN.md` and `native/mihomo/LICENSE`.
-- Windows proxy cleanup is automatic on normal disconnect/core exit and recovers a stale KaGo-owned proxy at the next app start; it is not equivalent to a dedicated VPN service surviving crashes/reboots.
-- Before public release, run physical-device tests for Android permission/revoke/reconnect, DNS/IPv6, socket protection, traffic routing, cancellation, and leak behavior; test Windows proxy restore after app/core failure.
+## Важно перед релизом
 
-See [RELEASE_STATUS.md](RELEASE_STATUS.md) for the current verification results and remaining release gates.
+- Проверка на устройствах обязательна: разрешение и отзыв VPN, переподключение, DNS/IPv6, защита сокетов, маршрутизация, утечки; на Windows — восстановление прокси после падения ядра и перезагрузки.
+- Mihomo распространяется под GPL-3.0. Проверьте совместимость с моделью лицензирования приложения и приложите требуемые уведомления и исходный код. См. `native/CORE_PIN.md` и `native/mihomo/LICENSE`.
+- Политика конфиденциальности должна упоминать запросы к сервисам определения IP, опрос ссылки подписки и API личного кабинета.
+
+Правила работы с репозиторием — в [CLAUDE.md](CLAUDE.md).

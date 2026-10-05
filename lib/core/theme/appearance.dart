@@ -5,12 +5,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Theme choice (system / light / dark, like the moon toggle on usekago.net)
 /// and the OLED black option for the dark theme. Saved between launches.
 class Appearance {
-  const Appearance({this.mode = ThemeMode.system, this.pureBlack = false});
+  const Appearance(
+      {this.mode = ThemeMode.system,
+      this.pureBlack = false,
+      this.language = 'system'});
   final ThemeMode mode;
   final bool pureBlack;
 
-  Appearance copyWith({ThemeMode? mode, bool? pureBlack}) => Appearance(
-      mode: mode ?? this.mode, pureBlack: pureBlack ?? this.pureBlack);
+  /// `system`, or a code from `L10n.supported`.
+  final String language;
+
+  Appearance copyWith({ThemeMode? mode, bool? pureBlack, String? language}) =>
+      Appearance(
+          mode: mode ?? this.mode,
+          pureBlack: pureBlack ?? this.pureBlack,
+          language: language ?? this.language);
 }
 
 class AppearanceNotifier extends StateNotifier<Appearance> {
@@ -20,6 +29,7 @@ class AppearanceNotifier extends StateNotifier<Appearance> {
 
   static const _modeKey = 'kago.theme.mode';
   static const _blackKey = 'kago.theme.pureBlack';
+  static const _languageKey = 'kago.language';
 
   Future<void> _load() async {
     try {
@@ -29,6 +39,7 @@ class AppearanceNotifier extends StateNotifier<Appearance> {
         mode: ThemeMode.values.firstWhere((value) => value.name == name,
             orElse: () => ThemeMode.system),
         pureBlack: prefs.getBool(_blackKey) ?? false,
+        language: prefs.getString(_languageKey) ?? 'system',
       );
     } catch (_) {
       // Storage unavailable: keep the defaults.
@@ -40,6 +51,14 @@ class AppearanceNotifier extends StateNotifier<Appearance> {
     try {
       await (await SharedPreferences.getInstance())
           .setString(_modeKey, mode.name);
+    } catch (_) {}
+  }
+
+  Future<void> setLanguage(String language) async {
+    state = state.copyWith(language: language);
+    try {
+      await (await SharedPreferences.getInstance())
+          .setString(_languageKey, language);
     } catch (_) {}
   }
 

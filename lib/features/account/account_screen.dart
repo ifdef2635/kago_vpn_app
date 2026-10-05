@@ -124,7 +124,7 @@ void showSnack(BuildContext context, String text) =>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
 String _errorText(Object error) =>
-    error is KagoApiException ? tr(error.message) : '$error';
+    error is KagoApiException ? error.message : '$error';
 
 Future<void> openUrl(BuildContext context, String url) async {
   final messenger = ScaffoldMessenger.of(context);
@@ -170,21 +170,6 @@ String remainingLabel(DateTime? expiresAt, DateTime now) {
   return tr('{n} дн.', <String, Object?>{'n': days.ceil()});
 }
 
-String formatLongDate(DateTime date) {
-  const ru = <String>[
-    'января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', //
-    'августа', 'сентября', 'октября', 'ноября', 'декабря',
-  ];
-  const en = <String>[
-    'January', 'February', 'March', 'April', 'May', 'June', 'July', //
-    'August', 'September', 'October', 'November', 'December',
-  ];
-  final local = date.toLocal();
-  if (L10n.current == 'en') {
-    return '${en[local.month - 1]} ${local.day}, ${local.year}';
-  }
-  return '${local.day} ${ru[local.month - 1]} ${local.year} г.';
-}
 
 /// Imports [url] as this device's subscription unless it already is.
 Future<void> useOnThisDevice(WidgetRef ref, String url) async {

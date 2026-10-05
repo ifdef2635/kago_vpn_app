@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'config_builder.dart';
 import 'subscription_content_parser.dart';
 import 'subscription_parser.dart';
+import '../../core/l10n/l10n.dart';
 
 class ImportedSubscription {
   const ImportedSubscription(
@@ -65,7 +66,7 @@ class SubscriptionRepository {
                     status != null && status >= 200 && status < 300));
     final body = response.data ?? '';
     if (body.trim().isEmpty) {
-      throw const FormatException('Ссылка вернула пустой профиль.');
+      throw FormatException(tr('Ссылка вернула пустой профиль.'));
     }
     final normalized = const SubscriptionContentParser().toMihomoConfig(body);
     final metadata = SubscriptionMetadata.parse(
@@ -186,8 +187,8 @@ class SubscriptionRepository {
         uri.userInfo.isNotEmpty ||
         uri.hasFragment ||
         (uri.scheme != 'https' && !(uri.scheme == 'http' && isLoopback))) {
-      throw const FormatException(
-          'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.');
+      throw FormatException(
+          tr('Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.'));
     }
     return uri;
   }

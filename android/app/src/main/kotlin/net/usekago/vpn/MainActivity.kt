@@ -93,11 +93,11 @@ class MainActivity : FlutterActivity() {
     @Suppress("DEPRECATION")
     private fun requestVpnPermission(configPath: String?, result: MethodChannel.Result) {
         if (configPath.isNullOrBlank()) {
-            result.error("missing_config", "Импортируйте YAML-профиль перед запуском VPN.", null)
+            result.error("missing_config", getString(R.string.vpn_missing_config), null)
             return
         }
         if (pendingResult != null) {
-            result.error("request_in_progress", "Запрос VPN-разрешения уже выполняется.", null)
+            result.error("request_in_progress", getString(R.string.vpn_request_in_progress), null)
             return
         }
         val prepareIntent = VpnService.prepare(this)
@@ -122,7 +122,7 @@ class MainActivity : FlutterActivity() {
         if (resultCode == Activity.RESULT_OK && !configPath.isNullOrBlank()) {
             launchVpnService(configPath, result)
         } else {
-            result.error("vpn_permission_denied", "Пользователь не разрешил создание VPN-подключения.", null)
+            result.error("vpn_permission_denied", getString(R.string.vpn_permission_denied), null)
         }
     }
 
@@ -134,7 +134,7 @@ class MainActivity : FlutterActivity() {
             startVpnService(intent)
             result.success(mapOf("state" to "starting"))
         } catch (error: Exception) {
-            result.error("vpn_service_start_failed", error.message ?: "Не удалось запустить VPN service.", null)
+            result.error("vpn_service_start_failed", error.message ?: getString(R.string.vpn_service_start_failed), null)
         }
     }
 

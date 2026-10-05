@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import '../l10n/l10n.dart';
 
 /// The public IP the internet currently sees for this device, with a rough
 /// location and provider name.
@@ -36,7 +37,7 @@ class IpInfo {
   static String _validIp(Object? value) {
     final ip = _text(value);
     if (ip == null || !(ip.contains('.') || ip.contains(':'))) {
-      throw const FormatException('Сервис не вернул IP-адрес.');
+      throw FormatException(tr('Сервис не вернул IP-адрес.'));
     }
     return ip;
   }
@@ -44,7 +45,7 @@ class IpInfo {
   /// https://ipwho.is/
   factory IpInfo.fromIpWhoIs(Map<String, dynamic> json) {
     if (json['success'] == false) {
-      throw FormatException(_text(json['message']) ?? 'ipwho.is: отказ.');
+      throw FormatException(_text(json['message']) ?? tr('ipwho.is: отказ.'));
     }
     final connection = json['connection'];
     return IpInfo(
@@ -99,14 +100,14 @@ class IpInfoService {
         final response = await dio.get<Object?>(url);
         final data = response.data;
         if (data is Map<String, dynamic>) return parse(data);
-        throw const FormatException('Неожиданный ответ сервиса IP.');
+        throw FormatException(tr('Неожиданный ответ сервиса IP.'));
       } catch (error, stackTrace) {
         lastError = error;
         lastStack = stackTrace;
       }
     }
     Error.throwWithStackTrace(
-        lastError ?? StateError('Нет сервисов для определения IP.'),
+        lastError ?? StateError(tr('Нет сервисов для определения IP.')),
         lastStack ?? StackTrace.current);
   }
 

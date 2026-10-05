@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'mihomo_release_api.dart';
+import '../l10n/l10n.dart';
 
 class MihomoCoreInstall {
   const MihomoCoreInstall(
@@ -41,8 +42,8 @@ class MihomoCoreNetworkException implements Exception {
   final Object? cause;
 
   String get message =>
-      'Не удалось связаться с GitHub ($reason), а встроенное ядро Mihomo ещё не установлено. '
-      'Проверьте интернет и доступ к github.com: загрузка повторится при следующем подключении.';
+      tr('Не удалось связаться с GitHub ({reason}), а встроенное ядро Mihomo ещё не установлено. Проверьте интернет и доступ к github.com: загрузка повторится при следующем подключении.',
+          <String, Object?>{'reason': reason});
 
   @override
   String toString() => message;
@@ -202,14 +203,14 @@ class MihomoWindowsCoreUpdater {
         if (_samePath(entity.path, keepDir)) continue;
         try {
           await entity.delete(recursive: true);
-          onLog?.call('Удалена старая версия ядра: ${_basename(entity.path)}');
+          onLog?.call(tr('Удалена старая версия ядра: {v}', <String, Object?>{'v': _basename(entity.path)}));
         } on FileSystemException catch (error) {
           onLog?.call(
-              'Не удалось удалить ${_basename(entity.path)} (возможно, оно запущено): ${error.message}');
+              tr('Не удалось удалить {v} (возможно, оно запущено): {message}', <String, Object?>{'v': _basename(entity.path), 'message': error.message}));
         }
       }
     } catch (error) {
-      onLog?.call('Очистка старых версий ядра не удалась: $error');
+      onLog?.call(tr('Очистка старых версий ядра не удалась: {error}', <String, Object?>{'error': error}));
     }
   }
 
@@ -239,13 +240,13 @@ class MihomoWindowsCoreUpdater {
       {required bool forceCheck, ValueChanged<String>? onLog}) async {
     if (!_isWindows) {
       throw UnsupportedError(
-          'Встроенное автоматическое ядро пока поддерживает Windows x64.');
+          tr('Встроенное автоматическое ядро пока поддерживает Windows x64.'));
     }
     final preferences = await SharedPreferences.getInstance();
     final current = await installed();
     if (current == null && preferences.getString(_pathKey) != null) {
       onLog?.call(
-          'Сохранённый mihomo.exe отсутствует или не прошёл проверку SHA-256; ядро будет установлено заново.');
+          tr('Сохранённый mihomo.exe отсутствует или не прошёл проверку SHA-256; ядро будет установлено заново.'));
     }
     final checkedText = preferences.getString(_checkedAtKey);
     final checkedAt =
@@ -258,21 +259,21 @@ class MihomoWindowsCoreUpdater {
 
     MihomoReleaseInfo release;
     try {
-      onLog?.call('Проверка обновлений Mihomo…');
+      onLog?.call(tr('Проверка обновлений Mihomo…'));
       release = await _releases.latestStable();
     } catch (error, stackTrace) {
       if (current != null) {
         onLog?.call(
-            'GitHub недоступен; используется Mihomo ${current.version}: $error');
+            tr('GitHub недоступен; используется Mihomo {version}: {error}', <String, Object?>{'version': current.version, 'error': error}));
         return current.withNote(_failureReason(error));
       }
       onLog?.call(
-          'GitHub API недоступен, встроенное ядро не установлено: $error');
+          tr('GitHub API недоступен, встроенное ядро не установлено: {error}', <String, Object?>{'error': error}));
       if (_explainNetworkFailure(error) is! MihomoCoreNetworkException) {
         Error.throwWithStackTrace(error, stackTrace);
       }
       onLog?.call(
-          'Загружается закреплённая версия ${MihomoPinnedCore.version} напрямую с github.com.');
+          tr('Загружается закреплённая версия {version} напрямую с github.com.', <String, Object?>{'version': MihomoPinnedCore.version}));
       release = MihomoPinnedCore.release(await _pinnedDigestFromPage(onLog));
     }
 
@@ -281,7 +282,7 @@ class MihomoWindowsCoreUpdater {
         MihomoReleaseApi.compareStableVersions(latest, current.version) <= 0) {
       await preferences.setString(
           _checkedAtKey, DateTime.now().toUtc().toIso8601String());
-      onLog?.call('Mihomo ${current.version} уже установлен.');
+      onLog?.call(tr('Mihomo {version} уже установлен.', <String, Object?>{'version': current.version}));
       return current;
     }
     final asset = MihomoReleaseApi.selectWindowsAmd64Asset(release);
@@ -290,14 +291,14 @@ class MihomoWindowsCoreUpdater {
         await preferences.setString(
             _checkedAtKey, DateTime.now().toUtc().toIso8601String());
         onLog?.call(
-            'Для $latest не найден поддерживаемый asset; оставлено Mihomo ${current.version}.');
+            tr('Для {latest} не найден поддерживаемый asset; оставлено Mihomo {version}.', <String, Object?>{'latest': latest, 'version': current.version}));
         return current;
       }
       throw StateError(
-          'В релизе $latest нет поддерживаемой Windows x64 сборки Mihomo.');
+          tr('В релизе {latest} нет поддерживаемой Windows x64 сборки Mihomo.', <String, Object?>{'latest': latest}));
     }
     if (asset.size > _maxArchiveBytes) {
-      throw StateError('Размер Mihomo ZIP превышает безопасный лимит.');
+      throw StateError(tr('Размер Mihomo ZIP превышает безопасный лимит.'));
     }
 
     final root = await _installRoot();
@@ -315,7 +316,7 @@ class MihomoWindowsCoreUpdater {
           final step = received * 10 ~/ total;
           if (step == lastLoggedStep) return;
           lastLoggedStep = step;
-          onLog?.call('Загрузка Mihomo: ${step * 10}%');
+          onLog?.call(tr('Загрузка Mihomo: {v}%', <String, Object?>{'v': step * 10}));
         },
       );
       final archiveBytes = download.data;
@@ -323,17 +324,17 @@ class MihomoWindowsCoreUpdater {
           archiveBytes.isEmpty ||
           archiveBytes.length > _maxArchiveBytes ||
           (asset.size > 0 && archiveBytes.length != asset.size)) {
-        throw const FormatException(
-            'Загруженный Mihomo ZIP имеет неверный размер.');
+        throw FormatException(
+            tr('Загруженный Mihomo ZIP имеет неверный размер.'));
       }
       final digest = sha256.convert(archiveBytes).toString();
       if (asset.digest.isEmpty) {
         onLog?.call(
-            'Для закреплённой версии нет эталонного SHA-256: проверены источник github.com по HTTPS, структура ZIP и запуск mihomo -v.');
+            tr('Для закреплённой версии нет эталонного SHA-256: проверены источник github.com по HTTPS, структура ZIP и запуск mihomo -v.'));
       } else if (!constantTimeEquals(
           digest, asset.digest.substring('sha256:'.length))) {
-        throw const FormatException(
-            'SHA-256 Mihomo ZIP не совпал с GitHub release digest.');
+        throw FormatException(
+            tr('SHA-256 Mihomo ZIP не совпал с GitHub release digest.'));
       }
 
       final archive = ZipDecoder().decodeBytes(archiveBytes);
@@ -343,16 +344,16 @@ class MihomoWindowsCoreUpdater {
               _basename(entry.name).toLowerCase().endsWith('.exe'))
           .toList();
       if (executables.length != 1) {
-        throw const FormatException(
-            'В Mihomo ZIP должен быть ровно один Windows executable.');
+        throw FormatException(
+            tr('В Mihomo ZIP должен быть ровно один Windows executable.'));
       }
       final entry = executables.single;
       if (entry.size < 1 || entry.size > _maxExecutableBytes) {
-        throw const FormatException('Небезопасный размер mihomo.exe в ZIP.');
+        throw FormatException(tr('Небезопасный размер mihomo.exe в ZIP.'));
       }
       final executableBytes = entry.readBytes();
       if (executableBytes == null || executableBytes.length != entry.size) {
-        throw const FormatException('mihomo.exe распакован неполностью.');
+        throw FormatException(tr('mihomo.exe распакован неполностью.'));
       }
 
       final stagedBinary =
@@ -380,7 +381,7 @@ class MihomoWindowsCoreUpdater {
       await preferences.setString(_pathKey, installedBinary.path);
       await preferences.setString(
           _checkedAtKey, DateTime.now().toUtc().toIso8601String());
-      onLog?.call('Mihomo $latest установлен и проверен.');
+      onLog?.call(tr('Mihomo {latest} установлен и проверен.', <String, Object?>{'latest': latest}));
       return MihomoCoreInstall(
           version: latest, executable: installedBinary, updated: true);
     } catch (error, stackTrace) {
@@ -388,7 +389,7 @@ class MihomoWindowsCoreUpdater {
         await preferences.setString(
             _checkedAtKey, DateTime.now().toUtc().toIso8601String());
         onLog?.call(
-            'Обновление Mihomo не завершилось; оставлено ${current.version}: $error');
+            tr('Обновление Mihomo не завершилось; оставлено {version}: {error}', <String, Object?>{'version': current.version, 'error': error}));
         return current.withNote(_failureReason(error));
       }
       Error.throwWithStackTrace(_explainNetworkFailure(error), stackTrace);
@@ -411,11 +412,11 @@ class MihomoWindowsCoreUpdater {
       );
       final digest = MihomoPinnedCore.digestFromReleasePage(response.data ?? '');
       onLog?.call(digest == null
-          ? 'На странице релиза не найден SHA-256 для ${MihomoPinnedCore.assetName}.'
-          : 'SHA-256 для ${MihomoPinnedCore.assetName} получен со страницы релиза.');
+          ? tr('На странице релиза не найден SHA-256 для {assetName}.', <String, Object?>{'assetName': MihomoPinnedCore.assetName})
+          : tr('SHA-256 для {assetName} получен со страницы релиза.', <String, Object?>{'assetName': MihomoPinnedCore.assetName}));
       return digest;
     } catch (error) {
-      onLog?.call('Не удалось получить SHA-256 со страницы релиза: $error');
+      onLog?.call(tr('Не удалось получить SHA-256 со страницы релиза: {error}', <String, Object?>{'error': error}));
       return null;
     }
   }
@@ -468,7 +469,7 @@ class MihomoWindowsCoreUpdater {
         : expectedVersion;
     if (exitCode != 0 || !output.contains(printableVersion)) {
       throw FormatException(
-          'Проверка mihomo.exe не прошла для $expectedVersion (код $exitCode).');
+          tr('Проверка mihomo.exe не прошла для {expectedVersion} (код {exitCode}).', <String, Object?>{'expectedVersion': expectedVersion, 'exitCode': exitCode}));
     }
   }
 

@@ -2,6 +2,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import '../l10n/l10n.dart';
 
 /// Thin FFI loader for the ABI in native/include/kago_mihomo_bridge.h.
 /// The per-platform shared library must be built and bundled by the host app.
@@ -28,7 +29,7 @@ class MihomoFfiBridge {
       'windows' => DynamicLibrary.open('kago_mihomo_bridge.dll'),
       'linux' => DynamicLibrary.open('libkago_mihomo_bridge.so'),
       _ => throw UnsupportedError(
-          'Mihomo FFI не поддерживается на ${Platform.operatingSystem}.'),
+          tr('Mihomo FFI не поддерживается на {operatingSystem}.', <String, Object?>{'operatingSystem': Platform.operatingSystem})),
     };
     return MihomoFfiBridge._(library);
   }

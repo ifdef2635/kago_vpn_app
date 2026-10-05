@@ -11,6 +11,7 @@ import '../features/connections/connections_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/proxies/proxies_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../core/l10n/l10n.dart';
 
 class RootShell extends ConsumerWidget {
   const RootShell({super.key});
@@ -23,28 +24,29 @@ class RootShell extends ConsumerWidget {
     RepaintBoundary(child: AccountScreen()),
     RepaintBoundary(child: SettingsScreen()),
   ];
-  static const _destinations = <NavigationDestination>[
-    NavigationDestination(
-        icon: Icon(Icons.space_dashboard_outlined),
-        selectedIcon: Icon(Icons.space_dashboard),
-        label: 'Главная'),
-    NavigationDestination(
-        icon: Icon(Icons.hub_outlined),
-        selectedIcon: Icon(Icons.hub),
-        label: 'Серверы'),
-    NavigationDestination(
-        icon: Icon(Icons.swap_horiz_rounded),
-        selectedIcon: Icon(Icons.swap_horiz_rounded),
-        label: 'Трафик'),
-    NavigationDestination(
-        icon: Icon(Icons.person_outline_rounded),
-        selectedIcon: Icon(Icons.person_rounded),
-        label: 'Кабинет'),
-    NavigationDestination(
-        icon: Icon(Icons.tune_rounded),
-        selectedIcon: Icon(Icons.tune_rounded),
-        label: 'Настройки'),
-  ];
+  static List<NavigationDestination> get _destinations =>
+      <NavigationDestination>[
+        NavigationDestination(
+            icon: const Icon(Icons.space_dashboard_outlined),
+            selectedIcon: const Icon(Icons.space_dashboard),
+            label: tr('Главная')),
+        NavigationDestination(
+            icon: const Icon(Icons.hub_outlined),
+            selectedIcon: const Icon(Icons.hub),
+            label: tr('Серверы')),
+        NavigationDestination(
+            icon: const Icon(Icons.swap_horiz_rounded),
+            selectedIcon: const Icon(Icons.swap_horiz_rounded),
+            label: tr('Трафик')),
+        NavigationDestination(
+            icon: const Icon(Icons.person_outline_rounded),
+            selectedIcon: const Icon(Icons.person_rounded),
+            label: tr('Кабинет')),
+        NavigationDestination(
+            icon: const Icon(Icons.tune_rounded),
+            selectedIcon: const Icon(Icons.tune_rounded),
+            label: tr('Настройки')),
+      ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,27 +72,27 @@ class RootShell extends ConsumerWidget {
               leading: const Padding(
                   padding: EdgeInsets.only(top: 18, bottom: 34),
                   child: _BrandMark()),
-              destinations: const <NavigationRailDestination>[
+              destinations: <NavigationRailDestination>[
                 NavigationRailDestination(
-                    icon: Icon(Icons.space_dashboard_outlined),
-                    selectedIcon: Icon(Icons.space_dashboard),
-                    label: Text('Главная')),
+                    icon: const Icon(Icons.space_dashboard_outlined),
+                    selectedIcon: const Icon(Icons.space_dashboard),
+                    label: Text(tr('Главная'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.hub_outlined),
-                    selectedIcon: Icon(Icons.hub),
-                    label: Text('Серверы')),
+                    icon: const Icon(Icons.hub_outlined),
+                    selectedIcon: const Icon(Icons.hub),
+                    label: Text(tr('Серверы'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.swap_horiz_rounded),
-                    selectedIcon: Icon(Icons.swap_horiz_rounded),
-                    label: Text('Трафик')),
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    selectedIcon: const Icon(Icons.swap_horiz_rounded),
+                    label: Text(tr('Трафик'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.person_outline_rounded),
-                    selectedIcon: Icon(Icons.person_rounded),
-                    label: Text('Кабинет')),
+                    icon: const Icon(Icons.person_outline_rounded),
+                    selectedIcon: const Icon(Icons.person_rounded),
+                    label: Text(tr('Кабинет'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.tune_rounded),
-                    selectedIcon: Icon(Icons.tune_rounded),
-                    label: Text('Настройки')),
+                    icon: const Icon(Icons.tune_rounded),
+                    selectedIcon: const Icon(Icons.tune_rounded),
+                    label: Text(tr('Настройки'))),
               ],
             ),
           if (wide) VerticalDivider(width: 1, color: context.kago.border),

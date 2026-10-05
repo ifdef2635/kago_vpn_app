@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../core/l10n/l10n.dart';
 
 /// usekago.net personal account API (Remnashop, `openapi.json` in the site
 /// repository). The site's reverse proxy serves it under `/api/v1/public`.
@@ -19,8 +20,8 @@ class KagoApiException implements Exception {
 
 /// The session is gone (logged out, or the refresh token expired).
 class KagoUnauthorized extends KagoApiException {
-  const KagoUnauthorized()
-      : super('Сессия истекла. Войдите снова.', status: 401);
+  KagoUnauthorized()
+      : super(tr('Сессия истекла. Войдите снова.'), status: 401);
 }
 
 class KagoUser {
@@ -268,7 +269,7 @@ class KagoApi {
           path != '/auth/login') {
         if (!await _refresh()) {
           await cookies.clear();
-          throw const KagoUnauthorized();
+          throw KagoUnauthorized();
         }
         response = await _raw(method, path, body: body);
       }
@@ -287,7 +288,7 @@ class KagoApi {
     }
     if (status == 401) {
       await cookies.clear();
-      throw const KagoUnauthorized();
+      throw KagoUnauthorized();
     }
     if (status < 200 || status >= 300) {
       throw KagoApiException(errorDetail(json, status), status: status);
@@ -300,9 +301,9 @@ class KagoApi {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
-        return 'usekago.net не отвечает. Проверьте интернет и попробуйте ещё раз.';
+        return tr('usekago.net не отвечает. Проверьте интернет и попробуйте ещё раз.');
       default:
-        return 'Нет связи с usekago.net. Проверьте интернет и попробуйте ещё раз.';
+        return tr('Нет связи с usekago.net. Проверьте интернет и попробуйте ещё раз.');
     }
   }
 
@@ -319,7 +320,7 @@ class KagoApi {
           .join('. ');
       if (messages.isNotEmpty) return messages;
     }
-    return 'Ошибка сервера (HTTP $status)';
+    return tr('Ошибка сервера (HTTP {status})', <String, Object?>{'status': status});
   }
 
   Map<String, dynamic> _map(dynamic json) =>

@@ -2,7 +2,20 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (personal account)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (localization)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — многоязычность: русский и английский (версия 0.1.0+1)
+
+Сделано:
+- Весь интерфейс, сообщения об ошибках и логи ядра переводятся через `tr()` (`lib/core/l10n`). Ключ — русский текст, английский перевод — `strings_en.dart` (370 строк); строки с подстановками используют `{имя}`.
+- Выбор языка в «Настройки → Внешний вид»: Авто / Русский / English, сохраняется. «Авто» берёт язык системы; для украинского, белорусского, казахского, киргизского и узбекского — русский, для остальных — английский.
+- Системные элементы Flutter (диалоги, страница лицензий) локализуются через `flutter_localizations`. Даты — «15 ноября 2099 г.» / «November 15, 2099».
+- Android: уведомления VPN-сервиса и ошибки запуска вынесены в ресурсы (`values` — английский, `values-ru` — русский); язык следует системе.
+- Тест `l10n_test`: у каждой строки интерфейса есть английский перевод с теми же подстановками.
+
+Осталось:
+- Ошибки, которые возвращает сервер usekago.net, приходят на русском и не переводятся.
+- Kotlin-часть в этой среде не компилировалась (нет Android SDK) — проверяется сборкой в CI.
 
 ## 2026-10-05 — полноценный личный кабинет (версия 0.1.0+1)
 

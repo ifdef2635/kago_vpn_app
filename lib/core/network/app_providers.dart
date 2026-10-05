@@ -14,6 +14,7 @@ import 'mihomo_process_manager.dart';
 import 'mihomo_release_api.dart';
 import 'offline_proxy_groups.dart';
 import 'mihomo_windows_core_updater.dart';
+import '../l10n/l10n.dart';
 
 final mihomoControllerProvider =
     Provider<MihomoController>((ref) => MihomoController());
@@ -125,22 +126,22 @@ final androidNativeCoreVersionProvider = FutureProvider<String?>((ref) async {
 });
 final androidCoreUpdateStatusProvider = FutureProvider<String>((ref) async {
   if (!Platform.isAndroid) {
-    return 'Проверка Android core доступна только на Android.';
+    return tr('Проверка Android core доступна только на Android.');
   }
   final latest = await ref.watch(latestMihomoReleaseProvider.future);
   final installed = await ref.watch(androidNativeCoreVersionProvider.future);
   if (installed == null || installed.trim().isEmpty) {
-    return 'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.';
+    return tr('В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.');
   }
   final match = RegExp(r'v?\d+\.\d+\.\d+').firstMatch(installed);
   if (match == null) {
-    return 'Версия встроенного Mihomo не распознана: $installed';
+    return tr('Версия встроенного Mihomo не распознана: {installed}', <String, Object?>{'installed': installed});
   }
   if (MihomoReleaseApi.compareStableVersions(latest.version, match.group(0)!) >
       0) {
-    return 'Доступен Mihomo ${latest.version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.';
+    return tr('Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.', <String, Object?>{'version': latest.version});
   }
-  return 'Встроенный Mihomo $installed актуален.';
+  return tr('Встроенный Mihomo {installed} актуален.', <String, Object?>{'installed': installed});
 });
 final mihomoWindowsCoreUpdaterProvider = Provider<MihomoWindowsCoreUpdater>(
     (ref) => MihomoWindowsCoreUpdater(

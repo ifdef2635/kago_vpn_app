@@ -5,6 +5,7 @@ import '../../core/models/mihomo_models.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
+import '../../core/l10n/l10n.dart';
 
 /// Servers tab, laid out like FlClashX: group tabs on top, a grid of node
 /// cards (name, protocol, latency) below, latency test and sorting in the header.
@@ -26,9 +27,9 @@ class ProxiesScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
         children: <Widget>[
           Row(children: <Widget>[
-            const Expanded(child: SectionTitle('Серверы и группы')),
+            Expanded(child: SectionTitle(tr('Серверы и группы'))),
             IconButton(
-                tooltip: 'Проверить задержку',
+                tooltip: tr('Проверить задержку'),
                 onPressed: active == null || pending.isNotEmpty || !online
                     ? null
                     : () => _testGroupDelays(context, ref, active),
@@ -39,42 +40,42 @@ class ProxiesScreen extends ConsumerWidget {
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.speed_rounded)),
             PopupMenuButton<ProxySort>(
-                tooltip: 'Сортировка',
+                tooltip: tr('Сортировка'),
                 icon: const Icon(Icons.sort_rounded),
                 initialValue: sort,
                 onSelected: (value) =>
                     ref.read(proxySortProvider.notifier).state = value,
-                itemBuilder: (_) => const <PopupMenuEntry<ProxySort>>[
+                itemBuilder: (_) => <PopupMenuEntry<ProxySort>>[
                       PopupMenuItem(
-                          value: ProxySort.config, child: Text('По порядку')),
+                          value: ProxySort.config, child: Text(tr('По порядку'))),
                       PopupMenuItem(
-                          value: ProxySort.delay, child: Text('По задержке')),
+                          value: ProxySort.delay, child: Text(tr('По задержке'))),
                       PopupMenuItem(
-                          value: ProxySort.name, child: Text('По имени')),
+                          value: ProxySort.name, child: Text(tr('По имени'))),
                     ]),
             IconButton(
-                tooltip: 'Обновить',
+                tooltip: tr('Обновить'),
                 onPressed: () => ref.invalidate(proxyGroupsProvider),
                 icon: const Icon(Icons.refresh_rounded)),
           ]),
           const SizedBox(height: 6),
           Text(
               online
-                  ? 'Выберите активный узел. Данные берутся из ядра Mihomo.'
-                  : 'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.',
+                  ? tr('Выберите активный узел. Данные берутся из ядра Mihomo.')
+                  : tr('Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.'),
               style: TextStyle(color: context.kago.muted, fontSize: 13)),
           const SizedBox(height: 16),
           groupsAsync.when(
             loading: () => const LoadingPanel(),
             error: (error, _) => ErrorPanel(
-                message: 'Не удалось получить группы прокси: $error',
+                message: tr('Не удалось получить группы прокси: {error}', <String, Object?>{'error': error}),
                 onRetry: () => ref.invalidate(proxyGroupsProvider)),
             data: (items) {
               final group = _activeGroup(items, selectedName);
               if (group == null) {
                 return SurfaceCard(
                     child: Text(
-                        'Прокси-групп нет. Добавьте профиль и загрузите конфигурацию ядра.',
+                        tr('Прокси-групп нет. Добавьте профиль и загрузите конфигурацию ядра.'),
                         style: TextStyle(color: context.kago.muted)));
               }
               final nodes = _sorted(group.nodes, sort, delays);
@@ -98,10 +99,10 @@ class ProxiesScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Text(
                         !online
-                            ? '${group.type} · ${group.nodes.length} шт.'
+                            ? tr('{type} · {length} шт.', <String, Object?>{'type': group.type, 'length': group.nodes.length})
                             : group.isSelectable
-                                ? '${group.type} · ${group.nodes.length} шт.'
-                                : '${group.type} · узел выбирается автоматически',
+                                ? tr('{type} · {length} шт.', <String, Object?>{'type': group.type, 'length': group.nodes.length})
+                                : tr('{type} · узел выбирается автоматически', <String, Object?>{'type': group.type}),
                         style:
                             TextStyle(color: context.kago.muted, fontSize: 12)),
                     if (group.description != null &&
@@ -113,7 +114,7 @@ class ProxiesScreen extends ConsumerWidget {
                     ],
                     const SizedBox(height: 14),
                     if (nodes.isEmpty)
-                      Text('У этой группы нет доступных узлов.',
+                      Text(tr('У этой группы нет доступных узлов.'),
                           style: TextStyle(color: context.kago.muted))
                     else
                       LayoutBuilder(builder: (context, constraints) {
@@ -193,7 +194,7 @@ Future<void> _selectNode(
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось выбрать узел: $error')));
+          SnackBar(content: Text(tr('Не удалось выбрать узел: {error}', <String, Object?>{'error': error}))));
     }
   }
 }
@@ -226,7 +227,7 @@ Future<void> _testGroupDelays(
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось проверить задержку: $error')));
+          SnackBar(content: Text(tr('Не удалось проверить задержку: {error}', <String, Object?>{'error': error}))));
     }
   } finally {
     pending.state = const <String>{};
@@ -354,7 +355,7 @@ class _DelayLabel extends StatelessWidget {
           style: TextStyle(fontSize: 12, color: context.kago.muted));
     }
     if (value <= 0) {
-      return Text('Таймаут',
+      return Text(tr('Таймаут'),
           style: TextStyle(fontSize: 12, color: context.kago.danger));
     }
     final color = value < 600
@@ -362,7 +363,7 @@ class _DelayLabel extends StatelessWidget {
         : value < 1200
             ? context.kago.warning
             : context.kago.danger;
-    return Text('$value мс',
+    return Text(tr('{value} мс', <String, Object?>{'value': value}),
         style:
             TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color));
   }

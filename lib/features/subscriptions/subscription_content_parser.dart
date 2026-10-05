@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:yaml/yaml.dart';
+import '../../core/l10n/l10n.dart';
 
 /// Normalizes common provider formats into a Mihomo-compatible YAML document.
 class SubscriptionContentParser {
@@ -9,7 +10,7 @@ class SubscriptionContentParser {
   String toMihomoConfig(String responseBody) {
     final original = responseBody.trim();
     if (original.isEmpty) {
-      throw const FormatException('Подписка вернула пустой ответ.');
+      throw FormatException(tr('Подписка вернула пустой ответ.'));
     }
     for (final candidate in <String>[
       original,
@@ -19,8 +20,8 @@ class SubscriptionContentParser {
       final links = _parseShareLinks(candidate);
       if (links.isNotEmpty) return jsonEncode(_makeDocument(links));
     }
-    throw const FormatException(
-        'Ответ не является Clash/Mihomo YAML или поддерживаемым списком ссылок VLESS/VMess/Trojan/SS/Hysteria2/TUIC.');
+    throw FormatException(
+        tr('Ответ не является Clash/Mihomo YAML или поддерживаемым списком ссылок VLESS/VMess/Trojan/SS/Hysteria2/TUIC.'));
   }
 
   Iterable<String> _decodedCandidates(String input) sync* {
@@ -79,7 +80,7 @@ class SubscriptionContentParser {
   Map<String, dynamic> _parseVless(String source) {
     final uri = Uri.parse(source);
     final id = Uri.decodeComponent(uri.userInfo);
-    if (id.isEmpty) throw const FormatException('VLESS URI не содержит UUID.');
+    if (id.isEmpty) throw FormatException(tr('VLESS URI не содержит UUID.'));
     final proxy = <String, dynamic>{
       'name': _name(uri, 'VLESS ${uri.host}'),
       'type': 'vless',
@@ -104,7 +105,7 @@ class SubscriptionContentParser {
   Map<String, dynamic> _parseTrojan(String source) {
     final uri = Uri.parse(source);
     if (uri.userInfo.isEmpty) {
-      throw const FormatException('Trojan URI не содержит пароль.');
+      throw FormatException(tr('Trojan URI не содержит пароль.'));
     }
     final query = uri.queryParameters;
     final proxy = <String, dynamic>{
@@ -128,14 +129,14 @@ class SubscriptionContentParser {
     final decoded = _decodeBase64Text(payload);
     final data = jsonDecode(decoded);
     if (data is! Map<String, dynamic>) {
-      throw const FormatException('VMess URI должен содержать JSON-профиль.');
+      throw FormatException(tr('VMess URI должен содержать JSON-профиль.'));
     }
     final server = _stringValue(data['add']);
     final id = _stringValue(data['id']);
     final port = _intValue(data['port']);
     if (server.isEmpty || id.isEmpty || port < 1 || port > 65535) {
-      throw const FormatException(
-          'VMess URI содержит неполный адрес, порт или UUID.');
+      throw FormatException(
+          tr('VMess URI содержит неполный адрес, порт или UUID.'));
     }
     final name = _fragmentName(source) ?? _stringValue(data['ps']);
     final proxy = <String, dynamic>{
@@ -180,14 +181,14 @@ class SubscriptionContentParser {
       try {
         body = _decodeBase64Text(body);
       } on FormatException {
-        throw const FormatException(
-            'Shadowsocks URI содержит неверную Base64-строку.');
+        throw FormatException(
+            tr('Shadowsocks URI содержит неверную Base64-строку.'));
       }
     }
     final separator = body.lastIndexOf('@');
     if (separator <= 0 || separator == body.length - 1) {
-      throw const FormatException(
-          'Shadowsocks URI должен содержать method:password@host:port.');
+      throw FormatException(
+          tr('Shadowsocks URI должен содержать method:password@host:port.'));
     }
     final credentials = body.substring(0, separator);
     final address = Uri.parse('ss://${body.substring(separator + 1)}');
@@ -196,8 +197,8 @@ class SubscriptionContentParser {
         : _decodeBase64Text(credentials);
     final credentialParts = decodedCredentials.split(':');
     if (credentialParts.length < 2) {
-      throw const FormatException(
-          'Shadowsocks URI не содержит method/password.');
+      throw FormatException(
+          tr('Shadowsocks URI не содержит method/password.'));
     }
     final name = fragment == null || fragment.isEmpty
         ? 'SS ${address.host}'
@@ -216,7 +217,7 @@ class SubscriptionContentParser {
   Map<String, dynamic> _parseHysteria2(String source) {
     final uri = Uri.parse(source);
     if (uri.userInfo.isEmpty) {
-      throw const FormatException('Hysteria2 URI не содержит пароль.');
+      throw FormatException(tr('Hysteria2 URI не содержит пароль.'));
     }
     final query = uri.queryParameters;
     final proxy = <String, dynamic>{
@@ -243,7 +244,7 @@ class SubscriptionContentParser {
     final uri = Uri.parse(source);
     final credentials = uri.userInfo.split(':');
     if (credentials.length < 2) {
-      throw const FormatException('TUIC URI должен содержать UUID и пароль.');
+      throw FormatException(tr('TUIC URI должен содержать UUID и пароль.'));
     }
     final query = uri.queryParameters;
     final proxy = <String, dynamic>{
@@ -290,7 +291,7 @@ class SubscriptionContentParser {
 
   String _requireHost(Uri uri) {
     if (uri.host.isEmpty) {
-      throw const FormatException('URI не содержит сервер.');
+      throw FormatException(tr('URI не содержит сервер.'));
     }
     return uri.host;
   }
@@ -298,7 +299,7 @@ class SubscriptionContentParser {
   int _requirePort(Uri uri) {
     final port = uri.port;
     if (port < 1 || port > 65535) {
-      throw const FormatException('URI содержит неверный порт.');
+      throw FormatException(tr('URI содержит неверный порт.'));
     }
     return port;
   }

@@ -1,3 +1,499 @@
-/// English. Keys are the Russian source strings (see l10n.dart).
+/// English. Keys are the Russian source strings (see l10n.dart); a
+/// missing key falls back to Russian. `test/l10n_test.dart` checks coverage.
 const stringsEn = <String, String>{
+  'Главная': 'Home',
+  'Серверы': 'Servers',
+  'Трафик': 'Traffic',
+  'Кабинет': 'Account',
+  'Настройки': 'Settings',
+  '{v}/с': '{v}/s',
+  '{bytes} Б': '{bytes} B',
+  'КБ': 'KB',
+  'МБ': 'MB',
+  'ГБ': 'GB',
+  'ТБ': 'TB',
+  'Проверка Android core доступна только на Android.':
+      'The Android core check is only available on Android.',
+  'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.':
+      'No native Mihomo in this build. The Android .so must be part of the signed APK/AAB.',
+  'Версия встроенного Mihomo не распознана: {installed}':
+      'Unrecognized embedded Mihomo version: {installed}',
+  'Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.':
+      'Mihomo {version} is available. On Android the core is updated with a new KaGo VPN build.',
+  'Встроенный Mihomo {installed} актуален.':
+      'Embedded Mihomo {installed} is up to date.',
+  'Сервис не вернул IP-адрес.': 'The service did not return an IP address.',
+  'ipwho.is: отказ.': 'ipwho.is: request refused.',
+  'Неожиданный ответ сервиса IP.': 'Unexpected response from the IP service.',
+  'Нет сервисов для определения IP.': 'No services to detect the IP.',
+  'Укажите корректный HTTPS или локальный HTTP адрес без userinfo/query/fragment.':
+      'Enter a valid HTTPS or local HTTP address without userinfo/query/fragment.',
+  'HTTP разрешён только для localhost; удалённый контроллер должен использовать HTTPS.':
+      'HTTP is allowed only for localhost; a remote controller must use HTTPS.',
+  'Mihomo FFI не поддерживается на {operatingSystem}.':
+      'Mihomo FFI is not supported on {operatingSystem}.',
+  '\nЛог ядра:\n{v}': '\nCore log:\n{v}',
+  'Встроенный Mihomo {version} готов.': 'Embedded Mihomo {version} is ready.',
+  'Автозагрузка ядра не удалась: {error}':
+      'Automatic core download failed: {error}',
+  'Не удалось восстановить сохранённые proxy settings: {error}':
+      'Could not restore the saved proxy settings: {error}',
+  'Остановите Mihomo перед проверкой/установкой обновления.':
+      'Stop Mihomo before checking for or installing an update.',
+  'Запускается встроенный Mihomo {version}.':
+      'Starting embedded Mihomo {version}.',
+  'Для этой desktop-платформы укажите путь к Mihomo в настройках.':
+      'On this desktop platform, set the Mihomo path in settings.',
+  'Файл Mihomo из настроек не найден. Исправьте путь или очистите поле, чтобы использовать встроенное ядро':
+      'The Mihomo file from settings was not found. Fix the path or clear the field to use the embedded core',
+  'Встроенный Mihomo не найден на диске. Нажмите «Проверить и установить обновление» в настройках':
+      'Embedded Mihomo was not found on disk. Press “Check and install update” in settings',
+  'Сначала импортируйте YAML-подписку': 'Import a YAML subscription first',
+  'Desktop core запускается с локальным HTTP controller. Укажите http://127.0.0.1:<port>.':
+      'The desktop core starts with a local HTTP controller. Use http://127.0.0.1:<port>.',
+  'Активная конфигурация Mihomo повреждена.':
+      'The active Mihomo configuration is damaged.',
+  'Mihomo завершился с кодом {code}.': 'Mihomo exited with code {code}.',
+  'Mihomo завершился при запуске. Проверьте права и логи.{v}':
+      'Mihomo exited during startup. Check permissions and logs.{v}',
+  'Mihomo controller готов.': 'Mihomo controller is ready.',
+  'Системный прокси Windows направлен на 127.0.0.1:7890.':
+      'Windows system proxy points to 127.0.0.1:7890.',
+  'External Controller не стал доступен за 12 секунд: {lastError}{v}':
+      'External Controller did not become available within 12 seconds: {lastError}{v}',
+  'Не дождались завершения процесса Mihomo.':
+      'Timed out waiting for the Mihomo process to exit.',
+  'Mihomo остановлен.': 'Mihomo stopped.',
+  'GitHub вернул неверные данные о релизе Mihomo.':
+      'GitHub returned invalid Mihomo release data.',
+  'Тег Mihomo не похож на стабильную версию.':
+      'The Mihomo tag does not look like a stable version.',
+  'Непроверенный URL релиза Mihomo.': 'Unverified Mihomo release URL.',
+  'В релизе Mihomo отсутствует список assets.':
+      'The Mihomo release has no list of assets.',
+  'Неверный формат версии Mihomo.': 'Invalid Mihomo version format.',
+  'Не удалось связаться с GitHub ({reason}), а встроенное ядро Mihomo ещё не установлено. Проверьте интернет и доступ к github.com: загрузка повторится при следующем подключении.':
+      'Could not reach GitHub ({reason}), and the embedded Mihomo core is not installed yet. Check the internet and access to github.com: the download will be retried on the next connection.',
+  'Удалена старая версия ядра: {v}': 'Removed an old core version: {v}',
+  'Не удалось удалить {v} (возможно, оно запущено): {message}':
+      'Could not remove {v} (it may be running): {message}',
+  'Очистка старых версий ядра не удалась: {error}':
+      'Cleaning up old core versions failed: {error}',
+  'Встроенное автоматическое ядро пока поддерживает Windows x64.':
+      'The embedded automatic core currently supports Windows x64.',
+  'Сохранённый mihomo.exe отсутствует или не прошёл проверку SHA-256; ядро будет установлено заново.':
+      'The saved mihomo.exe is missing or failed the SHA-256 check; the core will be reinstalled.',
+  'Проверка обновлений Mihomo…': 'Checking for Mihomo updates…',
+  'GitHub недоступен; используется Mihomo {version}: {error}':
+      'GitHub is unavailable; using Mihomo {version}: {error}',
+  'GitHub API недоступен, встроенное ядро не установлено: {error}':
+      'GitHub API is unavailable, the embedded core is not installed: {error}',
+  'Загружается закреплённая версия {version} напрямую с github.com.':
+      'Downloading the pinned version {version} directly from github.com.',
+  'Mihomo {version} уже установлен.': 'Mihomo {version} is already installed.',
+  'Для {latest} не найден поддерживаемый asset; оставлено Mihomo {version}.':
+      'No supported asset found for {latest}; keeping Mihomo {version}.',
+  'В релизе {latest} нет поддерживаемой Windows x64 сборки Mihomo.':
+      'Release {latest} has no supported Windows x64 Mihomo build.',
+  'Размер Mihomo ZIP превышает безопасный лимит.':
+      'The Mihomo ZIP is larger than the safe limit.',
+  'Загрузка Mihomo: {v}%': 'Downloading Mihomo: {v}%',
+  'Загруженный Mihomo ZIP имеет неверный размер.':
+      'The downloaded Mihomo ZIP has the wrong size.',
+  'Для закреплённой версии нет эталонного SHA-256: проверены источник github.com по HTTPS, структура ZIP и запуск mihomo -v.':
+      'No reference SHA-256 for the pinned version: checked the github.com source over HTTPS, the ZIP structure and running mihomo -v.',
+  'SHA-256 Mihomo ZIP не совпал с GitHub release digest.':
+      'The Mihomo ZIP SHA-256 does not match the GitHub release digest.',
+  'В Mihomo ZIP должен быть ровно один Windows executable.':
+      'The Mihomo ZIP must contain exactly one Windows executable.',
+  'Небезопасный размер mihomo.exe в ZIP.':
+      'Unsafe size of mihomo.exe in the ZIP.',
+  'mihomo.exe распакован неполностью.': 'mihomo.exe was not fully extracted.',
+  'Mihomo {latest} установлен и проверен.':
+      'Mihomo {latest} installed and verified.',
+  'Обновление Mihomo не завершилось; оставлено {version}: {error}':
+      'The Mihomo update did not finish; keeping {version}: {error}',
+  'На странице релиза не найден SHA-256 для {assetName}.':
+      'No SHA-256 for {assetName} found on the release page.',
+  'SHA-256 для {assetName} получен со страницы релиза.':
+      'SHA-256 for {assetName} taken from the release page.',
+  'Не удалось получить SHA-256 со страницы релиза: {error}':
+      'Could not get the SHA-256 from the release page: {error}',
+  'Проверка mihomo.exe не прошла для {expectedVersion} (код {exitCode}).':
+      'mihomo.exe check failed for {expectedVersion} (code {exitCode}).',
+  'Не удалось обновить настройки системного прокси Windows.':
+      'Could not update the Windows system proxy settings.',
+  'Системный прокси доступен только в Windows.':
+      'The system proxy is only available on Windows.',
+  'Личный кабинет': 'Personal account',
+  'Добро пожаловать': 'Welcome',
+  'Здравствуйте!': 'Hello!',
+  'Здравствуйте, {name}': 'Hello, {name}',
+  'Управляйте подпиской, устройствами и аккаунтом в одном месте.':
+      'Manage your subscription, devices and account in one place.',
+  'Выйти': 'Log out',
+  'Вы вышли из аккаунта.': 'You have logged out.',
+  'Откройте {url}': 'Open {url}',
+  'Отмена': 'Cancel',
+  '{n} дн.': '{n} d.',
+  'Введите корректный email.': 'Enter a valid email.',
+  'Пароль — минимум 8 символов.': 'Password must be at least 8 characters.',
+  'Введите пароль.': 'Enter your password.',
+  'Вы вошли. Подписка добавлена на это устройство.':
+      'You are signed in. The subscription was added to this device.',
+  'Вы вошли в аккаунт.': 'You are signed in.',
+  'Забыли пароль?': 'Forgot your password?',
+  'Вы регистрировались раньше и пароль не задавали':
+      'You registered before and never set a password',
+  'Зарегистрируйтесь с той же почтой — аккаунт и подписка сохранятся.':
+      'Sign up with the same email — your account and subscription will be kept.',
+  'Пароль был, но вы его забыли': 'You had a password but forgot it',
+  'Напишите в поддержку — поможем восстановить доступ.':
+      'Contact support — we will help you restore access.',
+  'Регистрация': 'Sign up',
+  'Поддержка': 'Support',
+  'Вход': 'Sign in',
+  'Создайте аккаунт KAGO': 'Create a KAGO account',
+  'Войдите в личный кабинет KAGO': 'Sign in to your KAGO account',
+  'Имя (необязательно)': 'Name (optional)',
+  'Пароль (минимум 8 символов)': 'Password (at least 8 characters)',
+  'Пароль': 'Password',
+  'Показать пароль': 'Show password',
+  'Скрыть пароль': 'Hide password',
+  'Зарегистрироваться': 'Sign up',
+  'Войти': 'Sign in',
+  'Уже есть аккаунт?': 'Already have an account?',
+  'Нет аккаунта?': 'No account?',
+  'Вход через Telegram доступен на сайте. Чтобы входить в приложении, задайте email и пароль в кабинете на usekago.net.':
+      'Telegram sign-in is available on the website. To sign in to the app, set an email and password in your account on usekago.net.',
+  'Перевыпустить ключ?': 'Re-issue the key?',
+  'Старая ссылка перестанет работать. На этом устройстве подписка обновится автоматически, на остальных её нужно добавить заново.':
+      'The old link will stop working. On this device the subscription updates automatically; on other devices add it again.',
+  'Перевыпустить': 'Re-issue',
+  'Ключ перевыпущен.': 'The key has been re-issued.',
+  'Не удалось загрузить подписку': 'Could not load the subscription',
+  'Повторить': 'Retry',
+  'Подписка неактивна': 'Subscription inactive',
+  'Срок подписки истёк': 'Your subscription has expired',
+  'Защита пока выключена': 'Protection is off',
+  'Продлите подписку — доступ к серверам и защита ваших устройств вернутся сразу после оплаты.':
+      'Renew your subscription — access to the servers and protection of your devices return right after payment.',
+  'Оформите подписку и получите доступ к серверам на скорости до 1 Гбит/с и защите до 5 устройств.':
+      'Get a subscription for servers with up to 1 Gbit/s and protection for up to 5 devices.',
+  'Продлить': 'Renew',
+  'Выбрать тариф': 'Choose a plan',
+  'Сравнить тарифы': 'Compare plans',
+  'Подключено': 'Connected',
+  'Активна': 'Active',
+  'Активна до {date}': 'Active until {date}',
+  'Пробный период': 'Trial period',
+  'Подключить это устройство': 'Connect this device',
+  'Отключиться': 'Disconnect',
+  'Подключиться': 'Connect',
+  'Скопировать ссылку': 'Copy link',
+  'Ссылка скопирована. Это ваш ключ — не передавайте её посторонним.':
+      'Link copied. This is your key — do not share it.',
+  'Осталось': 'Left',
+  'Устройств': 'Devices',
+  'Безлимит': 'Unlimited',
+  'Оформить подписку': 'Get a subscription',
+  'Перевыпустить ключ': 'Re-issue key',
+  'На этом устройстве': 'On this device',
+  'Подписка не добавлена': 'No subscription added',
+  'Войдите в аккаунт — подписка добавится автоматически. Или вставьте ссылку из личного кабинета.':
+      'Sign in and the subscription is added automatically. Or paste the link from your account.',
+  'Добавить по ссылке': 'Add by link',
+  'Тарифы': 'Plans',
+  'Истекла': 'Expired',
+  'Бессрочно': 'No expiry',
+  'Истекла {date}': 'Expired {date}',
+  'Обновить данные': 'Refresh',
+  'Данные подписки обновлены.': 'Subscription data updated.',
+  'Использовано': 'Used',
+  'Отключить все устройства?': 'Disconnect all devices?',
+  'Все устройства потеряют доступ, пока снова не подключатся по ссылке.':
+      'All devices lose access until they connect again with the link.',
+  'Отключить все': 'Disconnect all',
+  'Все устройства отключены.': 'All devices disconnected.',
+  'Устройство отключено.': 'Device disconnected.',
+  'Устройства': 'Devices',
+  'Устройств пока нет. Устройство появится здесь после первого подключения по ссылке подписки.':
+      'No devices yet. A device appears here after its first connection with the subscription link.',
+  'Устройство': 'Device',
+  'Отключить': 'Disconnect',
+  'Промокод активирован.': 'Promo code activated.',
+  'Промокод': 'Promo code',
+  'Есть код? Активируйте его и получите бонус к подписке.':
+      'Have a code? Activate it to get a subscription bonus.',
+  'Введите код': 'Enter code',
+  'Активировать': 'Activate',
+  'Аккаунт': 'Account',
+  'Не указан': 'Not set',
+  'Подтверждён': 'Verified',
+  'Не подтверждён': 'Not verified',
+  'Новый email (ожидает подтверждения)': 'New email (awaiting confirmation)',
+  'Подключен': 'Linked',
+  'Не подключен': 'Not linked',
+  'Сменить пароль': 'Change password',
+  'Сменить email': 'Change email',
+  'Подтвердить новый email': 'Confirm new email',
+  'Подтвердить email': 'Verify email',
+  'Привязать Telegram можно в кабинете на сайте.':
+      'You can link Telegram in your account on the website.',
+  'Сохранить': 'Save',
+  'Текущий пароль': 'Current password',
+  'Новый пароль (мин. 8)': 'New password (min. 8)',
+  'Новый пароль — минимум 8 символов.':
+      'New password must be at least 8 characters.',
+  'Пароль изменён.': 'Password changed.',
+  'Отправить код': 'Send code',
+  'Новый email': 'New email',
+  'Код отправлен на {email}': 'Code sent to {email}',
+  'Email обновлён.': 'Email updated.',
+  'Код отправлен на email.': 'Code sent to your email.',
+  'Email подтверждён.': 'Email verified.',
+  'Код из письма': 'Code from the email',
+  'Подтвердить': 'Confirm',
+  '6 цифр': '6 digits',
+  'Реферальная программа': 'Referral program',
+  'Программа сейчас недоступна.': 'The program is unavailable right now.',
+  'Приглашайте друзей по своей ссылке. За каждого, кто оформит подписку, вы оба получите +30 дней бесплатно.':
+      'Invite friends with your link. For everyone who subscribes, you both get +30 days for free.',
+  'Приглашено': 'Invited',
+  'Оплатили': 'Paid',
+  'Копировать': 'Copy',
+  'Скопировано.': 'Copied.',
+  'Реферальная программа доступна после подтверждения почты. Подтвердите email в разделе «Аккаунт» выше.':
+      'The referral program is available after you verify your email. Verify it in the “Account” section above.',
+  'Помощь': 'Help',
+  'Telegram-бот': 'Telegram bot',
+  'Сессия истекла. Войдите снова.': 'Session expired. Please sign in again.',
+  'usekago.net не отвечает. Проверьте интернет и попробуйте ещё раз.':
+      'usekago.net is not responding. Check the internet and try again.',
+  'Нет связи с usekago.net. Проверьте интернет и попробуйте ещё раз.':
+      'No connection to usekago.net. Check the internet and try again.',
+  'Ошибка сервера (HTTP {status})': 'Server error (HTTP {status})',
+  'Соединения': 'Connections',
+  'Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.':
+      'Active network sessions of the Mihomo core. The list updates automatically.',
+  'Контроллер недоступен: {error}': 'Controller unavailable: {error}',
+  'Активных соединений нет.': 'No active connections.',
+  'Ядро выключено — активных соединений нет.':
+      'The core is off — no active connections.',
+  'Ошибка: {error}': 'Error: {error}',
+  'Закрыть все': 'Close all',
+  'Закрыть соединение': 'Close connection',
+  'Интернет без границ': 'Internet without borders',
+  'Обновить': 'Refresh',
+  'Контроллер Mihomo · {value}': 'Mihomo controller · {value}',
+  'Проверка Mihomo…': 'Checking Mihomo…',
+  'Ядро не подключено': 'Core not connected',
+  'Запуск Android VPN service…': 'Starting Android VPN service…',
+  'Android VPN подключён': 'Android VPN connected',
+  'Остановка VPN…': 'Stopping VPN…',
+  'Разрешение VPN отозвано': 'VPN permission revoked',
+  'Не удалось запустить Android VPN': 'Could not start Android VPN',
+  'Android VPN отключён': 'Android VPN disconnected',
+  'Android VPN service недоступен': 'Android VPN service unavailable',
+  'Ваш сервер': 'Your server',
+  'Добавьте подписку': 'Add a subscription',
+  '{length} серверов · выбор доступен после подключения':
+      '{length} servers · selection available after connecting',
+  'Список серверов появится здесь': 'The server list will appear here',
+  'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.':
+      'The core is not running. Press the power button below to start the VPN.',
+  'Контроллер недоступен — проверьте адрес в настройках.':
+      'Controller unavailable — check the address in settings.',
+  'Не подключено': 'Not connected',
+  'Нажмите, чтобы отключить VPN': 'Tap to disconnect the VPN',
+  'Нажмите, чтобы запустить VPN': 'Tap to start the VPN',
+  'Поддержка: usekago.net': 'Support: usekago.net',
+  'Ядро Mihomo остановлено.': 'Mihomo core stopped.',
+  'Mihomo запущен и controller отвечает.':
+      'Mihomo started and the controller responds.',
+  'Не удалось запустить Mihomo: {error}': 'Could not start Mihomo: {error}',
+  'Запрошено отключение Android VPN.': 'Android VPN disconnect requested.',
+  'Сначала добавьте YAML-подписку.': 'Add a YAML subscription first.',
+  'Запуск VPN запрошен. Подтвердите системное разрешение Android.':
+      'VPN start requested. Confirm the Android system permission.',
+  'Android native bridge недоступен в этой сборке.':
+      'The Android native bridge is not available in this build.',
+  'Не удалось выполнить запрос Android VPN.':
+      'Could not complete the Android VPN request.',
+  'Не удалось подготовить профиль: {message}':
+      'Could not prepare the profile: {message}',
+  'Нативный VPN-мост ещё не подключён. REST-клиент Mihomo доступен после настройки контроллера.':
+      'The native VPN bridge is not connected yet. The Mihomo REST client is available after configuring the controller.',
+  'Не удалось запустить VPN.': 'Could not start the VPN.',
+  'Добавить подписку': 'Add subscription',
+  'Ссылка на конфигурацию': 'Configuration link',
+  'Буфер обмена пуст.': 'Clipboard is empty.',
+  'Вставить из буфера': 'Paste from clipboard',
+  'Профиль «{name}» сохранён. Встроенный Mihomo загрузится при первом подключении.':
+      'Profile “{name}” saved. The embedded Mihomo will be downloaded on the first connection.',
+  'Профиль «{name}» сохранён. При подключении Android использует встроенное native Mihomo ядро.':
+      'Profile “{name}” saved. On connection Android uses the embedded native Mihomo core.',
+  'Не удалось добавить профиль: {error}': 'Could not add the profile: {error}',
+  'Загрузить': 'Load',
+  'Добавьте ссылку, чтобы увидеть трафик и срок':
+      'Add a link to see traffic and expiry',
+  '{used} использовано из {total}': '{used} used of {total}',
+  '{used} использовано': '{used} used',
+  'Действует до {date}': 'Valid until {date}',
+  'Добавить': 'Add',
+  'Задержка появится после подключения ядра':
+      'Latency appears after the core connects',
+  'Задержка не измерена — проверьте на вкладке «Серверы»':
+      'Latency not measured — check it on the “Servers” tab',
+  'Задержка: {value} мс': 'Latency: {value} ms',
+  'Узел не отвечает': 'Node does not respond',
+  'IP через VPN': 'IP via VPN',
+  'Ваш IP': 'Your IP',
+  'Не определён': 'Unknown',
+  'Определяем…': 'Detecting…',
+  'Показать IP': 'Show IP',
+  'Скрыть IP': 'Hide IP',
+  'Проверить IP': 'Check IP',
+  'Загрузка': 'Download',
+  'всего {v}': 'total {v}',
+  'Отдача': 'Upload',
+  'Серверы и группы': 'Servers and groups',
+  'Проверить задержку': 'Test latency',
+  'Сортировка': 'Sort',
+  'По порядку': 'By order',
+  'По задержке': 'By latency',
+  'По имени': 'By name',
+  'Выберите активный узел. Данные берутся из ядра Mihomo.':
+      'Choose the active node. Data comes from the Mihomo core.',
+  'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.':
+      'The core is off: servers from the profile are shown. Node selection and latency tests are available after connecting.',
+  'Не удалось получить группы прокси: {error}':
+      'Could not get proxy groups: {error}',
+  'Прокси-групп нет. Добавьте профиль и загрузите конфигурацию ядра.':
+      'No proxy groups. Add a profile and load the core configuration.',
+  '{type} · {length} шт.': '{type} · {length} nodes',
+  '{type} · узел выбирается автоматически':
+      '{type} · node is chosen automatically',
+  'У этой группы нет доступных узлов.': 'This group has no available nodes.',
+  'Не удалось выбрать узел: {error}': 'Could not select the node: {error}',
+  'Не удалось проверить задержку: {error}': 'Could not test latency: {error}',
+  'Таймаут': 'Timeout',
+  '{value} мс': '{value} ms',
+  '{v} Гц · анимации и прокрутка на полной частоте':
+      '{v} Hz · animations and scrolling at full rate',
+  'Частота экрана не определена': 'Display refresh rate unknown',
+  'Проверяется…': 'Checking…',
+  'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.':
+      'Mihomo is not installed yet: it will be downloaded automatically to %APPDATA%\\KaGo\\core.',
+  'Установлен Mihomo {version}.': 'Mihomo {version} installed.',
+  'Внешний вид': 'Appearance',
+  'Тема': 'Theme',
+  'Авто': 'Auto',
+  'Светлая': 'Light',
+  'Тёмная': 'Dark',
+  'Чисто чёрный фон': 'Pure black background',
+  'Тёмная тема для OLED-дисплеев': 'Dark theme for OLED displays',
+  'Частота экрана': 'Refresh rate',
+  'Подключение': 'Connection',
+  'Адрес контроллера': 'Controller address',
+  'Secret контроллера': 'Controller secret',
+  'Создаётся автоматически и хранится в защищённом хранилище':
+      'Generated automatically and kept in secure storage',
+  'Режим подключения': 'Connection mode',
+  'Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.':
+      'Windows system proxy (127.0.0.1:7890). Apps that use it are covered; this is not a full TUN.',
+  'Путь к Mihomo': 'Mihomo path',
+  'Не задан. Укажите путь к бинарнику Mihomo.':
+      'Not set. Specify the path to the Mihomo binary.',
+  'Безопасность': 'Security',
+  'Ядро Mihomo': 'Mihomo core',
+  'Диагностика': 'Diagnostics',
+  'Логи Mihomo': 'Mihomo logs',
+  'Последние строки лога ядра и загрузки': 'Latest core and download log lines',
+  'О приложении': 'About',
+  'Версия и сайт': 'Version and website',
+  'KaGo VPN · usekago.net · клиент на ядре Mihomo':
+      'KaGo VPN · usekago.net · client based on the Mihomo core',
+  'Лицензии': 'Licenses',
+  'Mihomo распространяется под GPL-3.0': 'Mihomo is distributed under GPL-3.0',
+  'Блокировать интернет без VPN': 'Block the internet without VPN',
+  'Kill switch: в системных настройках включите для KaGo VPN «Постоянная VPN» и «Блокировать соединения без VPN»':
+      'Kill switch: in system settings, turn on “Always-on VPN” and “Block connections without VPN” for KaGo VPN',
+  'Защита от утечек': 'Leak protection',
+  'DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля заблокирован, обход VPN приложениями запрещён':
+      'DNS only through the core (DoH, fake-ip), IPv6 outside the tunnel is blocked, apps cannot bypass the VPN',
+  'Без локальных прокси-портов': 'No local proxy ports',
+  'Другие приложения на телефоне не могут через 127.0.0.1 обнаружить VPN и узнать адрес сервера. В логах ядра не сохраняются посещённые сайты.':
+      'Other apps on the phone cannot use 127.0.0.1 to detect the VPN or learn the server address. Core logs do not keep visited sites.',
+  'Ограничение режима прокси': 'Proxy mode limitation',
+  'Приложения, которые не используют системный прокси Windows, и их DNS-запросы идут мимо VPN.':
+      'Apps that do not use the Windows system proxy, and their DNS requests, bypass the VPN.',
+  'Локальный доступ': 'Local access',
+  'Прокси и контроллер слушают только 127.0.0.1; подписка не может открыть порты для сети или запустить входящие серверы.':
+      'The proxy and controller listen on 127.0.0.1 only; a subscription cannot open ports to the network or start inbound servers.',
+  'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».':
+      'Open “Settings → Network → VPN” and turn on “Always-on VPN” for KaGo VPN.',
+  '{windowsCoreStatus} Остановите ядро, чтобы обновить.':
+      '{windowsCoreStatus} Stop the core to update.',
+  'Папка ядра': 'Core folder',
+  'Путь скопирован.': 'Path copied.',
+  'Проверка и обновление': 'Check and update',
+  'Автозагрузка с GitHub, проверка SHA-256 при установке и перед запуском, старые версии удаляются автоматически.':
+      'Downloaded from GitHub automatically, SHA-256 checked on install and before start, old versions removed automatically.',
+  'Проверка версии встроенного Mihomo…':
+      'Checking the embedded Mihomo version…',
+  'Не удалось проверить upstream release: {error}':
+      'Could not check the upstream release: {error}',
+  'Обновление ядра': 'Core updates',
+  'Ядро поставляется внутри подписанного APK/AAB и обновляется вместе с приложением; удалённая подмена .so отключена.':
+      'The core ships inside the signed APK/AAB and is updated with the app; remote .so replacement is disabled.',
+  'Mihomo · внешний бинарник': 'Mihomo · external binary',
+  'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.':
+      'Linux/macOS still need an external Mihomo. Built-in automatic updates support Windows x64.',
+  'HTTPS или локальный HTTP. Secret создаётся автоматически.':
+      'HTTPS or local HTTP. The secret is generated automatically.',
+  'Адрес контроллера сохранён.': 'Controller address saved.',
+  'Не удалось сохранить: {error}': 'Could not save: {error}',
+  'Полный путь к исполняемому файлу Mihomo.':
+      'Full path to the Mihomo executable.',
+  'Путь к Mihomo сохранён.': 'Mihomo path saved.',
+  'Логов пока нет. Они появятся при запуске или загрузке ядра.':
+      'No logs yet. They appear when the core starts or downloads.',
+  'Закрыть': 'Close',
+  'Проверяются и загружаются данные релиза Mihomo…':
+      'Checking and downloading Mihomo release data…',
+  'Установлен Mihomo {version}. Проверить обновление не удалось ({note}).':
+      'Mihomo {version} installed. Could not check for updates ({note}).',
+  'Обновление не выполнено: {error}': 'Update failed: {error}',
+  'Корень конфигурации Mihomo должен быть YAML-объектом.':
+      'The root of the Mihomo configuration must be a YAML object.',
+  'В подписке не найдены proxies или proxy-providers.':
+      'No proxies or proxy-providers found in the subscription.',
+  'Для встроенного Android Mihomo задайте локальный HTTP controller: http://127.0.0.1:<port>.':
+      'For the embedded Android Mihomo use a local HTTP controller: http://127.0.0.1:<port>.',
+  'Подписка вернула пустой ответ.':
+      'The subscription returned an empty response.',
+  'Ответ не является Clash/Mihomo YAML или поддерживаемым списком ссылок VLESS/VMess/Trojan/SS/Hysteria2/TUIC.':
+      'The response is not Clash/Mihomo YAML or a supported list of VLESS/VMess/Trojan/SS/Hysteria2/TUIC links.',
+  'VLESS URI не содержит UUID.': 'The VLESS URI has no UUID.',
+  'Trojan URI не содержит пароль.': 'The Trojan URI has no password.',
+  'VMess URI должен содержать JSON-профиль.':
+      'The VMess URI must contain a JSON profile.',
+  'VMess URI содержит неполный адрес, порт или UUID.':
+      'The VMess URI has an incomplete address, port or UUID.',
+  'Shadowsocks URI содержит неверную Base64-строку.':
+      'The Shadowsocks URI has an invalid Base64 string.',
+  'Shadowsocks URI должен содержать method:password@host:port.':
+      'The Shadowsocks URI must contain method:password@host:port.',
+  'Shadowsocks URI не содержит method/password.':
+      'The Shadowsocks URI has no method/password.',
+  'Hysteria2 URI не содержит пароль.': 'The Hysteria2 URI has no password.',
+  'TUIC URI должен содержать UUID и пароль.':
+      'The TUIC URI must contain a UUID and password.',
+  'URI не содержит сервер.': 'The URI has no server.',
+  'URI содержит неверный порт.': 'The URI has an invalid port.',
+  'Ссылка вернула пустой профиль.': 'The link returned an empty profile.',
+  'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.':
+      'Use HTTPS for an external subscription; HTTP is allowed only on localhost. Links with userinfo/fragment are not allowed.',
+  'Язык': 'Language',
 };

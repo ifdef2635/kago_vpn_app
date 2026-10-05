@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:yaml/yaml.dart';
+import '../../core/l10n/l10n.dart';
 
 class MihomoConfigBuilder {
   const MihomoConfigBuilder();
@@ -11,13 +12,13 @@ class MihomoConfigBuilder {
       {String? secret, bool enableTun = true}) {
     final parsed = loadYaml(source);
     if (parsed is! YamlMap) {
-      throw const FormatException(
-          'Корень конфигурации Mihomo должен быть YAML-объектом.');
+      throw FormatException(
+          tr('Корень конфигурации Mihomo должен быть YAML-объектом.'));
     }
     final config = _convertMap(parsed);
     if (config['proxies'] is! List && config['proxy-providers'] is! Map) {
-      throw const FormatException(
-          'В подписке не найдены proxies или proxy-providers.');
+      throw FormatException(
+          tr('В подписке не найдены proxies или proxy-providers.'));
     }
     config.putIfAbsent('mixed-port', () => 7890);
     _lockToLoopback(config);
@@ -64,12 +65,12 @@ class MihomoConfigBuilder {
     if (uri == null ||
         uri.scheme != 'http' ||
         !<String>['127.0.0.1', 'localhost'].contains(uri.host.toLowerCase())) {
-      throw const FormatException(
-          'Для встроенного Android Mihomo задайте локальный HTTP controller: http://127.0.0.1:<port>.');
+      throw FormatException(
+          tr('Для встроенного Android Mihomo задайте локальный HTTP controller: http://127.0.0.1:<port>.'));
     }
     final Object? decoded = jsonDecode(await file.readAsString());
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Активная конфигурация Mihomo повреждена.');
+      throw FormatException(tr('Активная конфигурация Mihomo повреждена.'));
     }
     final tunValue = decoded['tun'];
     final Map<String, dynamic> tun;

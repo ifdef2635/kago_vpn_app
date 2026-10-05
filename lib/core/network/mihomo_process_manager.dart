@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_windows_core_updater.dart';
 import 'mihomo_windows_system_proxy.dart';
+import '../l10n/l10n.dart';
 
 /// Desktop lifecycle for built-in Windows Mihomo or an optional user-supplied executable.
 class MihomoProcessManager {
@@ -47,7 +48,7 @@ class MihomoProcessManager {
     final tail = _recentLogs.length > lines
         ? _recentLogs.sublist(_recentLogs.length - lines)
         : _recentLogs;
-    return '\nЛог ядра:\n${tail.join('\n')}';
+    return tr('\nЛог ядра:\n{v}', <String, Object?>{'v': tail.join('\n')});
   }
 
   /// Manual core path. Only Linux/macOS use it (they have no built-in core);
@@ -81,9 +82,9 @@ class MihomoProcessManager {
     if (!Platform.isWindows) return;
     try {
       final core = await _coreUpdater.ensureInstalled(onLog: _writeLog);
-      _writeLog('Встроенный Mihomo ${core.version} готов.');
+      _writeLog(tr('Встроенный Mihomo {version} готов.', <String, Object?>{'version': core.version}));
     } catch (error) {
-      _writeLog('Автозагрузка ядра не удалась: $error');
+      _writeLog(tr('Автозагрузка ядра не удалась: {error}', <String, Object?>{'error': error}));
     }
   }
 
@@ -91,14 +92,14 @@ class MihomoProcessManager {
     try {
       await _windowsSystemProxy.restoreIfOwned();
     } catch (error) {
-      _writeLog('Не удалось восстановить сохранённые proxy settings: $error');
+      _writeLog(tr('Не удалось восстановить сохранённые proxy settings: {error}', <String, Object?>{'error': error}));
     }
   }
 
   Future<MihomoCoreInstall> updateCore() async {
     if (_process != null) {
       throw StateError(
-          'Остановите Mihomo перед проверкой/установкой обновления.');
+          tr('Остановите Mihomo перед проверкой/установкой обновления.'));
     }
     return _coreUpdater.ensureInstalled(forceCheck: true, onLog: _writeLog);
   }
@@ -113,21 +114,21 @@ class MihomoProcessManager {
     } else if (Platform.isWindows) {
       final core = await _coreUpdater.ensureInstalled(onLog: _writeLog);
       binary = core.executable.path;
-      _writeLog('Запускается встроенный Mihomo ${core.version}.');
+      _writeLog(tr('Запускается встроенный Mihomo {version}.', <String, Object?>{'version': core.version}));
     } else {
       throw StateError(
-          'Для этой desktop-платформы укажите путь к Mihomo в настройках.');
+          tr('Для этой desktop-платформы укажите путь к Mihomo в настройках.'));
     }
     if (!await File(binary).exists()) {
       throw FileSystemException(
           usingOverride
-              ? 'Файл Mihomo из настроек не найден. Исправьте путь или очистите поле, чтобы использовать встроенное ядро'
-              : 'Встроенный Mihomo не найден на диске. Нажмите «Проверить и установить обновление» в настройках',
+              ? tr('Файл Mihomo из настроек не найден. Исправьте путь или очистите поле, чтобы использовать встроенное ядро')
+              : tr('Встроенный Mihomo не найден на диске. Нажмите «Проверить и установить обновление» в настройках'),
           binary);
     }
     if (!await File(configPath).exists()) {
       throw FileSystemException(
-          'Сначала импортируйте YAML-подписку', configPath);
+          tr('Сначала импортируйте YAML-подписку'), configPath);
     }
 
     final controller = MihomoController(
@@ -139,12 +140,12 @@ class MihomoProcessManager {
         !<String>['127.0.0.1', 'localhost', '::1']
             .contains(controllerUri.host)) {
       throw StateError(
-          'Desktop core запускается с локальным HTTP controller. Укажите http://127.0.0.1:<port>.');
+          tr('Desktop core запускается с локальным HTTP controller. Укажите http://127.0.0.1:<port>.'));
     }
     final configFile = File(configPath);
     final Object? decoded = jsonDecode(await configFile.readAsString());
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Активная конфигурация Mihomo повреждена.');
+      throw FormatException(tr('Активная конфигурация Mihomo повреждена.'));
     }
     final config = decoded;
     if (Platform.isWindows) {
@@ -183,22 +184,22 @@ class MihomoProcessManager {
         if (Platform.isWindows) unawaited(_windowsSystemProxy.restoreIfOwned());
         if (!_exits.isClosed) _exits.add(code);
       }
-      _writeLog('Mihomo завершился с кодом $code.');
+      _writeLog(tr('Mihomo завершился с кодом {code}.', <String, Object?>{'code': code}));
     }));
 
     Object? lastError;
     for (var attempt = 0; attempt < 12; attempt++) {
       if (!identical(_process, process)) {
         throw StateError(
-            'Mihomo завершился при запуске. Проверьте права и логи.${_logTail()}');
+            tr('Mihomo завершился при запуске. Проверьте права и логи.{v}', <String, Object?>{'v': _logTail()}));
       }
       await Future<void>.delayed(const Duration(milliseconds: 300));
       try {
         await controller.version();
-        _writeLog('Mihomo controller готов.');
+        _writeLog(tr('Mihomo controller готов.'));
         if (Platform.isWindows) {
           await _windowsSystemProxy.enable();
-          _writeLog('Системный прокси Windows направлен на 127.0.0.1:7890.');
+          _writeLog(tr('Системный прокси Windows направлен на 127.0.0.1:7890.'));
         }
         return;
       } catch (error) {
@@ -207,7 +208,7 @@ class MihomoProcessManager {
     }
     await stop();
     throw StateError(
-        'External Controller не стал доступен за 12 секунд: $lastError${_logTail()}');
+        tr('External Controller не стал доступен за 12 секунд: {lastError}{v}', <String, Object?>{'lastError': lastError, 'v': _logTail()}));
   }
 
   Future<void> stop() async {
@@ -223,9 +224,9 @@ class MihomoProcessManager {
     try {
       await process.exitCode.timeout(const Duration(seconds: 3));
     } on TimeoutException {
-      _writeLog('Не дождались завершения процесса Mihomo.');
+      _writeLog(tr('Не дождались завершения процесса Mihomo.'));
     }
-    _writeLog('Mihomo остановлен.');
+    _writeLog(tr('Mihomo остановлен.'));
   }
 
   Future<void> dispose() async {

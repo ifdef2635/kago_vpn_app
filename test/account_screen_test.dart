@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kago_vpn/core/l10n/l10n.dart';
 import 'package:kago_vpn/features/account/account_screen.dart';
 
 void main() {

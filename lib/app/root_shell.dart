@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/network/app_providers.dart';
 import '../core/theme/kago_theme.dart';
+import '../features/account/account_screen.dart';
 import '../features/connections/connections_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/proxies/proxies_screen.dart';
@@ -19,6 +20,7 @@ class RootShell extends ConsumerWidget {
     RepaintBoundary(child: DashboardScreen()),
     RepaintBoundary(child: ProxiesScreen()),
     RepaintBoundary(child: ConnectionsScreen()),
+    RepaintBoundary(child: AccountScreen()),
     RepaintBoundary(child: SettingsScreen()),
   ];
   static const _destinations = <NavigationDestination>[
@@ -34,6 +36,10 @@ class RootShell extends ConsumerWidget {
         icon: Icon(Icons.swap_horiz_rounded),
         selectedIcon: Icon(Icons.swap_horiz_rounded),
         label: 'Трафик'),
+    NavigationDestination(
+        icon: Icon(Icons.person_outline_rounded),
+        selectedIcon: Icon(Icons.person_rounded),
+        label: 'Кабинет'),
     NavigationDestination(
         icon: Icon(Icons.tune_rounded),
         selectedIcon: Icon(Icons.tune_rounded),
@@ -60,7 +66,7 @@ class RootShell extends ConsumerWidget {
               selectedIndex: index,
               onDestinationSelected: select,
               labelType: NavigationRailLabelType.all,
-              backgroundColor: KaGoColors.canvas,
+              backgroundColor: context.kago.surface,
               leading: const Padding(
                   padding: EdgeInsets.only(top: 18, bottom: 34),
                   child: _BrandMark()),
@@ -78,12 +84,16 @@ class RootShell extends ConsumerWidget {
                     selectedIcon: Icon(Icons.swap_horiz_rounded),
                     label: Text('Трафик')),
                 NavigationRailDestination(
+                    icon: Icon(Icons.person_outline_rounded),
+                    selectedIcon: Icon(Icons.person_rounded),
+                    label: Text('Кабинет')),
+                NavigationRailDestination(
                     icon: Icon(Icons.tune_rounded),
                     selectedIcon: Icon(Icons.tune_rounded),
                     label: Text('Настройки')),
               ],
             ),
-          if (wide) const VerticalDivider(width: 1, color: KaGoColors.border),
+          if (wide) VerticalDivider(width: 1, color: context.kago.border),
           Expanded(
               child: _TabTransition(
                   index: index,
@@ -108,7 +118,7 @@ class _BrandMark extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-            color: KaGoColors.brand, borderRadius: BorderRadius.circular(14)),
+            color: context.kago.brand, borderRadius: BorderRadius.circular(14)),
         child: const Center(
             child: Text('K',
                 style: TextStyle(

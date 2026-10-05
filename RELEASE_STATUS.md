@@ -2,7 +2,19 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (security hardening)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (usekago.net look and account tab)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — оформление usekago.net и личный кабинет (версия 0.1.0+1)
+
+Сделано:
+- **Палитра сайта usekago.net** (`KaGoPalette`, `ThemeExtension`): светлая тема — фон `#EEF2F9`, белые карточки с тонкой рамкой и мягкой тенью, кнопки/ссылки `#2D5BD0`, тёмно-синяя карточка подписки с бирюзовым свечением; тёмная тема в тех же оттенках и вариант «чисто чёрный». Цвета взяты со скриншотов сайта (сам сайт из среды сборки недоступен), возможны небольшие расхождения оттенков.
+- **Переключатель темы** «Авто / Светлая / Тёмная» в настройках, выбор и OLED-режим сохраняются между запусками (раньше «чёрный фон» сбрасывался).
+- **Вкладка «Кабинет»** по образцу usekago.net/my: «Здравствуйте!», карточка подписки (статус Активна/Подключено/Истекла, срок «Активна до 15 ноября 2099 г.», плитки «Осталось» (∞ для бессрочных), «Использовано», «Трафик»/«Безлимит»), кнопки «Подключиться/Отключиться», «Скопировать ссылку», «Обновить данные», «Перевыпустить ключ». Карточки «Устройства и промокоды» и «Аккаунт» открывают сайт и Telegram-бота @KaGoVPNbot.
+- Тест контраста (WCAG AA) переписан на обе палитры; тесты срока и русской даты для кабинета. `flutter analyze` — без замечаний, `flutter test` — 69 тестов. Экраны проверены рендером в тестовом окружении (светлая/тёмная, 390×844).
+
+Осталось:
+- **Настоящий вход в аккаунт** (email/пароль, Telegram), список устройств, промокоды, рефералы и перевыпуск ключа внутри приложения требуют API usekago.net — его описания нет. Сейчас эти функции открывают сайт.
+- Иконки приложения (Windows `.ico`, Android launcher) по-прежнему старые.
 
 ## 2026-10-05 — безопасность и анонимность (версия 0.1.0+1)
 

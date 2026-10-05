@@ -142,7 +142,6 @@ final androidCoreUpdateStatusProvider = FutureProvider<String>((ref) async {
   }
   return 'Встроенный Mihomo $installed актуален.';
 });
-final pureBlackProvider = StateProvider<bool>((ref) => false);
 final mihomoWindowsCoreUpdaterProvider = Provider<MihomoWindowsCoreUpdater>(
     (ref) => MihomoWindowsCoreUpdater(
         releases: ref.watch(mihomoReleaseApiProvider)));
@@ -227,5 +226,5 @@ final subscriptionUsageRefresherProvider = Provider<void>((ref) {
 });
 
 /// Index of the selected root tab (0 = home, 1 = servers, 2 = traffic,
-/// 3 = settings), so any screen can jump to another tab.
+/// 3 = account, 4 = settings), so any screen can jump to another tab.
 final rootTabIndexProvider = StateProvider<int>((ref) => 0);

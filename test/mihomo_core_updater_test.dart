@@ -76,7 +76,8 @@ void main() {
       final logs = <String>[];
 
       await expectLater(
-        _updater(adapter, Directory('${temp.path}${Platform.pathSeparator}core'))
+        _updater(
+                adapter, Directory('${temp.path}${Platform.pathSeparator}core'))
             .ensureInstalled(forceCheck: true, onLog: logs.add),
         throwsA(
           isA<MihomoCoreNetworkException>()
@@ -85,7 +86,8 @@ void main() {
                   isNot(contains('DioException'))),
         ),
       );
-      expect(logs.any((line) => line.contains('GitHub API недоступен')), isTrue);
+      expect(
+          logs.any((line) => line.contains('GitHub API недоступен')), isTrue);
       expect(logs.any((line) => line.contains('закреплённая версия')), isTrue);
       expect(adapter.requested, contains(MihomoPinnedCore.url));
     });
@@ -187,8 +189,7 @@ void main() {
       final root = Directory('${temp.path}${Platform.pathSeparator}core')
         ..createSync();
       Directory dir(String name) =>
-          Directory('${root.path}${Platform.pathSeparator}$name')
-            ..createSync();
+          Directory('${root.path}${Platform.pathSeparator}$name')..createSync();
       final keepDir = dir('v1.19.32-bbbbbbbbbbbb');
       final keepExe = File('${keepDir.path}${Platform.pathSeparator}mihomo.exe')
         ..writeAsBytesSync(<int>[1]);

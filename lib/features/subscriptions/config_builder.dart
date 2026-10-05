@@ -66,8 +66,8 @@ class MihomoConfigBuilder {
     if (uri == null ||
         uri.scheme != 'http' ||
         !<String>['127.0.0.1', 'localhost'].contains(uri.host.toLowerCase())) {
-      throw FormatException(
-          tr('Для встроенного Android Mihomo задайте локальный HTTP controller: http://127.0.0.1:<port>.'));
+      throw FormatException(tr(
+          'Для встроенного Android Mihomo задайте локальный HTTP controller: http://127.0.0.1:<port>.'));
     }
     final Object? decoded = jsonDecode(await file.readAsString());
     if (decoded is! Map<String, dynamic>) {

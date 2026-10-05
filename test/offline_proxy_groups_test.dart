@@ -43,12 +43,13 @@ void main() {
   });
 
   test('without the core nothing is claimed to be selected', () {
-    expect(proxyGroupsFromConfig(config).every((g) => g.selected == null),
-        isTrue);
+    expect(
+        proxyGroupsFromConfig(config).every((g) => g.selected == null), isTrue);
   });
 
   test('url-test groups are not manually selectable', () {
-    final auto = proxyGroupsFromConfig(config).firstWhere((g) => g.name == 'Auto');
+    final auto =
+        proxyGroupsFromConfig(config).firstWhere((g) => g.name == 'Auto');
 
     expect(auto.isSelectable, isFalse);
   });

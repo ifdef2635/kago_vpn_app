@@ -57,7 +57,8 @@ List<ProxyGroup> proxyGroupsFromConfig(Map<String, dynamic> config) {
       type: groupTypes[name] ?? 'Selector',
       nodes: names
           .map((node) => ProxyNode(
-              name: node, type: groupTypes[node] ?? proxyTypes[node] ?? 'Proxy'))
+              name: node,
+              type: groupTypes[node] ?? proxyTypes[node] ?? 'Proxy'))
           .toList(growable: false),
       description: item['description'] as String?,
     ));

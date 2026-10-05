@@ -18,6 +18,7 @@ import '../l10n/l10n.dart';
 
 final mihomoControllerProvider =
     Provider<MihomoController>((ref) => MihomoController());
+
 /// Groups and servers. With the core running they come from the controller (with
 /// protocol and latency); otherwise from the saved profile, so the servers tab
 /// is not an error just because the core is off.
@@ -93,8 +94,8 @@ final selectedProxyGroupProvider = StateProvider<String?>((ref) => null);
 final proxySortProvider = StateProvider<ProxySort>((ref) => ProxySort.config);
 
 /// Latency measured from this app, node name -> ms (-1: test failed).
-final proxyDelaysProvider = StateProvider<Map<String, int>>(
-    (ref) => const <String, int>{});
+final proxyDelaysProvider =
+    StateProvider<Map<String, int>>((ref) => const <String, int>{});
 
 /// Node names whose latency test is currently running.
 final proxyDelayTestingProvider =
@@ -131,17 +132,22 @@ final androidCoreUpdateStatusProvider = FutureProvider<String>((ref) async {
   final latest = await ref.watch(latestMihomoReleaseProvider.future);
   final installed = await ref.watch(androidNativeCoreVersionProvider.future);
   if (installed == null || installed.trim().isEmpty) {
-    return tr('В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.');
+    return tr(
+        'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.');
   }
   final match = RegExp(r'v?\d+\.\d+\.\d+').firstMatch(installed);
   if (match == null) {
-    return tr('Версия встроенного Mihomo не распознана: {installed}', <String, Object?>{'installed': installed});
+    return tr('Версия встроенного Mihomo не распознана: {installed}',
+        <String, Object?>{'installed': installed});
   }
   if (MihomoReleaseApi.compareStableVersions(latest.version, match.group(0)!) >
       0) {
-    return tr('Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.', <String, Object?>{'version': latest.version});
+    return tr(
+        'Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.',
+        <String, Object?>{'version': latest.version});
   }
-  return tr('Встроенный Mihomo {installed} актуален.', <String, Object?>{'installed': installed});
+  return tr('Встроенный Mihomo {installed} актуален.',
+      <String, Object?>{'installed': installed});
 });
 final mihomoWindowsCoreUpdaterProvider = Provider<MihomoWindowsCoreUpdater>(
     (ref) => MihomoWindowsCoreUpdater(

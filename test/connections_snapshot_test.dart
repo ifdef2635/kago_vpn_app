@@ -39,9 +39,9 @@ void main() {
   });
 
   test('withSpeed keeps totals and formats the speed per second', () {
-    final snapshot =
-        const ConnectionsSnapshot(connections: <ActiveConnection>[], downloadTotal: 7)
-            .withSpeed(download: 1536, upload: 0);
+    final snapshot = const ConnectionsSnapshot(
+            connections: <ActiveConnection>[], downloadTotal: 7)
+        .withSpeed(download: 1536, upload: 0);
 
     expect(snapshot.downloadTotal, 7);
     expect(formatSpeed(snapshot.downloadSpeed), '1.5 КБ/с');

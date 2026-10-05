@@ -28,8 +28,9 @@ class MihomoFfiBridge {
       'macos' => DynamicLibrary.open('libkago_mihomo_bridge.dylib'),
       'windows' => DynamicLibrary.open('kago_mihomo_bridge.dll'),
       'linux' => DynamicLibrary.open('libkago_mihomo_bridge.so'),
-      _ => throw UnsupportedError(
-          tr('Mihomo FFI не поддерживается на {operatingSystem}.', <String, Object?>{'operatingSystem': Platform.operatingSystem})),
+      _ => throw UnsupportedError(tr(
+          'Mihomo FFI не поддерживается на {operatingSystem}.',
+          <String, Object?>{'operatingSystem': Platform.operatingSystem})),
     };
     return MihomoFfiBridge._(library);
   }

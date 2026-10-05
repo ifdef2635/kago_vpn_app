@@ -15,10 +15,11 @@ class _FakeServer implements HttpClientAdapter {
 
   ResponseBody _json(Object body, int status,
           {List<String> cookies = const <String>[]}) =>
-      ResponseBody.fromString(jsonEncode(body), status, headers: <String, List<String>>{
-        Headers.contentTypeHeader: <String>['application/json'],
-        if (cookies.isNotEmpty) 'set-cookie': cookies,
-      });
+      ResponseBody.fromString(jsonEncode(body), status,
+          headers: <String, List<String>>{
+            Headers.contentTypeHeader: <String>['application/json'],
+            if (cookies.isNotEmpty) 'set-cookie': cookies,
+          });
 
   @override
   Future<ResponseBody> fetch(RequestOptions options,
@@ -27,10 +28,11 @@ class _FakeServer implements HttpClientAdapter {
     final cookie = options.headers['Cookie'] as String? ?? '';
     switch (options.path) {
       case '/auth/login':
-        return _json(<String, String>{'expires_at': ''}, 200, cookies: <String>[
-          'access_token=$access; Path=/; HttpOnly; Secure; SameSite=Lax',
-          'refresh_token=r1; Path=/api/v1/public/auth/refresh; HttpOnly',
-        ]);
+        return _json(<String, String>{'expires_at': ''}, 200,
+            cookies: <String>[
+              'access_token=$access; Path=/; HttpOnly; Secure; SameSite=Lax',
+              'refresh_token=r1; Path=/api/v1/public/auth/refresh; HttpOnly',
+            ]);
       case '/auth/refresh':
         if (!refreshWorks || !cookie.contains('refresh_token=r1')) {
           return _json(<String, String>{'detail': 'expired'}, 401);

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English (default). Russian: values-ru/strings.xml. -->
+<resources>
+    <string name="vpn_missing_config">Import a YAML profile before starting the VPN.</string>
+    <string name="vpn_request_in_progress">A VPN permission request is already in progress.</string>
+    <string name="vpn_permission_denied">VPN connection was not allowed.</string>
+    <string name="vpn_service_start_failed">Could not start the VPN service.</string>
+    <string name="vpn_preparing">Preparing VPN…</string>
+    <string name="vpn_connected">KaGo VPN connected</string>
+    <string name="vpn_no_config_path">No path to the Mihomo configuration.</string>
+    <string name="vpn_config_not_found">Configuration file not found: %1$s</string>
+    <string name="vpn_no_tun">Android did not provide a TUN descriptor.</string>
+    <string name="vpn_core_code">The native Mihomo core returned code %1$d.</string>
+    <string name="vpn_core_failed">Could not start the native VPN core.</string>
+</resources>

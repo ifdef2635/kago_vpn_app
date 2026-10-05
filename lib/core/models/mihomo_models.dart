@@ -1,3 +1,4 @@
+import '../l10n/l10n.dart';
 class ProxyNode {
   const ProxyNode({required this.name, required this.type, this.delay});
   final String name;
@@ -158,11 +159,11 @@ class SubscriptionProfile {
       totalBytes <= 0 ? null : (usedBytes / totalBytes).clamp(0, 1);
 }
 
-String formatSpeed(int bytesPerSecond) => '${formatBytes(bytesPerSecond)}/с';
+String formatSpeed(int bytesPerSecond) => tr('{v}/с', <String, Object?>{'v': formatBytes(bytesPerSecond)});
 
 String formatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes Б';
-  const units = <String>['КБ', 'МБ', 'ГБ', 'ТБ'];
+  if (bytes < 1024) return tr('{bytes} Б', <String, Object?>{'bytes': bytes});
+  final units = <String>[tr('КБ'), tr('МБ'), tr('ГБ'), tr('ТБ')];
   var value = bytes.toDouble();
   var unit = -1;
   do {

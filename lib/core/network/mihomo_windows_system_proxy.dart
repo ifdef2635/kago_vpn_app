@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:win32_registry/win32_registry.dart';
+import '../l10n/l10n.dart';
 
 /// Reversible per-user Windows Internet Settings proxy integration.
 ///
@@ -126,13 +127,13 @@ class MihomoWindowsSystemProxy {
     if (setOption(0, settingsChanged, nullptr, 0) == 0 ||
         setOption(0, refresh, nullptr, 0) == 0) {
       throw StateError(
-          'Не удалось обновить настройки системного прокси Windows.');
+          tr('Не удалось обновить настройки системного прокси Windows.'));
     }
   }
 
   void _requireWindows() {
     if (!Platform.isWindows) {
-      throw UnsupportedError('Системный прокси доступен только в Windows.');
+      throw UnsupportedError(tr('Системный прокси доступен только в Windows.'));
     }
   }
 }

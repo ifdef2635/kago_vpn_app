@@ -17,6 +17,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // The app follows the system language; this test checks the Russian UI.
+    tester.platformDispatcher.localeTestValue = const Locale('ru');
+    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[

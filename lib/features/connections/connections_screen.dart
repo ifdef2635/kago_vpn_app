@@ -5,6 +5,7 @@ import '../../core/models/mihomo_models.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
+import '../../core/l10n/l10n.dart';
 
 class ConnectionsScreen extends ConsumerWidget {
   const ConnectionsScreen({super.key});
@@ -25,14 +26,14 @@ class ConnectionsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
           children: <Widget>[
             Row(children: <Widget>[
-              const Expanded(child: SectionTitle('Соединения')),
+              Expanded(child: SectionTitle(tr('Соединения'))),
               IconButton(
                   onPressed: () => ref.invalidate(connectionsSnapshotProvider),
                   icon: const Icon(Icons.refresh_rounded))
             ]),
             const SizedBox(height: 5),
             Text(
-                'Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.',
+                tr('Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.'),
                 style: TextStyle(color: context.kago.muted, fontSize: 13)),
             const SizedBox(height: 18),
             // With the core off there is nothing to ask: show "no connections"
@@ -44,7 +45,7 @@ class ConnectionsScreen extends ConsumerWidget {
                 .when(
               loading: () => const LoadingPanel(),
               error: (error, _) => ErrorPanel(
-                  message: 'Контроллер недоступен: $error',
+                  message: tr('Контроллер недоступен: {error}', <String, Object?>{'error': error}),
                   onRetry: () => ref.invalidate(connectionsSnapshotProvider)),
               data: (snapshot) => snapshot.connections.isEmpty
                   ? SurfaceCard(
@@ -55,8 +56,8 @@ class ConnectionsScreen extends ConsumerWidget {
                       Expanded(
                           child: Text(
                               online
-                                  ? 'Активных соединений нет.'
-                                  : 'Ядро выключено — активных соединений нет.',
+                                  ? tr('Активных соединений нет.')
+                                  : tr('Ядро выключено — активных соединений нет.'),
                               style: TextStyle(color: context.kago.muted)))
                     ]))
                   : Column(children: <Widget>[
@@ -72,12 +73,12 @@ class ConnectionsScreen extends ConsumerWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                            content: Text('Ошибка: $error')));
+                                            content: Text(tr('Ошибка: {error}', <String, Object?>{'error': error}))));
                                   }
                                 }
                               },
                               icon: const Icon(Icons.close_rounded),
-                              label: const Text('Закрыть все'))),
+                              label: Text(tr('Закрыть все')))),
                       ...snapshot.connections.map((item) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _ConnectionTile(
@@ -91,7 +92,7 @@ class ConnectionsScreen extends ConsumerWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                            content: Text('Ошибка: $error')));
+                                            content: Text(tr('Ошибка: {error}', <String, Object?>{'error': error}))));
                                   }
                                 }
                               }))),
@@ -134,7 +135,7 @@ class _ConnectionTile extends StatelessWidget {
                           TextStyle(fontSize: 11, color: context.kago.muted)),
                 ])),
             IconButton(
-                tooltip: 'Закрыть соединение',
+                tooltip: tr('Закрыть соединение'),
                 onPressed: onClose,
                 icon: const Icon(Icons.close, size: 18)),
           ]));

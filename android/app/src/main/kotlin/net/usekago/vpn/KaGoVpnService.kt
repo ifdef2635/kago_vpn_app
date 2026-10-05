@@ -34,11 +34,11 @@ class KaGoVpnService : VpnService() {
                 return START_NOT_STICKY
             }
             ACTION_START, null -> {
-                startForegroundCompat(notification("Подготовка VPN…"))
+                startForegroundCompat(notification(getString(R.string.vpn_preparing)))
                 val requestedPath = intent?.getStringExtra(EXTRA_CONFIG_PATH)
                 val configPath = requestedPath ?: getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_CONFIG_PATH, null)
                 if (configPath.isNullOrBlank()) {
-                    KaGoVpnEvents.emit("error", "Нет пути к конфигурации Mihomo.")
+                    KaGoVpnEvents.emit("error", getString(R.string.vpn_no_config_path))
                     removeForegroundNotification()
                     stopSelf(startId)
                     return START_NOT_STICKY
@@ -57,7 +57,7 @@ class KaGoVpnService : VpnService() {
         var descriptor: ParcelFileDescriptor? = null
         try {
             val config = File(configPath)
-            if (!config.isFile) throw IllegalStateException("Файл конфигурации не найден: $configPath")
+            if (!config.isFile) throw IllegalStateException(getString(R.string.vpn_config_not_found, configPath))
             val root = JSONObject(config.readText())
             val tun = root.optJSONObject("tun") ?: JSONObject()
             val ipv6Enabled = root.optBoolean("ipv6", false)
@@ -78,7 +78,7 @@ class KaGoVpnService : VpnService() {
                     .addDnsServer(IPV6_DNS)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setBlocking(false)
-            descriptor = builder.establish() ?: throw IllegalStateException("Android не выдал TUN descriptor.")
+            descriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_no_tun))
 
             val result = MihomoNativeCore.start(
                 this,
@@ -92,21 +92,21 @@ class KaGoVpnService : VpnService() {
             )
             if (result != 0) {
                 val detail = runCatching { MihomoNativeCore.lastError() }.getOrNull().orEmpty()
-                throw IllegalStateException(detail.ifBlank { "Нативное ядро Mihomo вернуло код $result." })
+                throw IllegalStateException(detail.ifBlank { getString(R.string.vpn_core_code, result) })
             }
             // The native ABI contract requires the core to dup(tunFd) before returning success.
             descriptor.close()
             descriptor = null
             coreStarted = true
             isConnected = true
-            updateNotification("KaGo VPN подключён")
+            updateNotification(getString(R.string.vpn_connected))
             KaGoVpnEvents.emit("connected")
         } catch (error: Throwable) {
             runCatching { descriptor?.close() }
             runCatching { MihomoNativeCore.stop() }
             coreStarted = false
             isConnected = false
-            stopTunnel("error", error.message ?: "Не удалось запустить native VPN core.", stopSelfAfter = true)
+            stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopSelfAfter = true)
         }
     }
 

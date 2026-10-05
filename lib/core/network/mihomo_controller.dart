@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/mihomo_models.dart';
+import '../l10n/l10n.dart';
 
 class MihomoController {
   MihomoController(
@@ -61,14 +62,14 @@ class MihomoController {
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment) {
-      throw const FormatException(
-          'Укажите корректный HTTPS или локальный HTTP адрес без userinfo/query/fragment.');
+      throw FormatException(
+          tr('Укажите корректный HTTPS или локальный HTTP адрес без userinfo/query/fragment.'));
     }
     final isLoopback =
         <String>['127.0.0.1', 'localhost'].contains(uri.host.toLowerCase());
     if (uri.scheme == 'http' && !isLoopback) {
-      throw const FormatException(
-          'HTTP разрешён только для localhost; удалённый контроллер должен использовать HTTPS.');
+      throw FormatException(
+          tr('HTTP разрешён только для localhost; удалённый контроллер должен использовать HTTPS.'));
     }
     return normalized;
   }

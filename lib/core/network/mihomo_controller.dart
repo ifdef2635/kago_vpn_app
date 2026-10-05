@@ -24,25 +24,41 @@ class MihomoController {
   Dio? _cachedClient;
   String? _cachedClientKey;
 
+  /// The secret only changes through [ensureSecret]; reading secure storage
+  /// (DPAPI on Windows, Keystore on Android) once a second for the
+  /// connections poll is wasted work.
+  String? _secretCache;
+  bool _secretLoaded = false;
+
+  Future<String?> _secret() async {
+    if (!_secretLoaded) {
+      _secretCache = await _secureStorage.read(key: _secretKey);
+      _secretLoaded = true;
+    }
+    return _secretCache;
+  }
+
   Future<String> get endpoint async {
     final prefs = await SharedPreferences.getInstance();
     return (prefs.getString(_endpointKey) ?? 'http://127.0.0.1:9090')
         .replaceAll(RegExp(r'/+$'), '');
   }
 
-  Future<String?> get configuredSecret => _secureStorage.read(key: _secretKey);
+  Future<String?> get configuredSecret => _secret();
 
   /// The controller secret is never typed by the user: it is generated once,
   /// kept in secure storage and written into the config of the core this app
   /// starts, so other local processes and web pages cannot drive the controller.
   Future<String> ensureSecret() async {
-    final existing = await _secureStorage.read(key: _secretKey);
+    final existing = await _secret();
     if (existing != null && existing.isNotEmpty) return existing;
     final random = Random.secure();
     final secret = base64Url
         .encode(List<int>.generate(32, (_) => random.nextInt(256)))
         .replaceAll('=', '');
     await _secureStorage.write(key: _secretKey, value: secret);
+    _secretCache = secret;
+    _secretLoaded = true;
     return secret;
   }
 
@@ -62,14 +78,14 @@ class MihomoController {
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment) {
-      throw FormatException(
-          tr('Укажите корректный HTTPS или локальный HTTP адрес без userinfo/query/fragment.'));
+      throw FormatException(tr(
+          'Укажите корректный HTTPS или локальный HTTP адрес без userinfo/query/fragment.'));
     }
     final isLoopback =
         <String>['127.0.0.1', 'localhost'].contains(uri.host.toLowerCase());
     if (uri.scheme == 'http' && !isLoopback) {
-      throw FormatException(
-          tr('HTTP разрешён только для localhost; удалённый контроллер должен использовать HTTPS.'));
+      throw FormatException(tr(
+          'HTTP разрешён только для localhost; удалённый контроллер должен использовать HTTPS.'));
     }
     return normalized;
   }
@@ -77,7 +93,7 @@ class MihomoController {
   // Reused between calls: connections are polled every second, and a fresh Dio
   // per request would open a new socket each time.
   Future<Dio> _client() async {
-    final secret = await _secureStorage.read(key: _secretKey);
+    final secret = await _secret();
     final baseUrl = await endpoint;
     final key = '$baseUrl\n${secret ?? ''}';
     final cached = _cachedClient;
@@ -131,9 +147,8 @@ class MihomoController {
         }
       }
     }
-    int rank(ProxyGroup group) => group.name == 'GLOBAL'
-        ? 1 << 30
-        : configOrder[group.name] ?? (1 << 20);
+    int rank(ProxyGroup group) =>
+        group.name == 'GLOBAL' ? 1 << 30 : configOrder[group.name] ?? (1 << 20);
     groups.sort((a, b) {
       final byRank = rank(a).compareTo(rank(b));
       return byRank != 0 ? byRank : a.name.compareTo(b.name);

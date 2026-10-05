@@ -72,8 +72,8 @@ class SubscriptionRepository {
     final metadata = SubscriptionMetadata.parse(
         yaml: normalized, responseHeaders: response.headers.map);
     await const MihomoConfigBuilder().writeConfig(normalized);
-    final fields = parseUserInfo(
-        _header(response.headers.map, 'subscription-userinfo'));
+    final fields =
+        parseUserInfo(_header(response.headers.map, 'subscription-userinfo'));
     final profile = ImportedSubscription(
       name: metadata.serviceName,
       url: uri.toString(),
@@ -140,8 +140,14 @@ class SubscriptionRepository {
             receiveTimeout: const Duration(seconds: 15),
             responseType: ResponseType.plain));
     Map<String, int> fields = const <String, int>{};
-    // HEAD is cheap, but some panels only send the header on GET.
-    for (final method in const <String>['HEAD', 'GET']) {
+    // HEAD is cheap, but some panels only send the header on GET. Remember
+    // which one worked, so a GET-only panel is not asked with HEAD first every
+    // minute; the other method is still tried if the known one stops working.
+    final known = _workingMethod[uri.toString()];
+    final order = known == 'GET'
+        ? const <String>['GET', 'HEAD']
+        : const <String>['HEAD', 'GET'];
+    for (final method in order) {
       try {
         final response = await client.request<String>(uri.toString(),
             options: Options(
@@ -150,7 +156,10 @@ class SubscriptionRepository {
                     status != null && status >= 200 && status < 300));
         fields = parseUserInfo(
             _header(response.headers.map, 'subscription-userinfo'));
-        if (fields.isNotEmpty) break;
+        if (fields.isNotEmpty) {
+          _workingMethod[uri.toString()] = method;
+          break;
+        }
       } on DioException {
         // Try the next method; a failed refresh just keeps the old numbers.
       }
@@ -178,6 +187,9 @@ class SubscriptionRepository {
     return latest();
   }
 
+  /// Subscription URL -> the request method that returned the counters.
+  static final _workingMethod = <String, String>{};
+
   static Uri validateSubscriptionUrl(String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());
     final isLoopback = uri != null &&
@@ -187,8 +199,8 @@ class SubscriptionRepository {
         uri.userInfo.isNotEmpty ||
         uri.hasFragment ||
         (uri.scheme != 'https' && !(uri.scheme == 'http' && isLoopback))) {
-      throw FormatException(
-          tr('Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.'));
+      throw FormatException(tr(
+          'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.'));
     }
     return uri;
   }

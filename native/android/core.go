@@ -120,7 +120,10 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 		}
 	}()
 
+	// Both paths must be absolute: by default Mihomo resolves "config.yaml" against the
+	// process cwd, which is the read-only "/" on Android.
 	mihomo.SetHomeDir(workDir)
+	mihomo.SetConfig(configPath)
 	if err := config.Init(workDir); err != nil {
 		return fmt.Errorf("initialize Mihomo home: %w", err)
 	}

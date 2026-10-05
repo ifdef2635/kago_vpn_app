@@ -45,8 +45,15 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Проверить нативные библиотеки ядра
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: native/android/go.sum
+
+      - name: Собрать ядро Mihomo (JNI, arm64-v8a + x86_64)
         run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          bash tool/build_android_native.sh
           for abi in arm64-v8a x86_64; do
             test -s "android/app/src/main/jniLibs/$abi/libkago_mihomo_bridge.so" \
               || { echo "Нет libkago_mihomo_bridge.so для $abi" >&2; exit 1; }

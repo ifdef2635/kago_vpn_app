@@ -519,4 +519,7 @@ const stringsEn = <String, String>{
   'Все приложения работают через VPN.': 'All apps use the VPN.',
   'Российские сервисы — мимо VPN': 'Russian services — bypass VPN',
   'Поиск приложения': 'Search apps',
+  'Российские сайты — напрямую': 'Russian sites — direct',
+  'Сайты .ru/.рф, Яндекс, VK, банки и Госуслуги открываются без VPN — они часто не работают через VPN или из-за границы':
+      '.ru/.рф sites, Yandex, VK, banks and Gosuslugi open without the VPN — they often do not work through a VPN or from abroad',
 };

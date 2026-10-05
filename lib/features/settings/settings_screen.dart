@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
+import '../../core/network/mihomo_windows_system_proxy.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
@@ -63,10 +65,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _binary = '';
   bool _coreUpdating = false;
   String _windowsCoreStatus = tr('Проверяется…');
+  bool _bypassRussian = false;
 
   @override
   void initState() {
     super.initState();
+    if (Platform.isWindows) {
+      SharedPreferences.getInstance().then((prefs) {
+        if (!mounted) return;
+        setState(() => _bypassRussian =
+            prefs.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ?? false);
+      }).catchError((Object _) {});
+    }
     final manager = ref.read(mihomoProcessProvider);
     ref.read(mihomoControllerProvider).endpoint.then((value) async {
       final binary = await manager.executable;
@@ -179,6 +189,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: tr('Режим подключения'),
                   subtitle: tr(
                       'Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.')),
+            if (Platform.isWindows)
+              _SettingsTile(
+                  icon: Icons.alt_route_rounded,
+                  title: tr('Российские сайты — напрямую'),
+                  subtitle: tr(
+                      'Сайты .ru/.рф, Яндекс, VK, банки и Госуслуги открываются без VPN — они часто не работают через VPN или из-за границы'),
+                  trailing: Switch(
+                      value: _bypassRussian, onChanged: _setBypassRussian),
+                  onTap: () => _setBypassRussian(!_bypassRussian)),
             if (!Platform.isAndroid && !Platform.isWindows)
               _SettingsTile(
                   icon: Icons.terminal_rounded,
@@ -332,6 +351,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           subtitle: tr(
               'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.')),
     ];
+  }
+
+  Future<void> _setBypassRussian(bool value) async {
+    setState(() => _bypassRussian = value);
+    try {
+      await MihomoWindowsSystemProxy().setBypassRussian(value);
+    } catch (error) {
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+    }
   }
 
   void _snack(String text) {

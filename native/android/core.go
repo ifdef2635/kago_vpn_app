@@ -12,16 +12,23 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/config"
 	mihomo "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/dns"
 	"github.com/metacubex/mihomo/hub"
 	"github.com/metacubex/mihomo/hub/executor"
 	"github.com/metacubex/mihomo/hub/route"
 	"github.com/metacubex/mihomo/listener"
+	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
 )
+
+// Upstream resolvers for "system" DNS entries. Built with the `cmfa` tag, Mihomo does not
+// read Android's DNS itself; the TUN DNS (172.19.0.2) would loop back into the tunnel.
+var fallbackSystemDNS = []string{"1.1.1.1:53", "8.8.8.8:53"}
 
 var (
 	lifecycleMu sync.Mutex
@@ -165,6 +172,12 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 	}
 	dialer.DefaultSocketHook = protectOutboundSockets
 
+	dns.UpdateSystemDNS(fallbackSystemDNS)
+
+	// ReCreateTun only logs why the TUN listener failed; keep that reason for the UI.
+	coreErrors := collectCoreErrors()
+	defer coreErrors.stop()
+
 	coreInitialized := false
 	defer func() {
 		if err != nil && coreInitialized {
@@ -178,6 +191,9 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 	listener.ReCreateMixed(cfg.General.MixedPort, tunnel.Tunnel)
 	listener.ReCreateTun(cfg.General.Tun, tunnel.Tunnel)
 	if !listener.GetTunConf().Enable {
+		if reason := coreErrors.last(); reason != "" {
+			return fmt.Errorf("Mihomo could not attach to the Android TUN descriptor: %s", reason)
+		}
 		return errors.New("Mihomo could not attach to the Android TUN descriptor; see core logs")
 	}
 	ownedTunFD = ownedFD
@@ -213,6 +229,41 @@ func stopCoreLocked() int {
 	setNativeProtector(nil)
 	setLastError(nil)
 	return 0
+}
+
+type coreErrorCollector struct {
+	sub  <-chan log.Event
+	done chan struct{}
+	mu   sync.Mutex
+	msg  string
+}
+
+func collectCoreErrors() *coreErrorCollector {
+	c := &coreErrorCollector{sub: log.Subscribe(), done: make(chan struct{})}
+	go func() {
+		defer close(c.done)
+		for event := range c.sub {
+			if event.LogLevel == log.ERROR {
+				c.mu.Lock()
+				c.msg = event.Payload
+				c.mu.Unlock()
+			}
+		}
+	}()
+	return c
+}
+
+// last waits briefly for log delivery (it is asynchronous) and returns the latest error.
+func (c *coreErrorCollector) last() string {
+	time.Sleep(200 * time.Millisecond)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.msg
+}
+
+func (c *coreErrorCollector) stop() {
+	log.UnSubscribe(c.sub)
+	<-c.done
 }
 
 func isCoreRunning() bool { return coreRunning.Load() }

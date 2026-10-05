@@ -52,7 +52,7 @@ build_abi() {
   echo "Building Mihomo $MIHOMO_VERSION for Android $abi..."
   CGO_ENABLED=1 GOOS=android GOARCH="$goarch" CC="$cc" CXX="$cxx" \
     CGO_LDFLAGS="-llog -landroid -lc++_shared" \
-    go build -mod=readonly -buildmode=c-shared \
+    go build -mod=readonly -buildmode=c-shared -tags cmfa \
       -ldflags "-X github.com/metacubex/mihomo/constant.Version=${MIHOMO_VERSION#v} -s -w" \
       -o "$temp_output" .
   mkdir -p "$TEMP_DIR/$abi"

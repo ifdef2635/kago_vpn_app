@@ -2,7 +2,17 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (Android core start fix)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (Android TUN attach fix)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — Android: ядро не подключалось к TUN (версия 0.1.0+1)
+
+Исправлено:
+- **«Mihomo could not attach to the Android TUN descriptor».** Ядро собиралось без build-тега `cmfa` (режим Mihomo для встраивания в Android-приложения). Без него при создании TUN Mihomo читает список пакетов `/data/system/packages.list`, недоступный обычному приложению, и TUN не создаётся. Скрипты `tool/build_android_native.sh` / `.ps1` теперь собирают с `-tags cmfa`. Тег также отключает поиск процесса по соединению и loopback-детектор и включает embed-режим контроллера (запрещены PUT/PATCH `/configs`, `/rules`, restart/upgrade — приложение их не использует).
+- В режиме `cmfa` Mihomo не знает системный DNS Android. DNS-серверы `system` в конфиге теперь идут на `1.1.1.1` и `8.8.8.8` (сокеты защищены `VpnService.protect`, мимо туннеля).
+- Если TUN всё же не поднимется, в ошибке теперь будет настоящая причина из лога ядра вместо «see core logs».
+- `kago_socket_protector_android.c`: добавлен `#include <stddef.h>` (NULL).
+
+Проверено: `go test` адаптера проходит; `go vet` для `GOOS=android` с тегом `cmfa` проходит (на заглушках заголовков, без NDK). Сборка с NDK — в CI, на устройстве ещё не проверено.
 
 ## 2026-10-05 — Android: ядро не запускалось (версия 0.1.0+1)
 

@@ -21,6 +21,8 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
     required this.successSoft,
     required this.heroStart,
     required this.heroEnd,
+    required this.heroAccent,
+    required this.heroBlob,
     required this.heroGlow,
     required this.heroText,
     required this.heroMuted,
@@ -50,48 +52,62 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
   /// The navy subscription card of the personal account.
   final Color heroStart;
   final Color heroEnd;
+
+  /// Where the gradient fades out (the site's `--color-primary-strong`).
+  final Color heroAccent;
+
+  /// The blue glow at the top right and the green one at the bottom.
+  final Color heroBlob;
   final Color heroGlow;
   final Color heroText;
   final Color heroMuted;
 
+  // From the site's globals.css (`:root` and `html[data-theme="dark"]`).
+  // Text colors are slightly darker where the site's value is below WCAG AA.
   static const light = KaGoPalette(
-    brand: Color(0xFF2D5BD0),
-    accent: Color(0xFF2D5BD0),
-    accentSoft: Color(0xFFE6EDFC),
-    canvas: Color(0xFFEEF2F9),
-    surface: Color(0xFFFFFFFF),
-    surfaceRaised: Color(0xFFF4F7FC),
-    border: Color(0xFFE0E6F0),
-    text: Color(0xFF0F1B3D),
-    muted: Color(0xFF56627F),
-    danger: Color(0xFFC9302C),
+    brand: Color(0xFF2B5FD0), // --color-primary
+    accent: Color(0xFF2B5FD0),
+    accentSoft: Color(0xFFE8F0FF), // --color-primary-light
+    canvas: Color(0xFFEDF2FA), // --color-page-bg
+    surface: Color(0xFFFFFFFF), // --color-bg
+    surfaceRaised: Color(0xFFF4F8FE), // --color-surface
+    border: Color(0xFFE2E8F0), // --color-border
+    text: Color(0xFF13203F), // --color-text-h
+    muted: Color(0xFF42526B), // --color-text-body
+    danger: Color(0xFFC62828), // --color-danger #DC2626, darkened for AA
     warning: Color(0xFFA35200),
-    success: Color(0xFF12723A),
-    successSoft: Color(0xFFE5F6EB),
-    heroStart: Color(0xFF1A2D5C),
-    heroEnd: Color(0xFF24448C),
-    heroGlow: Color(0xFF1C7A6E),
+    success: Color(0xFF12723A), // --color-success #15A34A, darkened for AA
+    successSoft: Color(0xFFE7F8EE), // --color-success-bg
+    heroStart: Color(0xFF16223F), // --color-navy
+    heroEnd: Color(0xFF1E2E54), // --color-navy2
+    heroAccent: Color(0xFF1E47A8), // --color-primary-strong
+    heroBlob: Color(0xFF5B8CF5),
+    heroGlow: Color(0xFF22C55E),
     heroText: Color(0xFFFFFFFF),
     heroMuted: Color(0xFFC3CFEA),
   );
 
   static const dark = KaGoPalette(
-    brand: Color(0xFF2D5BD0),
-    accent: Color(0xFF7DA2F2),
-    accentSoft: Color(0xFF1C2A4A),
-    canvas: Color(0xFF0B1220),
-    surface: Color(0xFF131C2E),
-    surfaceRaised: Color(0xFF1A2539),
-    border: Color(0xFF26344D),
-    text: Color(0xFFE8EEFA),
-    muted: Color(0xFF97A5C2),
-    danger: Color(0xFFF27A7A),
+    // White on the site's dark primary (#5B8CF5) is below AA, so filled
+    // buttons keep the light primary; links and icons use the dark one.
+    brand: Color(0xFF2B5FD0),
+    accent: Color(0xFF5B8CF5), // --color-primary
+    accentSoft: Color(0xFF17243F), // --color-primary-light
+    canvas: Color(0xFF080B14), // --color-page-bg
+    surface: Color(0xFF121A2E), // --color-bg
+    surfaceRaised: Color(0xFF16203A), // --color-surface2
+    border: Color(0xFF283452), // --color-border
+    text: Color(0xFFEEF3FB), // --color-text-h
+    muted: Color(0xFF8E9CB8), // --color-text-muted #8493B0, lifted for AA
+    danger: Color(0xFFF87171), // --color-danger
     warning: Color(0xFFF5B544),
-    success: Color(0xFF4ADE80),
-    successSoft: Color(0xFF12301F),
-    heroStart: Color(0xFF16284F),
-    heroEnd: Color(0xFF22408A),
-    heroGlow: Color(0xFF1C7A6E),
+    success: Color(0xFF34D671), // --color-success
+    successSoft: Color(0xFF10271D), // --color-success-bg
+    heroStart: Color(0xFF0C1426), // --color-navy
+    heroEnd: Color(0xFF1B2A4E), // --color-navy2
+    heroAccent: Color(0xFF2B4FA8),
+    heroBlob: Color(0xFF5B8CF5),
+    heroGlow: Color(0xFF22C55E),
     heroText: Color(0xFFFFFFFF),
     heroMuted: Color(0xFFC3CFEA),
   );
@@ -121,6 +137,8 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
     Color? successSoft,
     Color? heroStart,
     Color? heroEnd,
+    Color? heroAccent,
+    Color? heroBlob,
     Color? heroGlow,
     Color? heroText,
     Color? heroMuted,
@@ -141,6 +159,8 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
         successSoft: successSoft ?? this.successSoft,
         heroStart: heroStart ?? this.heroStart,
         heroEnd: heroEnd ?? this.heroEnd,
+        heroAccent: heroAccent ?? this.heroAccent,
+        heroBlob: heroBlob ?? this.heroBlob,
         heroGlow: heroGlow ?? this.heroGlow,
         heroText: heroText ?? this.heroText,
         heroMuted: heroMuted ?? this.heroMuted,
@@ -166,6 +186,8 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
       successSoft: mix(successSoft, other.successSoft),
       heroStart: mix(heroStart, other.heroStart),
       heroEnd: mix(heroEnd, other.heroEnd),
+      heroAccent: mix(heroAccent, other.heroAccent),
+      heroBlob: mix(heroBlob, other.heroBlob),
       heroGlow: mix(heroGlow, other.heroGlow),
       heroText: mix(heroText, other.heroText),
       heroMuted: mix(heroMuted, other.heroMuted),

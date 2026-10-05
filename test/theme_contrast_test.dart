@@ -49,6 +49,6 @@ void main() {
   }
 
   test('the button blue matches usekago.net', () {
-    expect(KaGoPalette.light.brand, const Color(0xFF2D5BD0));
+    expect(KaGoPalette.light.brand, const Color(0xFF2B5FD0));
   });
 }

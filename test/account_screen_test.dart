@@ -15,6 +15,6 @@ void main() {
   });
 
   test('expiry date is written in Russian', () {
-    expect(formatRussianDate(DateTime(2099, 11, 15, 12)), '15 ноября 2099 г.');
+    expect(formatLongDate(DateTime(2099, 11, 15, 12)), '15 ноября 2099 г.');
   });
 }

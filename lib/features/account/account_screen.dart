@@ -83,11 +83,19 @@ class AccountScreen extends ConsumerWidget {
               ErrorPanel(message: '$error', onRetry: () => refreshAccount(ref)),
             ],
             data: (value) => value == null
-                ? <Widget>[
-                    const _LoginCard(),
-                    const SizedBox(height: 16),
-                    const _LocalSubscriptionHero(),
-                  ]
+                ? ref.watch(importedSubscriptionProvider).value == null
+                    ? <Widget>[
+                        const _LoginCard(),
+                        const SizedBox(height: 16),
+                        const _LocalSubscriptionHero(),
+                      ]
+                    // A subscription added by link already works: show it
+                    // first and fold the sign-in form into one line.
+                    : <Widget>[
+                        const _LocalSubscriptionHero(),
+                        const SizedBox(height: 16),
+                        const _LoginCard(collapsed: true),
+                      ]
                 : <Widget>[
                     const _AccountHero(),
                     const SizedBox(height: 16),
@@ -170,7 +178,6 @@ String remainingLabel(DateTime? expiresAt, DateTime now) {
   return tr('{n} дн.', <String, Object?>{'n': days.ceil()});
 }
 
-
 /// Imports [url] as this device's subscription unless it already is.
 Future<void> useOnThisDevice(WidgetRef ref, String url) async {
   final current = await SubscriptionRepository().latest();
@@ -195,7 +202,10 @@ bool _androidVpnOn(WidgetRef ref) =>
 // ─── Sign in / register ────────────────────────────────────────
 
 class _LoginCard extends ConsumerStatefulWidget {
-  const _LoginCard();
+  const _LoginCard({this.collapsed = false});
+
+  /// Start as a one-line "sign in" row that opens the form on tap.
+  final bool collapsed;
   @override
   ConsumerState<_LoginCard> createState() => _LoginCardState();
 }
@@ -207,6 +217,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   bool _register = false;
   bool _busy = false;
   bool _hidden = true;
+  late bool _collapsed = widget.collapsed;
 
   @override
   void dispose() {
@@ -303,6 +314,32 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
+    if (_collapsed) {
+      return SurfaceCard(
+        onTap: () => setState(() => _collapsed = false),
+        child: Row(children: <Widget>[
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+                color: p.accentSoft, borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.person_outline_rounded, color: p.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(tr('Войти в аккаунт KAGO'),
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(tr('Устройства, промокоды и продление — в приложении'),
+                      style: TextStyle(color: p.muted, fontSize: 12)),
+                ]),
+          ),
+          Icon(Icons.chevron_right_rounded, color: p.muted),
+        ]),
+      );
+    }
     return SurfaceCard(
       padding: const EdgeInsets.all(22),
       child: AutofillGroup(

@@ -70,6 +70,22 @@ class MainActivity : FlutterActivity() {
                 }
                 "status" -> result.success(mapOf("state" to if (KaGoVpnService.isConnected) "connected" else "disconnected"))
                 "coreVersion" -> result.success(runCatching { MihomoNativeCore.version() }.getOrNull())
+                "installedApps" -> Thread {
+                    val apps = runCatching { AppRouting.launchableApps(this) }.getOrDefault(emptyList())
+                    runOnUiThread { result.success(apps) }
+                }.start()
+                "getAppRouting" -> {
+                    val (mode, packages) = AppRouting.load(this)
+                    result.success(mapOf("mode" to mode, "packages" to packages.toList()))
+                }
+                "setAppRouting" -> {
+                    AppRouting.save(
+                        this,
+                        call.argument<String>("mode") ?: "off",
+                        call.argument<List<String>>("packages") ?: emptyList(),
+                    )
+                    result.success(true)
+                }
                 "openVpnSettings" -> {
                     // "Always-on VPN" and "Block connections without VPN" (kill switch) are
                     // system settings; an app cannot turn them on itself.

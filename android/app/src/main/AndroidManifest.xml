@@ -43,6 +43,11 @@
     </application>
 
     <queries>
+        <!-- Split tunneling: the list of apps that have a launcher icon. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <!-- url_launcher: open usekago.net and the Telegram bot from the account tab. -->
         <intent>
             <action android:name="android.intent.action.VIEW" />

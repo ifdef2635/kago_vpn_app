@@ -9,6 +9,7 @@ import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
+import 'app_routing_screen.dart';
 import '../../core/l10n/l10n.dart';
 
 /// Refresh rate Flutter currently renders at ("144 Гц"). Updates when the window
@@ -44,7 +45,8 @@ class _RefreshRateLabelState extends State<_RefreshRateLabel>
     final hz = View.of(context).display.refreshRate;
     return Text(
         hz > 0
-            ? tr('{v} Гц · анимации и прокрутка на полной частоте', <String, Object?>{'v': hz.round()})
+            ? tr('{v} Гц · анимации и прокрутка на полной частоте',
+                <String, Object?>{'v': hz.round()})
             : tr('Частота экрана не определена'),
         style: TextStyle(fontSize: 12, color: context.kago.muted));
   }
@@ -74,8 +76,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _endpoint = value;
         _binary = binary ?? '';
         _windowsCoreStatus = core == null
-            ? tr('Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.')
-            : tr('Установлен Mihomo {version}.', <String, Object?>{'version': core.version});
+            ? tr(
+                'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.')
+            : tr('Установлен Mihomo {version}.',
+                <String, Object?>{'version': core.version});
       });
     }).catchError((Object _) {});
   }
@@ -101,14 +105,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     showSelectedIcon: false,
                     segments: <ButtonSegment<ThemeMode>>[
                       ButtonSegment(
-                          value: ThemeMode.system,
-                          label: Text(tr('Авто'))),
+                          value: ThemeMode.system, label: Text(tr('Авто'))),
                       ButtonSegment(
-                          value: ThemeMode.light,
-                          label: Text(tr('Светлая'))),
+                          value: ThemeMode.light, label: Text(tr('Светлая'))),
                       ButtonSegment(
-                          value: ThemeMode.dark,
-                          label: Text(tr('Тёмная'))),
+                          value: ThemeMode.dark, label: Text(tr('Тёмная'))),
                     ],
                     selected: <ThemeMode>{appearance.mode},
                     onSelectionChanged: (value) => ref
@@ -153,6 +154,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitleWidget: const _RefreshRateLabel()),
           ]),
           _SettingsGroup(title: tr('Подключение'), children: <Widget>[
+            if (Platform.isAndroid)
+              _SettingsTile(
+                  icon: Icons.apps_rounded,
+                  title: tr('Приложения и VPN'),
+                  subtitle: tr(
+                      'Раздельное туннелирование: выбрать приложения, которые работают без VPN (Яндекс Музыка, VK, банки)'),
+                  onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => const AppRoutingScreen()))),
             _SettingsTile(
                 icon: Icons.hub_outlined,
                 title: tr('Адрес контроллера'),
@@ -161,14 +171,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _SettingsTile(
                 icon: Icons.vpn_key_outlined,
                 title: tr('Secret контроллера'),
-                subtitle:
-                    tr('Создаётся автоматически и хранится в защищённом хранилище')),
+                subtitle: tr(
+                    'Создаётся автоматически и хранится в защищённом хранилище')),
             if (Platform.isWindows)
               _SettingsTile(
                   icon: Icons.lan_outlined,
                   title: tr('Режим подключения'),
-                  subtitle:
-                      tr('Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.')),
+                  subtitle: tr(
+                      'Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.')),
             if (!Platform.isAndroid && !Platform.isWindows)
               _SettingsTile(
                   icon: Icons.terminal_rounded,
@@ -210,20 +220,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SettingsTile(
             icon: Icons.shield_outlined,
             title: tr('Блокировать интернет без VPN'),
-            subtitle:
-                tr('Kill switch: в системных настройках включите для KaGo VPN «Постоянная VPN» и «Блокировать соединения без VPN»'),
+            subtitle: tr(
+                'Kill switch: в системных настройках включите для KaGo VPN «Постоянная VPN» и «Блокировать соединения без VPN»'),
             trailing: const Icon(Icons.open_in_new_rounded),
             onTap: _openVpnSettings),
         _SettingsTile(
             icon: Icons.dns_outlined,
             title: tr('Защита от утечек'),
-            subtitle:
-                tr('DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля заблокирован, обход VPN приложениями запрещён')),
+            subtitle: tr(
+                'DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля заблокирован, обход VPN приложениями запрещён')),
         _SettingsTile(
             icon: Icons.visibility_off_outlined,
             title: tr('Без локальных прокси-портов'),
-            subtitle:
-                tr('Другие приложения на телефоне не могут через 127.0.0.1 обнаружить VPN и узнать адрес сервера. В логах ядра не сохраняются посещённые сайты.')),
+            subtitle: tr(
+                'Другие приложения на телефоне не могут через 127.0.0.1 обнаружить VPN и узнать адрес сервера. В логах ядра не сохраняются посещённые сайты.')),
       ];
     }
     return <Widget>[
@@ -231,13 +241,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SettingsTile(
             icon: Icons.warning_amber_rounded,
             title: tr('Ограничение режима прокси'),
-            subtitle:
-                tr('Приложения, которые не используют системный прокси Windows, и их DNS-запросы идут мимо VPN.')),
+            subtitle: tr(
+                'Приложения, которые не используют системный прокси Windows, и их DNS-запросы идут мимо VPN.')),
       _SettingsTile(
           icon: Icons.lock_outline_rounded,
           title: tr('Локальный доступ'),
-          subtitle:
-              tr('Прокси и контроллер слушают только 127.0.0.1; подписка не может открыть порты для сети или запустить входящие серверы.')),
+          subtitle: tr(
+              'Прокси и контроллер слушают только 127.0.0.1; подписка не может открыть порты для сети или запустить входящие серверы.')),
     ];
   }
 
@@ -253,8 +263,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       opened = false;
     }
     if (!opened) {
-      _snack(
-          tr('Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».'));
+      _snack(tr(
+          'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».'));
     }
   }
 
@@ -265,7 +275,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             icon: Icons.memory_rounded,
             title: 'Mihomo · Windows x64',
             subtitle: coreRunning
-                ? tr('{windowsCoreStatus} Остановите ядро, чтобы обновить.', <String, Object?>{'windowsCoreStatus': _windowsCoreStatus})
+                ? tr('{windowsCoreStatus} Остановите ядро, чтобы обновить.',
+                    <String, Object?>{'windowsCoreStatus': _windowsCoreStatus})
                 : _windowsCoreStatus,
             trailing: _coreUpdating
                 ? const SizedBox(
@@ -288,16 +299,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SettingsTile(
             icon: Icons.verified_user_outlined,
             title: tr('Проверка и обновление'),
-            subtitle:
-                tr('Автозагрузка с GitHub, проверка SHA-256 при установке и перед запуском, старые версии удаляются автоматически.')),
+            subtitle: tr(
+                'Автозагрузка с GitHub, проверка SHA-256 при установке и перед запуском, старые версии удаляются автоматически.')),
       ];
     }
     if (Platform.isAndroid) {
       final status = androidUpdate?.when(
               data: (value) => value,
               loading: () => tr('Проверка версии встроенного Mihomo…'),
-              error: (error, _) =>
-                  tr('Не удалось проверить upstream release: {error}', <String, Object?>{'error': error})) ??
+              error: (error, _) => tr(
+                  'Не удалось проверить upstream release: {error}',
+                  <String, Object?>{'error': error})) ??
           '';
       return <Widget>[
         _SettingsTile(
@@ -309,16 +321,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SettingsTile(
             icon: Icons.verified_user_outlined,
             title: tr('Обновление ядра'),
-            subtitle:
-                tr('Ядро поставляется внутри подписанного APK/AAB и обновляется вместе с приложением; удалённая подмена .so отключена.')),
+            subtitle: tr(
+                'Ядро поставляется внутри подписанного APK/AAB и обновляется вместе с приложением; удалённая подмена .so отключена.')),
       ];
     }
     return <Widget>[
       _SettingsTile(
           icon: Icons.memory_rounded,
           title: tr('Mihomo · внешний бинарник'),
-          subtitle:
-              tr('На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.')),
+          subtitle: tr(
+              'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.')),
     ];
   }
 
@@ -334,8 +346,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: tr('Адрес контроллера'),
             initial: _endpoint,
             hint: 'http://127.0.0.1:9090',
-            helper:
-                tr('HTTPS или локальный HTTP. Secret создаётся автоматически.')));
+            helper: tr(
+                'HTTPS или локальный HTTP. Secret создаётся автоматически.')));
     if (value == null) return;
     try {
       final controller = ref.read(mihomoControllerProvider);
@@ -347,7 +359,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) setState(() => _endpoint = saved);
       _snack(tr('Адрес контроллера сохранён.'));
     } catch (error) {
-      _snack(tr('Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
     }
   }
 
@@ -365,7 +378,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) setState(() => _binary = value.trim());
       _snack(tr('Путь к Mihomo сохранён.'));
     } catch (error) {
-      _snack(tr('Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
     }
   }
 
@@ -384,7 +398,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           reverse: true,
                           child: SelectableText(
                               manager.recentLogs.isEmpty
-                                  ? tr('Логов пока нет. Они появятся при запуске или загрузке ядра.')
+                                  ? tr(
+                                      'Логов пока нет. Они появятся при запуске или загрузке ядра.')
                                   : manager.recentLogs.join('\n'),
                               style: TextStyle(
                                   fontFamily: 'monospace',
@@ -405,20 +420,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _checkWindowsCore() async {
     setState(() {
       _coreUpdating = true;
-      _windowsCoreStatus = tr('Проверяются и загружаются данные релиза Mihomo…');
+      _windowsCoreStatus =
+          tr('Проверяются и загружаются данные релиза Mihomo…');
     });
     try {
       final install = await ref.read(mihomoProcessProvider).updateCore();
       if (mounted) {
         setState(() => _windowsCoreStatus = install.note == null
-            ? tr('Установлен Mihomo {version}.', <String, Object?>{'version': install.version})
-            : tr('Установлен Mihomo {version}. Проверить обновление не удалось ({note}).', <String, Object?>{'version': install.version, 'note': install.note}));
+            ? tr('Установлен Mihomo {version}.',
+                <String, Object?>{'version': install.version})
+            : tr(
+                'Установлен Mihomo {version}. Проверить обновление не удалось ({note}).',
+                <String, Object?>{
+                    'version': install.version,
+                    'note': install.note
+                  }));
       }
     } catch (error) {
       if (mounted) {
         setState(() => _windowsCoreStatus = error is MihomoCoreNetworkException
             ? error.message
-            : tr('Обновление не выполнено: {error}', <String, Object?>{'error': error}));
+            : tr('Обновление не выполнено: {error}',
+                <String, Object?>{'error': error}));
       }
     } finally {
       if (mounted) setState(() => _coreUpdating = false);

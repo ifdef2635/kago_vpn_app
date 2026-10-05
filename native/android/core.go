@@ -33,7 +33,9 @@ var fallbackSystemDNS = []string{"1.1.1.1:53", "8.8.8.8:53"}
 var (
 	lifecycleMu sync.Mutex
 	coreRunning atomic.Bool
-	ownedTunFD  = -1
+	// coreApplied: hub.ApplyConfig ran, so listeners/controller may be up and
+	// must be torn down even if the start then failed.
+	coreApplied bool
 	lastErrMu   sync.RWMutex
 	lastErr     string
 	protectMu   sync.RWMutex
@@ -120,9 +122,16 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 	if err != nil {
 		return fmt.Errorf("duplicate Android TUN descriptor: %w", err)
 	}
-	keepFD := false
+	var tunStat syscall.Stat_t
+	_ = syscall.Fstat(ownedFD, &tunStat)
+	// Until Mihomo is configured the duplicate is ours to close. Once sing-tun
+	// opens the TUN it wraps the descriptor in an os.File and closes it itself
+	// (listener.Cleanup, or its own error path); closing it again here would
+	// close whatever file reused that number — a socket or the Go runtime's
+	// epoll fd — and crash the process at random later.
+	handedOver := false
 	defer func() {
-		if !keepFD {
+		if err != nil && (!handedOver || stillOurTun(ownedFD, &tunStat)) {
 			_ = syscall.Close(ownedFD)
 		}
 	}()
@@ -188,14 +197,14 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 	coreErrors := collectCoreErrors()
 	defer coreErrors.stop()
 
-	coreInitialized := false
 	defer func() {
-		if err != nil && coreInitialized {
+		if err != nil && coreApplied {
 			stopCoreLocked()
 		}
 	}()
+	handedOver = true
+	coreApplied = true
 	hub.ApplyConfig(cfg)
-	coreInitialized = true
 	listener.SetAllowLan(false)
 	listener.SetBindAddress("127.0.0.1")
 	listener.ReCreateMixed(cfg.General.MixedPort, tunnel.Tunnel)
@@ -206,8 +215,6 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 		}
 		return errors.New("Mihomo could not attach to the Android TUN descriptor; see core logs")
 	}
-	ownedTunFD = ownedFD
-	keepFD = true
 	coreRunning.Store(true)
 	setLastError(nil)
 	return nil
@@ -220,21 +227,18 @@ func stopCore() int {
 }
 
 func stopCoreLocked() int {
-	if !coreRunning.Load() && ownedTunFD < 0 {
+	if !coreRunning.Load() && !coreApplied {
 		dialer.DefaultSocketHook = nil
 		return 0
 	}
+	// Cleanup closes the TUN listener and with it the descriptor it owns; the
+	// descriptor must not be closed a second time here.
 	listener.Cleanup()
 	listener.ReCreateMixed(0, tunnel.Tunnel)
 	route.ReCreateServer(&route.Config{})
 	executor.Shutdown()
 	dialer.DefaultSocketHook = nil
-	if ownedTunFD >= 0 {
-		// ReCreateTun/Cleanup closes the duplicate when the Android tunnel listener owns it.
-		// The descriptor was duplicated before passing it to Mihomo, never borrowed from Java.
-		_ = syscall.Close(ownedTunFD)
-		ownedTunFD = -1
-	}
+	coreApplied = false
 	coreRunning.Store(false)
 	setNativeProtector(nil)
 	setLastError(nil)
@@ -274,6 +278,16 @@ func (c *coreErrorCollector) last() string {
 func (c *coreErrorCollector) stop() {
 	log.UnSubscribe(c.sub)
 	<-c.done
+}
+
+// stillOurTun reports whether fd is still open on the TUN device we duplicated
+// (same device and inode), i.e. sing-tun failed before taking it over.
+func stillOurTun(fd int, want *syscall.Stat_t) bool {
+	var st syscall.Stat_t
+	if err := syscall.Fstat(fd, &st); err != nil {
+		return false
+	}
+	return st.Dev == want.Dev && st.Ino == want.Ino && st.Rdev == want.Rdev
 }
 
 func isCoreRunning() bool { return coreRunning.Load() }

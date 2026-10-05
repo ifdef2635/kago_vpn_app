@@ -77,6 +77,7 @@ class KaGoVpnService : VpnService() {
                     .addRoute("::", 0)
                     .addDnsServer(IPV6_DNS)
             }
+            AppRouting.apply(this, builder)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setBlocking(false)
             descriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_no_tun))
 

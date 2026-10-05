@@ -351,6 +351,12 @@ class KagoApi {
         if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
       });
 
+  /// Telegram OIDC: exchanges the `id_token` from Telegram's login popup for
+  /// a session (same call as the site's `telegramLogin`).
+  Future<void> telegramLogin(String idToken) =>
+      request('POST', '/auth/telegram',
+          body: <String, String>{'id_token': idToken});
+
   Future<void> logout() async {
     try {
       await request('POST', '/auth/logout');

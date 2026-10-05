@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
@@ -20,11 +22,12 @@ enum SiteSessionMode {
 /// usekago.net inside the app (Android WebView / Windows WebView2).
 ///
 /// Telegram sign-in on the site runs Telegram's OIDC library, which opens
-/// oauth.telegram.org in a popup and hands the `id_token` back to the page;
-/// the site then exchanges it for its httpOnly session cookies. A plain
-/// HTTP client cannot do that, so the app shows the real page (popups
-/// included) and afterwards copies the session cookies into [KagoCookieStore].
-/// Pops with `true` when a session was taken over.
+/// oauth.telegram.org in a popup and hands the `id_token` back to the page.
+/// A plain HTTP client cannot get that token, so the app shows the real page
+/// (popups included). In login mode the page's `POST /auth/telegram` is
+/// handed to the app, which makes the call itself and so gets its own
+/// session, just like the email login. Copying the WebView's cookies is only
+/// the fallback. Pops with `true` when the app has a session.
 class SiteSessionScreen extends StatefulWidget {
   const SiteSessionScreen({super.key, required this.mode, required this.api});
   final SiteSessionMode mode;
@@ -59,6 +62,38 @@ class SiteSessionScreen extends StatefulWidget {
   @override
   State<SiteSessionScreen> createState() => _SiteSessionScreenState();
 }
+
+const _telegramHandler = 'kagoTelegramLogin';
+
+/// Runs before the site's own scripts: the page's `fetch` to /auth/telegram
+/// goes to the app instead of the network, and the app's answer becomes the
+/// page's response (so an error shows up on the site as usual).
+const _telegramHook = '''
+(function () {
+  if (window.__kagoTelegramHook) return;
+  window.__kagoTelegramHook = true;
+  var original = window.fetch;
+  window.fetch = function (input, init) {
+    try {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      var path = new URL(url, location.href).pathname;
+      var bridge = window.flutter_inappwebview;
+      if (path === '/api/v1/public/auth/telegram' && init && init.body &&
+          bridge && bridge.callHandler) {
+        return bridge.callHandler('$_telegramHandler', String(init.body))
+          .then(function (answer) {
+            answer = answer || {};
+            return new Response(answer.body || '{}', {
+              status: answer.status || 500,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          });
+      }
+    } catch (e) {}
+    return original.apply(this, arguments);
+  };
+})();
+''';
 
 class _SiteSessionScreenState extends State<SiteSessionScreen> {
   final _cookies = web.CookieManager.instance();
@@ -112,22 +147,61 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
     return found;
   }
 
-  /// Takes the site's session into the app and checks it with /auth/me.
+  /// The page's `POST /auth/telegram` body, done by the app's own client.
+  /// Returns what the page's `fetch` should resolve with.
+  Future<Map<String, Object?>> _telegramFromPage(
+      web.JavaScriptHandlerFunctionData data) async {
+    // Only the site itself may hand over a token.
+    if (!data.origin.host.endsWith('usekago.net') || _finishing) {
+      return <String, Object?>{'status': 409, 'body': '{}'};
+    }
+    _finishing = true;
+    try {
+      final body = jsonDecode('${data.args.isEmpty ? '' : data.args.first}');
+      final token = body is Map<String, dynamic> ? body['id_token'] : null;
+      if (token is! String || token.isEmpty) throw const FormatException();
+      await widget.api.telegramLogin(token);
+      await widget.api.me();
+      if (mounted) Navigator.of(context).pop(true);
+      return <String, Object?>{'status': 200, 'body': '{}'};
+    } catch (error) {
+      _finishing = false;
+      final message = error is KagoApiException
+          ? error.message
+          : tr(
+              'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.');
+      if (mounted) setState(() => _error = message);
+      return <String, Object?>{
+        'status': error is KagoApiException ? (error.status ?? 400) : 400,
+        'body': jsonEncode(<String, String>{'detail': message}),
+      };
+    }
+  }
+
+  /// Fallback: takes the site's session cookies into the app and checks them
+  /// with /auth/me. The WebView may store the cookies a moment after the
+  /// page has moved on, so this tries a few times.
   Future<void> _takeOverSession() async {
     if (_finishing) return;
     _finishing = true;
-    try {
-      final cookies = await _readSiteCookies();
-      if (cookies.isEmpty) throw StateError('no cookies');
-      await widget.api.cookies.replaceAll(cookies);
-      await widget.api.me();
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (_) {
-      _finishing = false;
-      if (mounted) {
-        setState(() => _error = tr(
-            'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.'));
+    for (final delay in const <int>[300, 1000, 2500]) {
+      await Future<void>.delayed(Duration(milliseconds: delay));
+      if (!mounted) return;
+      try {
+        final cookies = await _readSiteCookies();
+        if (cookies.isEmpty) continue;
+        await widget.api.cookies.replaceAll(cookies);
+        await widget.api.me();
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      } catch (_) {
+        // Try again with whatever the WebView holds by then.
       }
+    }
+    _finishing = false;
+    if (mounted) {
+      setState(() => _error = tr(
+          'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.'));
     }
   }
 
@@ -249,6 +323,20 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
               : web.InAppWebView(
                   initialUrlRequest: web.URLRequest(url: web.WebUri(_startUrl)),
                   initialSettings: _settings,
+                  initialUserScripts: login
+                      ? UnmodifiableListView<web.UserScript>(<web.UserScript>[
+                          web.UserScript(
+                              source: _telegramHook,
+                              injectionTime: web
+                                  .UserScriptInjectionTime.AT_DOCUMENT_START),
+                        ])
+                      : null,
+                  onWebViewCreated: (controller) {
+                    if (!login) return;
+                    controller.addJavaScriptHandler(
+                        handlerName: _telegramHandler,
+                        callback: _telegramFromPage);
+                  },
                   onProgressChanged: (_, progress) =>
                       setState(() => _progress = progress / 100),
                   onUpdateVisitedHistory: (_, url, __) => _onUrl(url),

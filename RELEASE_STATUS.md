@@ -2,7 +2,20 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (Android APK via CI)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (Android core start fix)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — Android: ядро не запускалось (версия 0.1.0+1)
+
+Исправлено:
+- **На Android ядро падало при старте** с ошибкой `initialize Mihomo home: can't create file config.yaml: open config.yaml: read-only file system`. Mihomo искал `config.yaml` по относительному пути в текущей папке процесса (`/`, только чтение). Теперь адаптер (`native/android/core.go`) передаёт абсолютный путь конфига (`SetConfig`) вместе с рабочей папкой.
+- Удалён устаревший дубликат `native/android/kago_mihomo_jni.cpp` (старая версия `kago_mihomo_jni_android.cpp` без `lastError`). Он ломал Go-тесты на хосте («C++ source files not allowed») и при сборке под Android давал бы дублирующиеся JNI-символы. Go-тесты адаптера теперь проходят.
+
+Сделано:
+- CI (`android-release.yml`) теперь пересобирает `libkago_mihomo_bridge.so` из исходников (Go 1.24 + NDK раннера) перед сборкой APK, вместо закоммиченных бинарников.
+
+Осталось:
+- Закоммиченные `android/app/src/main/jniLibs/*/libkago_mihomo_bridge.so` ещё старые (с ошибкой): здесь нет NDK. Локальная сборка без `tool/build_android_native.sh` даст APK со старым ядром; APK из CI — с новым.
+- Проверить на устройстве: старт ядра, трафик через VPN.
 
 ## 2026-10-05 — сборка Android release APK (версия 0.1.0+1)
 

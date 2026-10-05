@@ -37,18 +37,7 @@ class DashboardScreen extends ConsumerWidget {
             width > 760 ? 44 : 20, 20, width > 760 ? 44 : 20, 28),
         children: <Widget>[
           Row(children: <Widget>[
-            Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                    color: context.kago.accentSoft,
-                    borderRadius: BorderRadius.circular(15)),
-                child: Center(
-                    child: Text('K',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 26,
-                            color: context.kago.accent)))),
+            const KagoLogo(size: 44),
             const SizedBox(width: 12),
             Expanded(
                 child: Column(

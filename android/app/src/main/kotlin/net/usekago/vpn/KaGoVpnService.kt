@@ -151,7 +151,7 @@ class KaGoVpnService : VpnService() {
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID) else Notification.Builder(this)
         return builder.setContentTitle("KaGo VPN")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setSmallIcon(R.drawable.ic_stat_kago)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .build()

@@ -31,3 +31,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/kago_mark.svg
+    - assets/branding/kago_icon.png

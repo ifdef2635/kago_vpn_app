@@ -496,12 +496,10 @@ const stringsEn = <String, String>{
   'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.':
       'Use HTTPS for an external subscription; HTTP is allowed only on localhost. Links with userinfo/fragment are not allowed.',
   'Язык': 'Language',
-  'Войти в аккаунт KAGO':
-      'Sign in to KAGO',
+  'Войти в аккаунт KAGO': 'Sign in to KAGO',
   'Устройства, промокоды и продление — в приложении':
       'Devices, promo codes and renewal — right in the app',
-  'Приложения и VPN':
-      'Apps and VPN',
+  'Приложения и VPN': 'Apps and VPN',
   'Раздельное туннелирование: выбрать приложения, которые работают без VPN (Яндекс Музыка, VK, банки)':
       'Split tunneling: choose apps that work without the VPN (Yandex Music, VK, banks)',
   'Раздельное туннелирование доступно только на Android.':
@@ -510,22 +508,15 @@ const stringsEn = <String, String>{
       'Saved. Changes apply the next time the VPN connects.',
   'Российские сервисы из списка не установлены.':
       'None of the listed Russian services are installed.',
-  'Добавлено приложений: {n}':
-      'Apps added: {n}',
-  'Все':
-      'All',
-  'Кроме выбранных':
-      'Except selected',
-  'Только выбранные':
-      'Only selected',
+  'Добавлено приложений: {n}': 'Apps added: {n}',
+  'Все': 'All',
+  'Кроме выбранных': 'Except selected',
+  'Только выбранные': 'Only selected',
   'Отмеченные приложения работают напрямую, без VPN. Так работают сервисы, которые не открываются через VPN (Яндекс Музыка, VK, банки).':
       'Checked apps work directly, without the VPN. Use this for services that do not open through a VPN (Yandex Music, VK, banks).',
   'Через VPN идут только отмеченные приложения, остальные — напрямую.':
       'Only checked apps use the VPN; the rest go directly.',
-  'Все приложения работают через VPN.':
-      'All apps use the VPN.',
-  'Российские сервисы — мимо VPN':
-      'Russian services — bypass VPN',
-  'Поиск приложения':
-      'Search apps',
+  'Все приложения работают через VPN.': 'All apps use the VPN.',
+  'Российские сервисы — мимо VPN': 'Russian services — bypass VPN',
+  'Поиск приложения': 'Search apps',
 };

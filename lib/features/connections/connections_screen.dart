@@ -45,7 +45,8 @@ class ConnectionsScreen extends ConsumerWidget {
                 .when(
               loading: () => const LoadingPanel(),
               error: (error, _) => ErrorPanel(
-                  message: tr('Контроллер недоступен: {error}', <String, Object?>{'error': error}),
+                  message: tr('Контроллер недоступен: {error}',
+                      <String, Object?>{'error': error}),
                   onRetry: () => ref.invalidate(connectionsSnapshotProvider)),
               data: (snapshot) => snapshot.connections.isEmpty
                   ? SurfaceCard(
@@ -57,7 +58,8 @@ class ConnectionsScreen extends ConsumerWidget {
                           child: Text(
                               online
                                   ? tr('Активных соединений нет.')
-                                  : tr('Ядро выключено — активных соединений нет.'),
+                                  : tr(
+                                      'Ядро выключено — активных соединений нет.'),
                               style: TextStyle(color: context.kago.muted)))
                     ]))
                   : Column(children: <Widget>[
@@ -73,7 +75,11 @@ class ConnectionsScreen extends ConsumerWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                            content: Text(tr('Ошибка: {error}', <String, Object?>{'error': error}))));
+                                            content: Text(tr(
+                                                'Ошибка: {error}',
+                                                <String, Object?>{
+                                          'error': error
+                                        }))));
                                   }
                                 }
                               },
@@ -92,7 +98,11 @@ class ConnectionsScreen extends ConsumerWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                            content: Text(tr('Ошибка: {error}', <String, Object?>{'error': error}))));
+                                            content: Text(tr(
+                                                'Ошибка: {error}',
+                                                <String, Object?>{
+                                          'error': error
+                                        }))));
                                   }
                                 }
                               }))),

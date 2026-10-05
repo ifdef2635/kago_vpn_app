@@ -1,4 +1,5 @@
 import '../l10n/l10n.dart';
+
 class ProxyNode {
   const ProxyNode({required this.name, required this.type, this.delay});
   final String name;
@@ -56,7 +57,8 @@ class ProxyGroup {
       type: json['type'] as String? ?? 'Proxy',
       nodes: names.map((node) {
         final raw = allProxies[node];
-        return ProxyNode.fromJson(node, raw is Map<String, dynamic> ? raw : null);
+        return ProxyNode.fromJson(
+            node, raw is Map<String, dynamic> ? raw : null);
       }).toList(growable: false),
       selected: json['now'] as String?,
       description: json['description'] as String?,
@@ -122,11 +124,11 @@ class ConnectionsSnapshot {
 
   factory ConnectionsSnapshot.fromJson(Map<String, dynamic> json) =>
       ConnectionsSnapshot(
-        connections: (json['connections'] as List<dynamic>? ??
-                const <dynamic>[])
-            .whereType<Map<String, dynamic>>()
-            .map(ActiveConnection.fromJson)
-            .toList(growable: false),
+        connections:
+            (json['connections'] as List<dynamic>? ?? const <dynamic>[])
+                .whereType<Map<String, dynamic>>()
+                .map(ActiveConnection.fromJson)
+                .toList(growable: false),
         downloadTotal: (json['downloadTotal'] as num?)?.toInt() ?? 0,
         uploadTotal: (json['uploadTotal'] as num?)?.toInt() ?? 0,
       );
@@ -159,7 +161,8 @@ class SubscriptionProfile {
       totalBytes <= 0 ? null : (usedBytes / totalBytes).clamp(0, 1);
 }
 
-String formatSpeed(int bytesPerSecond) => tr('{v}/с', <String, Object?>{'v': formatBytes(bytesPerSecond)});
+String formatSpeed(int bytesPerSecond) =>
+    tr('{v}/с', <String, Object?>{'v': formatBytes(bytesPerSecond)});
 
 String formatBytes(int bytes) {
   if (bytes < 1024) return tr('{bytes} Б', <String, Object?>{'bytes': bytes});

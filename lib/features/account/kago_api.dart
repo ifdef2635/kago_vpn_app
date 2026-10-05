@@ -20,8 +20,7 @@ class KagoApiException implements Exception {
 
 /// The session is gone (logged out, or the refresh token expired).
 class KagoUnauthorized extends KagoApiException {
-  KagoUnauthorized()
-      : super(tr('Сессия истекла. Войдите снова.'), status: 401);
+  KagoUnauthorized() : super(tr('Сессия истекла. Войдите снова.'), status: 401);
 }
 
 class KagoUser {
@@ -301,9 +300,11 @@ class KagoApi {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
-        return tr('usekago.net не отвечает. Проверьте интернет и попробуйте ещё раз.');
+        return tr(
+            'usekago.net не отвечает. Проверьте интернет и попробуйте ещё раз.');
       default:
-        return tr('Нет связи с usekago.net. Проверьте интернет и попробуйте ещё раз.');
+        return tr(
+            'Нет связи с usekago.net. Проверьте интернет и попробуйте ещё раз.');
     }
   }
 
@@ -320,7 +321,8 @@ class KagoApi {
           .join('. ');
       if (messages.isNotEmpty) return messages;
     }
-    return tr('Ошибка сервера (HTTP {status})', <String, Object?>{'status': status});
+    return tr(
+        'Ошибка сервера (HTTP {status})', <String, Object?>{'status': status});
   }
 
   Map<String, dynamic> _map(dynamic json) =>

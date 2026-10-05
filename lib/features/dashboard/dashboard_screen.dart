@@ -71,11 +71,13 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 22),
           version.when(
               data: (value) => _StatusPill(
-                  label: tr('Контроллер Mihomo · {value}', <String, Object?>{'value': value}), active: true),
+                  label: tr('Контроллер Mihomo · {value}',
+                      <String, Object?>{'value': value}),
+                  active: true),
               loading: () =>
                   _StatusPill(label: tr('Проверка Mihomo…'), active: false),
-              error: (_, __) => _StatusPill(
-                  label: tr('Ядро не подключено'), active: false)),
+              error: (_, __) =>
+                  _StatusPill(label: tr('Ядро не подключено'), active: false)),
           if (androidCoreUpdate != null)
             androidCoreUpdate.when(
               data: (status) => Padding(
@@ -103,8 +105,8 @@ class DashboardScreen extends ConsumerWidget {
                     };
                 return _StatusPill(label: label, active: state == 'connected');
               },
-              loading: () => _StatusPill(
-                  label: tr('Android VPN отключён'), active: false),
+              loading: () =>
+                  _StatusPill(label: tr('Android VPN отключён'), active: false),
               error: (_, __) => _StatusPill(
                   label: tr('Android VPN service недоступен'), active: false),
             ),
@@ -135,7 +137,10 @@ class DashboardScreen extends ConsumerWidget {
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                Text(node ?? group?.name ?? tr('Добавьте подписку'),
+                                Text(
+                                    node ??
+                                        group?.name ??
+                                        tr('Добавьте подписку'),
                                     style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700)),
@@ -144,8 +149,13 @@ class DashboardScreen extends ConsumerWidget {
                                     node != null
                                         ? group!.name
                                         : group != null
-                                            ? tr('{length} серверов · выбор доступен после подключения', <String, Object?>{'length': group.nodes.length})
-                                            : tr('Список серверов появится здесь'),
+                                            ? tr(
+                                                '{length} серверов · выбор доступен после подключения',
+                                                <String, Object?>{
+                                                    'length': group.nodes.length
+                                                  })
+                                            : tr(
+                                                'Список серверов появится здесь'),
                                     style: TextStyle(
                                         fontSize: 12,
                                         color: context.kago.muted))
@@ -158,8 +168,10 @@ class DashboardScreen extends ConsumerWidget {
                           const LinearProgressIndicator(minHeight: 2),
                       error: (_, __) => Text(
                           !Platform.isAndroid && !coreRunning
-                              ? tr('Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
-                              : tr('Контроллер недоступен — проверьте адрес в настройках.'),
+                              ? tr(
+                                  'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
+                              : tr(
+                                  'Контроллер недоступен — проверьте адрес в настройках.'),
                           style: TextStyle(color: context.kago.muted)),
                     ),
                     const SizedBox(height: 14),
@@ -280,7 +292,10 @@ class DashboardScreen extends ConsumerWidget {
         ref.read(desktopCoreRunningProvider.notifier).state = manager.isRunning;
         _refreshCoreData(ref);
         if (context.mounted) {
-          _showMessage(context, tr('Не удалось запустить Mihomo: {error}', <String, Object?>{'error': error}));
+          _showMessage(
+              context,
+              tr('Не удалось запустить Mihomo: {error}',
+                  <String, Object?>{'error': error}));
         }
       }
       return;
@@ -328,7 +343,9 @@ class DashboardScreen extends ConsumerWidget {
       } on FileSystemException catch (error) {
         if (context.mounted) {
           _showMessage(
-              context, tr('Не удалось подготовить профиль: {message}', <String, Object?>{'message': error.message}));
+              context,
+              tr('Не удалось подготовить профиль: {message}',
+                  <String, Object?>{'message': error.message}));
         }
       }
       return;
@@ -415,14 +432,25 @@ class DashboardScreen extends ConsumerWidget {
                                 _showMessage(
                                     context,
                                     desktop
-                                        ? tr('Профиль «{name}» сохранён. Встроенный Mihomo загрузится при первом подключении.', <String, Object?>{'name': profile.name})
-                                        : tr('Профиль «{name}» сохранён. При подключении Android использует встроенное native Mihomo ядро.', <String, Object?>{'name': profile.name}));
+                                        ? tr(
+                                            'Профиль «{name}» сохранён. Встроенный Mihomo загрузится при первом подключении.',
+                                            <String, Object?>{
+                                                'name': profile.name
+                                              })
+                                        : tr(
+                                            'Профиль «{name}» сохранён. При подключении Android использует встроенное native Mihomo ядро.',
+                                            <String, Object?>{
+                                                'name': profile.name
+                                              }));
                               } catch (error) {
                                 setDialogState(() => busy = false);
                                 ScaffoldMessenger.of(dialogBuildContext)
                                     .showSnackBar(SnackBar(
-                                        content: Text(
-                                            tr('Не удалось добавить профиль: {error}', <String, Object?>{'error': error}))));
+                                        content: Text(tr(
+                                            'Не удалось добавить профиль: {error}',
+                                            <String, Object?>{
+                                      'error': error
+                                    }))));
                               }
                             },
                       child: busy
@@ -495,10 +523,12 @@ class _SubscriptionCard extends StatelessWidget {
                   profile == null
                       ? tr('Добавьте ссылку, чтобы увидеть трафик и срок')
                       : profile!.totalBytes > 0
-                          ? tr('{used} использовано из {total}', <String, Object?>{
-                              'used': formatBytes(profile!.usedBytes),
-                              'total': formatBytes(profile!.totalBytes)
-                            })
+                          ? tr(
+                              '{used} использовано из {total}',
+                              <String, Object?>{
+                                  'used': formatBytes(profile!.usedBytes),
+                                  'total': formatBytes(profile!.totalBytes)
+                                })
                           : tr('{used} использовано', <String, Object?>{
                               'used': formatBytes(profile!.usedBytes)
                             }),
@@ -544,7 +574,9 @@ String _delayText(
     if (value == null) {
       return tr('Задержка не измерена — проверьте на вкладке «Серверы»');
     }
-    return value > 0 ? tr('Задержка: {value} мс', <String, Object?>{'value': value}) : tr('Узел не отвечает');
+    return value > 0
+        ? tr('Задержка: {value} мс', <String, Object?>{'value': value})
+        : tr('Узел не отвечает');
   }
   return idle;
 }
@@ -650,7 +682,9 @@ class _TrafficMetrics extends ConsumerWidget {
               value: traffic == null ? '—' : formatSpeed(traffic.downloadSpeed),
               caption: traffic == null
                   ? null
-                  : tr('всего {v}', <String, Object?>{'v': formatBytes(traffic.downloadTotal)}))),
+                  : tr('всего {v}', <String, Object?>{
+                      'v': formatBytes(traffic.downloadTotal)
+                    }))),
       const SizedBox(width: 12),
       Expanded(
           child: _MetricCard(
@@ -659,7 +693,9 @@ class _TrafficMetrics extends ConsumerWidget {
               value: traffic == null ? '—' : formatSpeed(traffic.uploadSpeed),
               caption: traffic == null
                   ? null
-                  : tr('всего {v}', <String, Object?>{'v': formatBytes(traffic.uploadTotal)}))),
+                  : tr('всего {v}', <String, Object?>{
+                      'v': formatBytes(traffic.uploadTotal)
+                    }))),
     ]));
   }
 }

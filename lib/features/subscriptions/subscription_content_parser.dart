@@ -20,8 +20,8 @@ class SubscriptionContentParser {
       final links = _parseShareLinks(candidate);
       if (links.isNotEmpty) return jsonEncode(_makeDocument(links));
     }
-    throw FormatException(
-        tr('Ответ не является Clash/Mihomo YAML или поддерживаемым списком ссылок VLESS/VMess/Trojan/SS/Hysteria2/TUIC.'));
+    throw FormatException(tr(
+        'Ответ не является Clash/Mihomo YAML или поддерживаемым списком ссылок VLESS/VMess/Trojan/SS/Hysteria2/TUIC.'));
   }
 
   Iterable<String> _decodedCandidates(String input) sync* {
@@ -197,8 +197,7 @@ class SubscriptionContentParser {
         : _decodeBase64Text(credentials);
     final credentialParts = decodedCredentials.split(':');
     if (credentialParts.length < 2) {
-      throw FormatException(
-          tr('Shadowsocks URI не содержит method/password.'));
+      throw FormatException(tr('Shadowsocks URI не содержит method/password.'));
     }
     final name = fragment == null || fragment.isEmpty
         ? 'SS ${address.host}'

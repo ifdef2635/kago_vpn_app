@@ -100,7 +100,8 @@ tuic://uuid:password@tuic.example:443?congestion_control=bbr&udp_relay_mode=nati
         throwsFormatException);
   });
 
-  test('decodes percent-encoded share-link names (flags, Cyrillic, spaces)', () {
+  test('decodes percent-encoded share-link names (flags, Cyrillic, spaces)',
+      () {
     const name =
         '%F0%9F%87%A9%F0%9F%87%AA%20%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%E2%9A%A1';
     const link =

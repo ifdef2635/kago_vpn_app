@@ -63,8 +63,7 @@ void main() {
     expect(SubscriptionRepository.parseUserInfo(null), isEmpty);
   });
 
-  test('refreshUsage updates the counters from a cheap HEAD request',
-      () async {
+  test('refreshUsage updates the counters from a cheap HEAD request', () async {
     final repository = repositoryWithProfile();
     final adapter = _UserInfoAdapter(<String, String?>{
       'HEAD': 'upload=100; download=200; total=1000; expire=1893456000',

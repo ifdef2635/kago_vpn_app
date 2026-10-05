@@ -82,9 +82,11 @@ class MihomoProcessManager {
     if (!Platform.isWindows) return;
     try {
       final core = await _coreUpdater.ensureInstalled(onLog: _writeLog);
-      _writeLog(tr('Встроенный Mihomo {version} готов.', <String, Object?>{'version': core.version}));
+      _writeLog(tr('Встроенный Mihomo {version} готов.',
+          <String, Object?>{'version': core.version}));
     } catch (error) {
-      _writeLog(tr('Автозагрузка ядра не удалась: {error}', <String, Object?>{'error': error}));
+      _writeLog(tr('Автозагрузка ядра не удалась: {error}',
+          <String, Object?>{'error': error}));
     }
   }
 
@@ -92,7 +94,9 @@ class MihomoProcessManager {
     try {
       await _windowsSystemProxy.restoreIfOwned();
     } catch (error) {
-      _writeLog(tr('Не удалось восстановить сохранённые proxy settings: {error}', <String, Object?>{'error': error}));
+      _writeLog(tr(
+          'Не удалось восстановить сохранённые proxy settings: {error}',
+          <String, Object?>{'error': error}));
     }
   }
 
@@ -114,7 +118,8 @@ class MihomoProcessManager {
     } else if (Platform.isWindows) {
       final core = await _coreUpdater.ensureInstalled(onLog: _writeLog);
       binary = core.executable.path;
-      _writeLog(tr('Запускается встроенный Mihomo {version}.', <String, Object?>{'version': core.version}));
+      _writeLog(tr('Запускается встроенный Mihomo {version}.',
+          <String, Object?>{'version': core.version}));
     } else {
       throw StateError(
           tr('Для этой desktop-платформы укажите путь к Mihomo в настройках.'));
@@ -122,8 +127,10 @@ class MihomoProcessManager {
     if (!await File(binary).exists()) {
       throw FileSystemException(
           usingOverride
-              ? tr('Файл Mihomo из настроек не найден. Исправьте путь или очистите поле, чтобы использовать встроенное ядро')
-              : tr('Встроенный Mihomo не найден на диске. Нажмите «Проверить и установить обновление» в настройках'),
+              ? tr(
+                  'Файл Mihomo из настроек не найден. Исправьте путь или очистите поле, чтобы использовать встроенное ядро')
+              : tr(
+                  'Встроенный Mihomo не найден на диске. Нажмите «Проверить и установить обновление» в настройках'),
           binary);
     }
     if (!await File(configPath).exists()) {
@@ -139,8 +146,8 @@ class MihomoProcessManager {
     if (controllerUri.scheme != 'http' ||
         !<String>['127.0.0.1', 'localhost', '::1']
             .contains(controllerUri.host)) {
-      throw StateError(
-          tr('Desktop core запускается с локальным HTTP controller. Укажите http://127.0.0.1:<port>.'));
+      throw StateError(tr(
+          'Desktop core запускается с локальным HTTP controller. Укажите http://127.0.0.1:<port>.'));
     }
     final configFile = File(configPath);
     final Object? decoded = jsonDecode(await configFile.readAsString());
@@ -184,14 +191,16 @@ class MihomoProcessManager {
         if (Platform.isWindows) unawaited(_windowsSystemProxy.restoreIfOwned());
         if (!_exits.isClosed) _exits.add(code);
       }
-      _writeLog(tr('Mihomo завершился с кодом {code}.', <String, Object?>{'code': code}));
+      _writeLog(tr('Mihomo завершился с кодом {code}.',
+          <String, Object?>{'code': code}));
     }));
 
     Object? lastError;
     for (var attempt = 0; attempt < 12; attempt++) {
       if (!identical(_process, process)) {
-        throw StateError(
-            tr('Mihomo завершился при запуске. Проверьте права и логи.{v}', <String, Object?>{'v': _logTail()}));
+        throw StateError(tr(
+            'Mihomo завершился при запуске. Проверьте права и логи.{v}',
+            <String, Object?>{'v': _logTail()}));
       }
       await Future<void>.delayed(const Duration(milliseconds: 300));
       try {
@@ -199,7 +208,8 @@ class MihomoProcessManager {
         _writeLog(tr('Mihomo controller готов.'));
         if (Platform.isWindows) {
           await _windowsSystemProxy.enable();
-          _writeLog(tr('Системный прокси Windows направлен на 127.0.0.1:7890.'));
+          _writeLog(
+              tr('Системный прокси Windows направлен на 127.0.0.1:7890.'));
         }
         return;
       } catch (error) {
@@ -207,8 +217,9 @@ class MihomoProcessManager {
       }
     }
     await stop();
-    throw StateError(
-        tr('External Controller не стал доступен за 12 секунд: {lastError}{v}', <String, Object?>{'lastError': lastError, 'v': _logTail()}));
+    throw StateError(tr(
+        'External Controller не стал доступен за 12 секунд: {lastError}{v}',
+        <String, Object?>{'lastError': lastError, 'v': _logTail()}));
   }
 
   Future<void> stop() async {

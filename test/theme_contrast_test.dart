@@ -11,31 +11,44 @@ double _contrast(Color a, Color b) {
 }
 
 void main() {
-  test('the logo blue is exactly the KAGO logo color', () {
-    expect(KaGoColors.brand, const Color(0xFF1A4780));
-  });
+  final palettes = <String, KaGoPalette>{
+    'light': KaGoPalette.light,
+    'dark': KaGoPalette.dark,
+    'black': KaGoPalette.black,
+  };
 
-  test('text and icons stay readable (WCAG AA, 4.5:1) on every surface', () {
-    for (final surface in <Color>[
-      KaGoColors.canvas,
-      KaGoColors.surface,
-      KaGoColors.surfaceRaised,
-    ]) {
-      for (final foreground in <Color>[
-        KaGoColors.text,
-        KaGoColors.muted,
-        KaGoColors.accent,
-        KaGoColors.accentSoft,
-        KaGoColors.danger,
-        KaGoColors.warning,
-      ]) {
-        expect(_contrast(foreground, surface), greaterThanOrEqualTo(4.5),
-            reason: '$foreground on $surface');
+  for (final entry in palettes.entries) {
+    final p = entry.value;
+    test('${entry.key}: text and icons are readable (WCAG AA 4.5:1)', () {
+      for (final surface in <Color>[p.canvas, p.surface, p.surfaceRaised]) {
+        for (final foreground in <Color>[
+          p.text,
+          p.muted,
+          p.accent,
+          p.danger,
+          p.warning,
+          p.success,
+        ]) {
+          expect(_contrast(foreground, surface), greaterThanOrEqualTo(4.5),
+              reason: '$foreground on $surface');
+        }
       }
-    }
-  });
+      expect(_contrast(p.accent, p.accentSoft), greaterThanOrEqualTo(4.5),
+          reason: 'accent on its tinted chip');
+      expect(_contrast(p.success, p.successSoft), greaterThanOrEqualTo(4.5),
+          reason: 'success on its pill');
+    });
 
-  test('white on the logo blue (filled buttons) is readable', () {
-    expect(_contrast(Colors.white, KaGoColors.brand), greaterThanOrEqualTo(7));
+    test('${entry.key}: white on filled buttons and the hero card', () {
+      expect(_contrast(Colors.white, p.brand), greaterThanOrEqualTo(4.5));
+      for (final hero in <Color>[p.heroStart, p.heroEnd]) {
+        expect(_contrast(p.heroText, hero), greaterThanOrEqualTo(7));
+        expect(_contrast(p.heroMuted, hero), greaterThanOrEqualTo(4.5));
+      }
+    });
+  }
+
+  test('the button blue matches usekago.net', () {
+    expect(KaGoPalette.light.brand, const Color(0xFF2D5BD0));
   });
 }

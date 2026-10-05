@@ -62,7 +62,7 @@ class ProxiesScreen extends ConsumerWidget {
               online
                   ? 'Выберите активный узел. Данные берутся из ядра Mihomo.'
                   : 'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.',
-              style: const TextStyle(color: KaGoColors.muted, fontSize: 13)),
+              style: TextStyle(color: context.kago.muted, fontSize: 13)),
           const SizedBox(height: 16),
           groupsAsync.when(
             loading: () => const LoadingPanel(),
@@ -72,10 +72,10 @@ class ProxiesScreen extends ConsumerWidget {
             data: (items) {
               final group = _activeGroup(items, selectedName);
               if (group == null) {
-                return const SurfaceCard(
+                return SurfaceCard(
                     child: Text(
                         'Прокси-групп нет. Добавьте профиль и загрузите конфигурацию ядра.',
-                        style: TextStyle(color: KaGoColors.muted)));
+                        style: TextStyle(color: context.kago.muted)));
               }
               final nodes = _sorted(group.nodes, sort, delays);
               return Column(
@@ -102,19 +102,19 @@ class ProxiesScreen extends ConsumerWidget {
                             : group.isSelectable
                                 ? '${group.type} · ${group.nodes.length} шт.'
                                 : '${group.type} · узел выбирается автоматически',
-                        style: const TextStyle(
-                            color: KaGoColors.muted, fontSize: 12)),
+                        style:
+                            TextStyle(color: context.kago.muted, fontSize: 12)),
                     if (group.description != null &&
                         group.description!.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 4),
                       Text(group.description!,
-                          style: const TextStyle(
-                              color: KaGoColors.muted, fontSize: 12)),
+                          style: TextStyle(
+                              color: context.kago.muted, fontSize: 12)),
                     ],
                     const SizedBox(height: 14),
                     if (nodes.isEmpty)
-                      const Text('У этой группы нет доступных узлов.',
-                          style: TextStyle(color: KaGoColors.muted))
+                      Text('У этой группы нет доступных узлов.',
+                          style: TextStyle(color: context.kago.muted))
                     else
                       LayoutBuilder(builder: (context, constraints) {
                         const gap = 10.0;
@@ -169,8 +169,7 @@ List<ProxyNode> _sorted(
     case ProxySort.config:
       return list;
     case ProxySort.name:
-      list.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       return list;
     case ProxySort.delay:
       list.sort((a, b) {
@@ -185,8 +184,8 @@ List<ProxyNode> _sorted(
   }
 }
 
-Future<void> _selectNode(BuildContext context, WidgetRef ref, ProxyGroup group,
-    String node) async {
+Future<void> _selectNode(
+    BuildContext context, WidgetRef ref, ProxyGroup group, String node) async {
   try {
     await ref.read(mihomoControllerProvider).selectProxy(group.name, node);
     ref.invalidate(proxyGroupsProvider);
@@ -247,13 +246,13 @@ class _GroupTab extends StatelessWidget {
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
           color: selected
-              ? KaGoColors.accent.withValues(alpha: .16)
-              : KaGoColors.surfaceRaised,
+              ? context.kago.accent.withValues(alpha: .16)
+              : context.kago.surfaceRaised,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
               color: selected
-                  ? KaGoColors.accent.withValues(alpha: .55)
-                  : KaGoColors.border)),
+                  ? context.kago.accent.withValues(alpha: .55)
+                  : context.kago.border)),
       child: Material(
           type: MaterialType.transparency,
           child: InkWell(
@@ -268,8 +267,8 @@ class _GroupTab extends StatelessWidget {
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: selected
-                              ? KaGoColors.accentSoft
-                              : KaGoColors.muted),
+                              ? context.kago.accent
+                              : context.kago.muted),
                       child: Text(label))))));
 }
 
@@ -295,45 +294,45 @@ class _NodeCard extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 78),
       decoration: BoxDecoration(
           color: selected
-              ? KaGoColors.accent.withValues(alpha: .12)
-              : KaGoColors.surface,
+              ? context.kago.accentSoft
+              : context.kago.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
               color: selected
-                  ? KaGoColors.accent.withValues(alpha: .6)
-                  : KaGoColors.border)),
+                  ? context.kago.accent.withValues(alpha: .6)
+                  : context.kago.border)),
       child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Text(node.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: selected
-                                ? KaGoColors.accentSoft
-                                : KaGoColors.text)),
-                    const SizedBox(height: 8),
-                    Row(children: <Widget>[
-                      Expanded(
-                          child: Text(node.type.toUpperCase(),
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: .4,
-                                  color: KaGoColors.muted))),
-                      _DelayLabel(delay: delay, testing: testing),
-                    ]),
-                  ])))));
+              onTap: enabled ? onTap : null,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Text(node.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: selected
+                                    ? context.kago.accent
+                                    : context.kago.text)),
+                        const SizedBox(height: 8),
+                        Row(children: <Widget>[
+                          Expanded(
+                              child: Text(node.type.toUpperCase(),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      letterSpacing: .4,
+                                      color: context.kago.muted))),
+                          _DelayLabel(delay: delay, testing: testing),
+                        ]),
+                      ])))));
 }
 
 class _DelayLabel extends StatelessWidget {
@@ -351,20 +350,20 @@ class _DelayLabel extends StatelessWidget {
     }
     final value = delay;
     if (value == null) {
-      return const Text('—',
-          style: TextStyle(fontSize: 12, color: KaGoColors.muted));
+      return Text('—',
+          style: TextStyle(fontSize: 12, color: context.kago.muted));
     }
     if (value <= 0) {
-      return const Text('Таймаут',
-          style: TextStyle(fontSize: 12, color: KaGoColors.danger));
+      return Text('Таймаут',
+          style: TextStyle(fontSize: 12, color: context.kago.danger));
     }
     final color = value < 600
-        ? KaGoColors.accent
+        ? context.kago.accent
         : value < 1200
-            ? KaGoColors.warning
-            : KaGoColors.danger;
+            ? context.kago.warning
+            : context.kago.danger;
     return Text('$value мс',
-        style: TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w700, color: color));
+        style:
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color));
   }
 }

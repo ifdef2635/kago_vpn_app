@@ -40,24 +40,24 @@ class DashboardScreen extends ConsumerWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                    color: KaGoColors.accent.withValues(alpha: .13),
+                    color: context.kago.accentSoft,
                     borderRadius: BorderRadius.circular(15)),
-                child: const Center(
+                child: Center(
                     child: Text('K',
                         style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 26,
-                            color: KaGoColors.accent)))),
+                            color: context.kago.accent)))),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                  Text('KaGo VPN',
+                  const Text('KaGo VPN',
                       style:
                           TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
                   Text('Интернет без границ',
-                      style: TextStyle(color: KaGoColors.muted, fontSize: 12))
+                      style: TextStyle(color: context.kago.muted, fontSize: 12))
                 ])),
             IconButton(
                 tooltip: 'Обновить',
@@ -80,8 +80,8 @@ class DashboardScreen extends ConsumerWidget {
               data: (status) => Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(status,
-                      style: const TextStyle(
-                          fontSize: 11, color: KaGoColors.muted))),
+                      style:
+                          TextStyle(fontSize: 11, color: context.kago.muted))),
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
             ),
@@ -111,70 +111,73 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           _SubscriptionCard(
               profile: profile.value,
-              onAdd: () => _showAddSubscription(context, ref)),
+              onAdd: () => showAddSubscription(context, ref)),
           const SizedBox(height: 16),
           SurfaceCard(
               onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                const SectionTitle('Ваш сервер',
-                    trailing:
-                        Icon(Icons.tune_rounded, color: KaGoColors.muted)),
-                const SizedBox(height: 15),
-                groups.when(
-                  data: (items) {
-                    final group = _primaryGroup(items);
-                    final node = group?.selected;
-                    return Row(children: <Widget>[
-                      const Icon(Icons.public_rounded,
-                          size: 34, color: KaGoColors.accent),
-                      const SizedBox(width: 14),
+                    SectionTitle('Ваш сервер',
+                        trailing: Icon(Icons.tune_rounded,
+                            color: context.kago.muted)),
+                    const SizedBox(height: 15),
+                    groups.when(
+                      data: (items) {
+                        final group = _primaryGroup(items);
+                        final node = group?.selected;
+                        return Row(children: <Widget>[
+                          Icon(Icons.public_rounded,
+                              size: 34, color: context.kago.accent),
+                          const SizedBox(width: 14),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                Text(node ?? group?.name ?? 'Добавьте подписку',
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 4),
+                                Text(
+                                    node != null
+                                        ? group!.name
+                                        : group != null
+                                            ? '${group.nodes.length} серверов · выбор доступен после подключения'
+                                            : 'Список серверов появится здесь',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: context.kago.muted))
+                              ])),
+                          Icon(Icons.chevron_right_rounded,
+                              color: context.kago.muted),
+                        ]);
+                      },
+                      loading: () =>
+                          const LinearProgressIndicator(minHeight: 2),
+                      error: (_, __) => Text(
+                          !Platform.isAndroid && !coreRunning
+                              ? 'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.'
+                              : 'Контроллер недоступен — проверьте адрес в настройках.',
+                          style: TextStyle(color: context.kago.muted)),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(children: <Widget>[
+                      Icon(Icons.speed_rounded,
+                          color: context.kago.accent, size: 18),
+                      const SizedBox(width: 7),
                       Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                            Text(node ?? group?.name ?? 'Добавьте подписку',
-                                style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 4),
-                            Text(
-                                node != null
-                                    ? group!.name
-                                    : group != null
-                                        ? '${group.nodes.length} серверов · выбор доступен после подключения'
-                                        : 'Список серверов появится здесь',
-                                style: const TextStyle(
-                                    fontSize: 12, color: KaGoColors.muted))
-                          ])),
-                      const Icon(Icons.chevron_right_rounded,
-                          color: KaGoColors.muted),
-                    ]);
-                  },
-                  loading: () => const LinearProgressIndicator(minHeight: 2),
-                  error: (_, __) => Text(
-                      !Platform.isAndroid && !coreRunning
-                          ? 'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.'
-                          : 'Контроллер недоступен — проверьте адрес в настройках.',
-                      style: const TextStyle(color: KaGoColors.muted)),
-                ),
-                const SizedBox(height: 14),
-                Row(children: <Widget>[
-                  const Icon(Icons.speed_rounded,
-                      color: KaGoColors.accent, size: 18),
-                  const SizedBox(width: 7),
-                  Expanded(
-                      child: Text(
-                          _delayText(
-                              groups.asData?.value,
-                              ref.watch(proxyDelaysProvider),
-                              coreRunning || androidConnected),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: KaGoColors.muted, fontSize: 12)))
-                ]),
-              ])),
+                          child: Text(
+                              _delayText(
+                                  groups.asData?.value,
+                                  ref.watch(proxyDelaysProvider),
+                                  coreRunning || androidConnected),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: context.kago.muted, fontSize: 12)))
+                    ]),
+                  ])),
           const SizedBox(height: 22),
           Center(
               child: Column(children: <Widget>[
@@ -186,31 +189,29 @@ class DashboardScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: KaGoColors.accent.withValues(alpha: .16),
+                              color: context.kago.accent.withValues(alpha: .16),
                               width: 1))),
                   Container(
                       width: 152,
                       height: 152,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: KaGoColors.accent.withValues(alpha: .07),
+                          color: context.kago.accent.withValues(alpha: .07),
                           border: Border.all(
                               color:
-                                  KaGoColors.accent.withValues(alpha: .25)))),
+                                  context.kago.accent.withValues(alpha: .25)))),
                   FilledButton(
                       onPressed: () =>
-                          _tryConnect(context, ref, androidConnected),
+                          toggleVpn(context, ref, androidConnected),
                       style: FilledButton.styleFrom(
                           shape: const CircleBorder(),
                           padding: const EdgeInsets.all(37),
                           backgroundColor: coreRunning || androidConnected
-                              ? KaGoColors.danger
-                              : KaGoColors.brand,
-                          foregroundColor: coreRunning || androidConnected
-                              ? const Color(0xFF200A0A)
-                              : Colors.white,
+                              ? context.kago.danger
+                              : context.kago.brand,
+                          foregroundColor: Colors.white,
                           side: BorderSide(
-                              color: KaGoColors.accent.withValues(alpha: .55),
+                              color: context.kago.accent.withValues(alpha: .55),
                               width: 2)),
                       child: Icon(
                           coreRunning || androidConnected
@@ -230,7 +231,7 @@ class DashboardScreen extends ConsumerWidget {
                 coreRunning || androidConnected
                     ? 'Нажмите, чтобы отключить VPN'
                     : 'Нажмите, чтобы запустить VPN',
-                style: const TextStyle(color: KaGoColors.muted, fontSize: 12)),
+                style: TextStyle(color: context.kago.muted, fontSize: 12)),
           ])),
           const SizedBox(height: 20),
           const SizedBox(height: 16),
@@ -238,20 +239,22 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           _TrafficMetrics(active: coreRunning || androidConnected),
           const SizedBox(height: 18),
-          const Center(
+          Center(
               child: Text('Поддержка: usekago.net',
-                  style: TextStyle(color: KaGoColors.muted, fontSize: 12))),
+                  style: TextStyle(color: context.kago.muted, fontSize: 12))),
         ]);
   }
 
   /// The proxy list and version are cached futures; without this they keep the
   /// old "controller unavailable" error after the core starts or stops.
-  void _refreshCoreData(WidgetRef ref) {
+  static void _refreshCoreData(WidgetRef ref) {
     ref.invalidate(coreVersionProvider);
     ref.invalidate(proxyGroupsProvider);
   }
 
-  Future<void> _tryConnect(
+  /// Starts or stops the VPN (desktop core or Android service). Also used by
+  /// the personal account screen.
+  static Future<void> toggleVpn(
       BuildContext context, WidgetRef ref, bool androidConnected) async {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       final manager = ref.read(mihomoProcessProvider);
@@ -343,7 +346,8 @@ class DashboardScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _showAddSubscription(BuildContext context, WidgetRef ref) async {
+  static Future<void> showAddSubscription(
+      BuildContext context, WidgetRef ref) async {
     final input = TextEditingController();
     var busy = false;
     await showDialog<void>(
@@ -368,10 +372,10 @@ class DashboardScreen extends ConsumerWidget {
                         onPressed: busy
                             ? null
                             : () async {
-                                final value =
-                                    (await Clipboard.getData(Clipboard.kTextPlain))
-                                        ?.text
-                                        ?.trim();
+                                final value = (await Clipboard.getData(
+                                        Clipboard.kTextPlain))
+                                    ?.text
+                                    ?.trim();
                                 if (!dialogContext.mounted) return;
                                 if (value == null || value.isEmpty) {
                                   _showMessage(
@@ -432,7 +436,7 @@ class DashboardScreen extends ConsumerWidget {
     input.dispose();
   }
 
-  void _showMessage(BuildContext context, String value) =>
+  static void _showMessage(BuildContext context, String value) =>
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(value)));
 }
@@ -445,22 +449,22 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
-          color: KaGoColors.surface,
+          color: context.kago.surface,
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: KaGoColors.border)),
+          border: Border.all(color: context.kago.border)),
       child: Row(children: <Widget>[
         Container(
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-                color: active ? KaGoColors.accent : KaGoColors.warning,
+                color: active ? context.kago.accent : context.kago.warning,
                 shape: BoxShape.circle)),
         const SizedBox(width: 8),
         Expanded(
             child: Text(label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: KaGoColors.muted, fontSize: 12)))
+                style: TextStyle(color: context.kago.muted, fontSize: 12)))
       ]));
 }
 
@@ -475,10 +479,9 @@ class _SubscriptionCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-                color: KaGoColors.accent.withValues(alpha: .12),
+                color: context.kago.accentSoft,
                 borderRadius: BorderRadius.circular(14)),
-            child:
-                const Icon(Icons.data_usage_rounded, color: KaGoColors.accent)),
+            child: Icon(Icons.data_usage_rounded, color: context.kago.accent)),
         const SizedBox(width: 12),
         Expanded(
             child: Column(
@@ -491,15 +494,14 @@ class _SubscriptionCard extends StatelessWidget {
                   profile == null
                       ? 'Добавьте ссылку, чтобы увидеть трафик и срок'
                       : '${formatBytes(profile!.usedBytes)} использовано${profile!.totalBytes > 0 ? ' из ${formatBytes(profile!.totalBytes)}' : ''}',
-                  style:
-                      const TextStyle(fontSize: 12, color: KaGoColors.muted)),
+                  style: TextStyle(fontSize: 12, color: context.kago.muted)),
               if (profile?.expiresAt != null)
                 Padding(
                     padding: const EdgeInsets.only(top: 3),
                     child: Text(
                         'Действует до ${profile!.expiresAt!.toLocal().toString().split(' ').first}',
-                        style: const TextStyle(
-                            fontSize: 11, color: KaGoColors.muted))),
+                        style: TextStyle(
+                            fontSize: 11, color: context.kago.muted))),
             ])),
         TextButton(
             onPressed: onAdd,
@@ -529,7 +531,9 @@ String _delayText(
   for (final node in group.nodes) {
     if (node.name != selected) continue;
     final value = measured[node.name] ?? node.delay;
-    if (value == null) return 'Задержка не измерена — проверьте на вкладке «Серверы»';
+    if (value == null) {
+      return 'Задержка не измерена — проверьте на вкладке «Серверы»';
+    }
     return value > 0 ? 'Задержка: $value мс' : 'Узел не отвечает';
   }
   return idle;
@@ -565,40 +569,40 @@ class _IpCard extends ConsumerWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-              color: KaGoColors.accent.withValues(alpha: .12),
+              color: context.kago.accentSoft,
               borderRadius: BorderRadius.circular(14)),
           alignment: Alignment.center,
           child: info != null && info.flag.isNotEmpty && !hidden
               ? Text(info.flag, style: const TextStyle(fontSize: 22))
-              : const Icon(Icons.public_rounded, color: KaGoColors.accent)),
+              : Icon(Icons.public_rounded, color: context.kago.accent)),
       const SizedBox(width: 12),
       Expanded(
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
             Text(title,
-                style: const TextStyle(fontSize: 12, color: KaGoColors.muted)),
+                style: TextStyle(fontSize: 12, color: context.kago.muted)),
             const SizedBox(height: 3),
             SelectableText(address,
                 style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: failed ? KaGoColors.muted : KaGoColors.text)),
+                    color: failed ? context.kago.muted : context.kago.text)),
             if (details.isNotEmpty && !hidden)
               Padding(
                   padding: const EdgeInsets.only(top: 3),
                   child: Text(details,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12, color: KaGoColors.muted))),
+                      style:
+                          TextStyle(fontSize: 12, color: context.kago.muted))),
           ])),
       IconButton(
           tooltip: hidden ? 'Показать IP' : 'Скрыть IP',
           onPressed: () => ref.read(ipHiddenProvider.notifier).state = !hidden,
           icon: Icon(
               hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-              color: KaGoColors.muted)),
+              color: context.kago.muted)),
       loading
           ? const Padding(
               padding: EdgeInsets.all(12),
@@ -609,7 +613,7 @@ class _IpCard extends ConsumerWidget {
           : IconButton(
               tooltip: 'Проверить IP',
               onPressed: () => ref.invalidate(ipInfoProvider),
-              icon: const Icon(Icons.refresh_rounded, color: KaGoColors.muted)),
+              icon: Icon(Icons.refresh_rounded, color: context.kago.muted)),
     ]));
   }
 }
@@ -666,12 +670,12 @@ class _MetricCard extends StatelessWidget {
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Icon(icon, color: KaGoColors.accent, size: 19),
+            Icon(icon, color: context.kago.accent, size: 19),
             const SizedBox(height: 9),
             Text(value,
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             Text(caption == null ? label : '$label · $caption',
-                style: const TextStyle(fontSize: 11, color: KaGoColors.muted))
+                style: TextStyle(fontSize: 11, color: context.kago.muted))
           ]));
 }

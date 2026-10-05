@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/theme/app_widgets.dart';
+import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
 
 /// Refresh rate Flutter currently renders at ("144 Гц"). Updates when the window
@@ -44,7 +45,7 @@ class _RefreshRateLabelState extends State<_RefreshRateLabel>
         hz > 0
             ? '${hz.round()} Гц · анимации и прокрутка на полной частоте'
             : 'Частота экрана не определена',
-        style: const TextStyle(fontSize: 12, color: KaGoColors.muted));
+        style: TextStyle(fontSize: 12, color: context.kago.muted));
   }
 }
 
@@ -81,7 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final coreRunning = ref.watch(desktopCoreRunningProvider);
-    final pureBlack = ref.watch(pureBlackProvider);
+    final appearance = ref.watch(appearanceProvider);
     final androidUpdate =
         Platform.isAndroid ? ref.watch(androidCoreUpdateStatusProvider) : null;
     return ListView(
@@ -91,16 +92,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 18),
           _SettingsGroup(title: 'Внешний вид', children: <Widget>[
             _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Чисто чёрный фон',
-                subtitle: 'Для OLED-дисплеев',
-                trailing: Switch(
-                    value: pureBlack,
-                    activeThumbColor: KaGoColors.accent,
-                    onChanged: (value) =>
-                        ref.read(pureBlackProvider.notifier).state = value),
-                onTap: () =>
-                    ref.read(pureBlackProvider.notifier).state = !pureBlack),
+                icon: Icons.contrast_rounded,
+                title: 'Тема',
+                subtitleWidget: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SegmentedButton<ThemeMode>(
+                    showSelectedIcon: false,
+                    segments: const <ButtonSegment<ThemeMode>>[
+                      ButtonSegment(
+                          value: ThemeMode.system,
+                          label: Text('Авто')),
+                      ButtonSegment(
+                          value: ThemeMode.light,
+                          label: Text('Светлая')),
+                      ButtonSegment(
+                          value: ThemeMode.dark,
+                          label: Text('Тёмная')),
+                    ],
+                    selected: <ThemeMode>{appearance.mode},
+                    onSelectionChanged: (value) => ref
+                        .read(appearanceProvider.notifier)
+                        .setMode(value.first),
+                  ),
+                )),
+            if (appearance.mode != ThemeMode.light)
+              _SettingsTile(
+                  icon: Icons.dark_mode_outlined,
+                  title: 'Чисто чёрный фон',
+                  subtitle: 'Тёмная тема для OLED-дисплеев',
+                  trailing: Switch(
+                      value: appearance.pureBlack,
+                      onChanged: (value) => ref
+                          .read(appearanceProvider.notifier)
+                          .setPureBlack(value)),
+                  onTap: () => ref
+                      .read(appearanceProvider.notifier)
+                      .setPureBlack(!appearance.pureBlack)),
             const _SettingsTile(
                 icon: Icons.speed_rounded,
                 title: 'Частота экрана',
@@ -207,7 +234,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       opened = false;
     }
     if (!opened) {
-      _snack('Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».');
+      _snack(
+          'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».');
     }
   }
 
@@ -226,7 +254,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : Icon(Icons.system_update_alt_rounded,
-                    color: coreRunning ? KaGoColors.muted : KaGoColors.accent),
+                    color:
+                        coreRunning ? context.kago.muted : context.kago.accent),
             onTap: _coreUpdating || coreRunning ? null : _checkWindowsCore),
         _SettingsTile(
             icon: Icons.folder_outlined,
@@ -256,8 +285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             icon: Icons.memory_rounded,
             title: 'Mihomo · Android',
             subtitle: status,
-            trailing:
-                const Icon(Icons.refresh_rounded, color: KaGoColors.accent),
+            trailing: Icon(Icons.refresh_rounded, color: context.kago.accent),
             onTap: () => ref.invalidate(androidCoreUpdateStatusProvider)),
         const _SettingsTile(
             icon: Icons.verified_user_outlined,
@@ -339,10 +367,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               manager.recentLogs.isEmpty
                                   ? 'Логов пока нет. Они появятся при запуске или загрузке ядра.'
                                   : manager.recentLogs.join('\n'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 11,
-                                  color: KaGoColors.muted))))),
+                                  color: context.kago.muted))))),
               actions: <Widget>[
                 TextButton(
                     onPressed: () => Clipboard.setData(
@@ -394,23 +422,25 @@ class _SettingsGroup extends StatelessWidget {
             Padding(
                 padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
                 child: Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         letterSpacing: .3,
-                        color: KaGoColors.accent))),
+                        color: context.kago.accent))),
             Material(
-                color: KaGoColors.surface,
-                borderRadius: BorderRadius.circular(22),
+                color: context.kago.surface,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: context.kago.border)),
                 clipBehavior: Clip.antiAlias,
                 child: Column(children: <Widget>[
                   for (var i = 0; i < children.length; i++) ...<Widget>[
                     if (i > 0)
-                      const Divider(
+                      Divider(
                           height: 1,
                           indent: 68,
                           endIndent: 16,
-                          color: KaGoColors.border),
+                          color: context.kago.border),
                     children[i],
                   ],
                 ])),
@@ -438,7 +468,7 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final end = trailing ??
         (onTap != null
-            ? const Icon(Icons.chevron_right_rounded, color: KaGoColors.muted)
+            ? Icon(Icons.chevron_right_rounded, color: context.kago.muted)
             : null);
     return InkWell(
         onTap: onTap,
@@ -449,9 +479,9 @@ class _SettingsTile extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                      color: KaGoColors.accent.withValues(alpha: .12),
+                      color: context.kago.accentSoft,
                       borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, size: 20, color: KaGoColors.accent)),
+                  child: Icon(icon, size: 20, color: context.kago.accent)),
               const SizedBox(width: 14),
               Expanded(
                   child: Column(
@@ -467,8 +497,9 @@ class _SettingsTile extends StatelessWidget {
                               Text(subtitle!,
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 12, color: KaGoColors.muted))),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.kago.muted))),
                   ])),
               if (end != null)
                 Padding(padding: const EdgeInsets.only(left: 8), child: end),

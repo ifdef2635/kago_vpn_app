@@ -42,6 +42,39 @@ void main() {
     expect(tun['auto-route'], isFalse);
   });
 
+  test('Android config gets Mihomo DNS when the subscription has none',
+      () async {
+    final directory = await Directory.systemTemp.createTemp('kago-dns-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}${Platform.pathSeparator}active.yaml');
+    await file.writeAsString('{"dns":{"enable":false}}');
+
+    await const MihomoConfigBuilder()
+        .prepareAndroidTunnelConfig(file, endpoint: 'http://127.0.0.1:9090');
+
+    final dns = (jsonDecode(await file.readAsString())
+        as Map<String, dynamic>)['dns'] as Map<String, dynamic>;
+    expect(dns['enable'], isTrue);
+    expect(dns['enhanced-mode'], 'fake-ip');
+    expect(dns['nameserver'], isNotEmpty);
+  });
+
+  test('Android config keeps DNS that the subscription enables', () async {
+    final directory = await Directory.systemTemp.createTemp('kago-dns-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}${Platform.pathSeparator}active.yaml');
+    await file.writeAsString(
+        '{"dns":{"enable":true,"nameserver":["https://dns.example/dns-query"]}}');
+
+    await const MihomoConfigBuilder()
+        .prepareAndroidTunnelConfig(file, endpoint: 'http://127.0.0.1:9090');
+
+    final dns = (jsonDecode(await file.readAsString())
+        as Map<String, dynamic>)['dns'] as Map<String, dynamic>;
+    expect(dns['nameserver'], ['https://dns.example/dns-query']);
+    expect(dns.containsKey('enhanced-mode'), isFalse);
+  });
+
   test('rejects non-loopback embedded controller endpoints', () async {
     final directory =
         await Directory.systemTemp.createTemp('kago-controller-test-');

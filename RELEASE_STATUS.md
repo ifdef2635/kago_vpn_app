@@ -2,7 +2,16 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (Android TUN attach fix)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (Android DNS fix)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — Android: VPN подключён, но трафик не работает (версия 0.1.0+1)
+
+Исправлено:
+- **Ядро запускалось, но ничего не открывалось.** Если в подписке нет `dns.enable: true`, встроенный DNS Mihomo выключен. На Android это ломает всё: DNS-запросы из TUN получают SERVFAIL, а сам Mihomo не может разрешить имена серверов прокси (на Android нет `/etc/resolv.conf`). Теперь `prepareAndroidTunnelConfig` включает DNS, если подписка его не включает: `fake-ip` (198.18.0.1/16), DoH `1.1.1.1` / `8.8.8.8`, bootstrap `1.1.1.1`, `8.8.8.8`, IPv6 выкл. DNS, включённый в подписке, не трогается. Так же делают FlClash/CMFA.
+- Тесты: `mihomo_config_builder_test` — DNS добавляется и не перезаписывается. `flutter analyze` — без замечаний, `flutter test` — 61 тест проходит.
+
+Осталось:
+- Проверить на устройстве: открываются ли сайты, какой IP показывает карточка, вкладка «Трафик» (через какой прокси идут соединения).
 
 ## 2026-10-05 — Android: ядро не подключалось к TUN (версия 0.1.0+1)
 

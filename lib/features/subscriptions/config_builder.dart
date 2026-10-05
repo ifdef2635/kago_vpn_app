@@ -83,6 +83,7 @@ class MihomoConfigBuilder {
     // Do not let Mihomo create a second OS TUN or rewrite the routes itself.
     tun['enable'] = false;
     tun['auto-route'] = false;
+    _ensureAndroidDns(decoded);
     _lockToLoopback(decoded);
     decoded['external-controller'] = '${uri.host}:${uri.port}';
     if (secret == null || secret.isEmpty) {
@@ -91,6 +92,34 @@ class MihomoConfigBuilder {
       decoded['secret'] = secret;
     }
     await file.writeAsString(jsonEncode(decoded), flush: true);
+  }
+
+  /// Android has no /etc/resolv.conf, and DNS queries hijacked from the TUN are
+  /// answered only by Mihomo's own DNS. Without `dns.enable` every lookup fails
+  /// (apps and proxy server hostnames alike), so turn it on when the
+  /// subscription does not. A subscription that enables DNS is kept as is.
+  static void _ensureAndroidDns(Map<String, dynamic> config) {
+    final existing = config['dns'];
+    if (existing is Map<String, dynamic> && existing['enable'] == true) return;
+    config['dns'] = <String, dynamic>{
+      'enable': true,
+      'ipv6': false,
+      'enhanced-mode': 'fake-ip',
+      'fake-ip-range': '198.18.0.1/16',
+      'fake-ip-filter': <String>[
+        '*.lan',
+        '+.local',
+        '+.msftconnecttest.com',
+        '+.msftncsi.com',
+        'time.*.com',
+        '+.ntp.org',
+      ],
+      'default-nameserver': <String>['1.1.1.1', '8.8.8.8'],
+      'nameserver': <String>[
+        'https://1.1.1.1/dns-query',
+        'https://8.8.8.8/dns-query',
+      ],
+    };
   }
 
   /// Subscription YAML is untrusted. It must not expose the local proxy or the

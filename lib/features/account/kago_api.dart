@@ -182,6 +182,16 @@ class KagoCookieStore {
 
   Future<bool> get hasSession async => (await _load()).isNotEmpty;
 
+  /// A copy of the stored session cookies (name -> value).
+  Future<Map<String, String>> all() async =>
+      Map<String, String>.of(await _load());
+
+  /// Replaces the session with cookies taken from the in-app site page.
+  Future<void> replaceAll(Map<String, String> cookies) async {
+    _cache = Map<String, String>.of(cookies);
+    await _storage.write(key: _key, value: jsonEncode(_cache));
+  }
+
   Future<void> update(List<String>? setCookies) async {
     if (setCookies == null || setCookies.isEmpty) return;
     final cookies = await _load();

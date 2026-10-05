@@ -30,8 +30,13 @@ android {
         applicationId = "net.usekago.vpn"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+        // Only the ABIs the Mihomo core is built for. `flutter build apk
+        // --split-per-abi` sets its own ABI splits, which Gradle refuses to
+        // combine with ndk.abiFilters.
+        if (!project.hasProperty("split-per-abi")) {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
         }
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

@@ -2,7 +2,22 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (Android DNS fix)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (security hardening)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — безопасность и анонимность (версия 0.1.0+1)
+
+Сделано:
+- **Android: закрыты локальные прокси-порты.** Весь трафик идёт через TUN, поэтому `mixed-port`/`port`/`socks-port`/`redir-port`/`tproxy-port` отключаются (в Dart-конфиге и повторно в Go-адаптере). Открытый порт на 127.0.0.1 — это прокси без пароля для любого приложения на телефоне: по нему можно обнаружить VPN и узнать адрес выхода.
+- **Входящие серверы из подписки запрещены** (Android и Windows): `tuic-server`, `ss-config`, `vmess-config` удаляются из конфига, в Go-адаптере дополнительно выключаются.
+- **Android: логи без истории посещений** — уровень `warning` (уровень `info` пишет каждый домен).
+- **Kill switch (Android):** в «Настройки → Безопасность» кнопка открывает системные настройки VPN, где включаются «Постоянная VPN» и «Блокировать соединения без VPN». Сам приложение их включить не может (ограничение Android).
+- Описание действующей защиты в настройках: DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля блокируется системой (IPv6-маршрут не задан), обход VPN приложениями не разрешён (`allowBypass` не вызывается).
+
+Проверено: `flutter analyze` — без замечаний; `flutter test` — 62 теста; `go test` и `go vet` (android, cmfa) адаптера проходят. На устройстве не проверено.
+
+Осталось:
+- Контроллер Mihomo на Android слушает `127.0.0.1:9090` (с secret). Порт виден другим приложениям; можно перенести на случайный порт.
+- Windows: режим системного прокси — приложения, не использующие прокси, и их DNS идут мимо VPN (нужен TUN/Wintun).
 
 ## 2026-10-05 — Android: VPN подключён, но трафик не работает (версия 0.1.0+1)
 

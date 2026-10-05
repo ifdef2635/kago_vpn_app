@@ -132,6 +132,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       : _binary,
                   onTap: _editBinary),
           ]),
+          _SettingsGroup(title: 'Безопасность', children: _securityTiles()),
           _SettingsGroup(
               title: 'Ядро Mihomo',
               children: _coreTiles(coreRunning, androidUpdate)),
@@ -155,6 +156,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     context: context, applicationName: 'KaGo VPN')),
           ]),
         ]);
+  }
+
+  List<Widget> _securityTiles() {
+    if (Platform.isAndroid) {
+      return <Widget>[
+        _SettingsTile(
+            icon: Icons.shield_outlined,
+            title: 'Блокировать интернет без VPN',
+            subtitle:
+                'Kill switch: в системных настройках включите для KaGo VPN «Постоянная VPN» и «Блокировать соединения без VPN»',
+            trailing: const Icon(Icons.open_in_new_rounded),
+            onTap: _openVpnSettings),
+        const _SettingsTile(
+            icon: Icons.dns_outlined,
+            title: 'Защита от утечек',
+            subtitle:
+                'DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля заблокирован, обход VPN приложениями запрещён'),
+        const _SettingsTile(
+            icon: Icons.visibility_off_outlined,
+            title: 'Без локальных прокси-портов',
+            subtitle:
+                'Другие приложения на телефоне не могут через 127.0.0.1 обнаружить VPN и узнать адрес сервера. В логах ядра не сохраняются посещённые сайты.'),
+      ];
+    }
+    return <Widget>[
+      if (Platform.isWindows)
+        const _SettingsTile(
+            icon: Icons.warning_amber_rounded,
+            title: 'Ограничение режима прокси',
+            subtitle:
+                'Приложения, которые не используют системный прокси Windows, и их DNS-запросы идут мимо VPN.'),
+      const _SettingsTile(
+          icon: Icons.lock_outline_rounded,
+          title: 'Локальный доступ',
+          subtitle:
+              'Прокси и контроллер слушают только 127.0.0.1; подписка не может открыть порты для сети или запустить входящие серверы.'),
+    ];
+  }
+
+  Future<void> _openVpnSettings() async {
+    var opened = false;
+    try {
+      opened = await const MethodChannel('net.usekago.vpn/service')
+              .invokeMethod<bool>('openVpnSettings') ??
+          false;
+    } on MissingPluginException {
+      opened = false;
+    } on PlatformException {
+      opened = false;
+    }
+    if (!opened) {
+      _snack('Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».');
+    }
   }
 
   List<Widget> _coreTiles(bool coreRunning, AsyncValue<String>? androidUpdate) {

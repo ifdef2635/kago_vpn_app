@@ -48,7 +48,7 @@ try {
         $output = Join-Path $abiTemp 'libkago_mihomo_bridge.so'
         New-Item -ItemType Directory -Force -Path $abiTemp | Out-Null
         Write-Host "Building pinned Mihomo v1.19.32 for Android $($target.Abi)..."
-        & go build -mod=readonly -buildmode=c-shared `
+        & go build -mod=readonly -buildmode=c-shared -tags cmfa `
             -ldflags '-X github.com/metacubex/mihomo/constant.Version=1.19.32 -s -w' `
             -o $output .
         if ($LASTEXITCODE -ne 0) { throw "Native Mihomo build failed for $($target.Abi)." }

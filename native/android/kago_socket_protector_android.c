@@ -1,6 +1,7 @@
 #include "kago_socket_protector.h"
 
 #include <stdatomic.h>
+#include <stddef.h>
 
 static _Atomic(kago_socket_protector) g_protector = NULL;
 

@@ -56,6 +56,10 @@ android {
         release {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("kagoRelease")
+            } else if (System.getenv("KAGO_ANDROID_DEBUG_SIGNING") == "true") {
+                // Тестовая сборка (CI без ключа): подпись debug-ключом, чтобы APK можно было установить.
+                // Не для публикации: ключ одноразовый, обновление поверх такой сборки не установится.
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }

@@ -12,6 +12,9 @@ on:
     paths:
       - 'lib/**'
       - 'android/**'
+      - 'native/android/**'
+      - 'native/mihomo/**'
+      - 'tool/build_android_native.sh'
       - 'assets/**'
       - 'test/**'
       - 'pubspec.yaml'

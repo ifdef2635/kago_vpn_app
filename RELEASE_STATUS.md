@@ -21,6 +21,7 @@ _Last updated: 2026-10-05 (Android TUN attach fix)._ This file is updated with e
 - Удалён устаревший дубликат `native/android/kago_mihomo_jni.cpp` (старая версия `kago_mihomo_jni_android.cpp` без `lastError`). Он ломал Go-тесты на хосте («C++ source files not allowed») и при сборке под Android давал бы дублирующиеся JNI-символы. Go-тесты адаптера теперь проходят.
 
 Сделано:
+- CI запускается и при изменениях в `native/android`, `native/mihomo` и `tool/build_android_native.sh` (раньше коммит только с нативным кодом сборку не запускал).
 - CI (`android-release.yml`) теперь пересобирает `libkago_mihomo_bridge.so` из исходников (Go 1.24 + NDK раннера) перед сборкой APK, вместо закоммиченных бинарников.
 
 Осталось:

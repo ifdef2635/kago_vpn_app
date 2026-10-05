@@ -16,6 +16,7 @@ import '../subscriptions/subscription_providers.dart';
 import '../subscriptions/subscription_repository.dart';
 import 'account_providers.dart';
 import 'kago_api.dart';
+import 'site_session_screen.dart';
 
 const _plansUrl = '$kagoSiteUrl/plans';
 const _cabinetUrl = '$kagoSiteUrl/my';
@@ -121,6 +122,7 @@ class AccountScreen extends ConsumerWidget {
 
   static Future<void> _logout(BuildContext context, WidgetRef ref) async {
     await ref.read(kagoApiProvider).logout();
+    await SiteSessionScreen.clearWebSession();
     refreshAccount(ref);
     if (context.mounted) showSnack(context, tr('Вы вышли из аккаунта.'));
   }
@@ -250,24 +252,42 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
       } else {
         await api.login(email, password);
       }
-      // Set up this device right away when it has no subscription yet.
-      final sub = await api.subscription().catchError((Object _) => null);
-      var imported = false;
-      if (sub != null && sub.isActive && sub.url.isNotEmpty) {
-        final local = await SubscriptionRepository().latest();
-        if (local == null) {
-          await useOnThisDevice(ref, sub.url).catchError((Object _) {});
-          imported = true;
-        }
+      await _afterSignIn();
+    } catch (error) {
+      if (mounted) showSnack(context, _errorText(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Sets up this device right away when it has no subscription yet.
+  Future<void> _afterSignIn() async {
+    final api = ref.read(kagoApiProvider);
+    final sub = await api.subscription().catchError((Object _) => null);
+    var imported = false;
+    if (sub != null && sub.isActive && sub.url.isNotEmpty) {
+      final local = await SubscriptionRepository().latest();
+      if (local == null) {
+        await useOnThisDevice(ref, sub.url).catchError((Object _) {});
+        imported = true;
       }
-      refreshAccount(ref);
-      if (mounted) {
-        showSnack(
-            context,
-            imported
-                ? tr('Вы вошли. Подписка добавлена на это устройство.')
-                : tr('Вы вошли в аккаунт.'));
-      }
+    }
+    refreshAccount(ref);
+    if (mounted) {
+      showSnack(
+          context,
+          imported
+              ? tr('Вы вошли. Подписка добавлена на это устройство.')
+              : tr('Вы вошли в аккаунт.'));
+    }
+  }
+
+  Future<void> _telegram() async {
+    setState(() => _busy = true);
+    try {
+      final ok = await SiteSessionScreen.open(context, SiteSessionMode.login,
+          api: ref.read(kagoApiProvider));
+      if (ok) await _afterSignIn();
     } catch (error) {
       if (mounted) showSnack(context, _errorText(error));
     } finally {
@@ -428,11 +448,26 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
               TextButton(
                   onPressed: _busy ? null : _forgot,
                   child: Text(tr('Забыли пароль?'))),
-            const SizedBox(height: 4),
-            Text(
-                tr('Вход через Telegram доступен на сайте. Чтобы входить в приложении, задайте email и пароль в кабинете на usekago.net.'),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: p.muted, fontSize: 12)),
+            if (!_register) ...<Widget>[
+              Row(children: <Widget>[
+                Expanded(child: Divider(color: p.border)),
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(tr('или'),
+                        style: TextStyle(color: p.muted, fontSize: 12))),
+                Expanded(child: Divider(color: p.border)),
+              ]),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                    // Telegram blue, as on usekago.net.
+                    backgroundColor: const Color(0xFF229ED9),
+                    minimumSize: const Size.fromHeight(48)),
+                onPressed: _busy ? null : _telegram,
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: Text(tr('Войти через Telegram')),
+              ),
+            ],
           ],
         ),
       ),
@@ -1338,8 +1373,21 @@ class _ProfileCard extends ConsumerWidget {
           ]),
           if (user.telegramId == null) ...<Widget>[
             const SizedBox(height: 12),
-            Text(tr('Привязать Telegram можно в кабинете на сайте.'),
+            Text(
+                tr('Привяжите Telegram, чтобы входить через бота и в приложении.'),
                 style: TextStyle(color: p.muted, fontSize: 12)),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF229ED9)),
+              onPressed: () async {
+                await SiteSessionScreen.open(context, SiteSessionMode.cabinet,
+                    api: ref.read(kagoApiProvider));
+                refreshAccount(ref);
+              },
+              icon: const Icon(Icons.send_rounded, size: 18),
+              label: Text(tr('Привязать Telegram')),
+            ),
           ],
         ],
       ),

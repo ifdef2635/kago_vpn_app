@@ -164,8 +164,6 @@ const stringsEn = <String, String>{
   'Войти': 'Sign in',
   'Уже есть аккаунт?': 'Already have an account?',
   'Нет аккаунта?': 'No account?',
-  'Вход через Telegram доступен на сайте. Чтобы входить в приложении, задайте email и пароль в кабинете на usekago.net.':
-      'Telegram sign-in is available on the website. To sign in to the app, set an email and password in your account on usekago.net.',
   'Перевыпустить ключ?': 'Re-issue the key?',
   'Старая ссылка перестанет работать. На этом устройстве подписка обновится автоматически, на остальных её нужно добавить заново.':
       'The old link will stop working. On this device the subscription updates automatically; on other devices add it again.',
@@ -238,8 +236,6 @@ const stringsEn = <String, String>{
   'Сменить email': 'Change email',
   'Подтвердить новый email': 'Confirm new email',
   'Подтвердить email': 'Verify email',
-  'Привязать Telegram можно в кабинете на сайте.':
-      'You can link Telegram in your account on the website.',
   'Сохранить': 'Save',
   'Текущий пароль': 'Current password',
   'Новый пароль (мин. 8)': 'New password (min. 8)',
@@ -522,4 +518,18 @@ const stringsEn = <String, String>{
   'Российские сайты — напрямую': 'Russian sites — direct',
   'Сайты .ru/.рф, Яндекс, VK, банки и Госуслуги открываются без VPN — они часто не работают через VPN или из-за границы':
       '.ru/.рф sites, Yandex, VK, banks and Gosuslugi open without the VPN — they often do not work through a VPN or from abroad',
+  'или': 'or',
+  'Войти через Telegram': 'Sign in with Telegram',
+  'Привяжите Telegram, чтобы входить через бота и в приложении.':
+      'Link Telegram to sign in through the bot and in the app.',
+  'Привязать Telegram': 'Link Telegram',
+  'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.':
+      'Could not bring the sign-in into the app. Try again or sign in with email and password.',
+  'Вход через Telegram': 'Telegram sign-in',
+  'Кабинет на сайте': 'Website account',
+  'Готово': 'Done',
+  'Нажмите «Войти через Telegram» и подтвердите вход в Telegram. Окно закроется само.':
+      'Tap “Войти через Telegram” and confirm the sign-in in Telegram. This window closes by itself.',
+  'Здесь можно привязать Telegram к аккаунту. Нажмите «Готово», когда закончите.':
+      'Link Telegram to your account here. Tap “Done” when finished.',
 };

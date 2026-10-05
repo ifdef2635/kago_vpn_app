@@ -24,6 +24,7 @@ class MihomoConfigBuilder {
     _lockToLoopback(config);
     config.putIfAbsent('mode', () => 'rule');
     config.putIfAbsent('log-level', () => 'info');
+    _performanceDefaults(config);
     config['external-controller'] = '127.0.0.1:9090';
     if (secret != null && secret.isNotEmpty) config['secret'] = secret;
     if (enableTun) {
@@ -85,6 +86,7 @@ class MihomoConfigBuilder {
     tun['enable'] = false;
     tun['auto-route'] = false;
     _ensureAndroidDns(decoded);
+    _performanceDefaults(decoded);
     _hardenAndroid(decoded);
     _lockToLoopback(decoded);
     decoded['external-controller'] = '${uri.host}:${uri.port}';
@@ -122,6 +124,15 @@ class MihomoConfigBuilder {
         'https://8.8.8.8/dns-query',
       ],
     };
+  }
+
+  /// Faster connections, unless the subscription says otherwise:
+  /// `tcp-concurrent` dials all resolved IPs of a host at once and keeps the
+  /// first that answers; `unified-delay` measures node latency without the
+  /// TLS/handshake overhead (as FlClash does), so numbers are comparable.
+  static void _performanceDefaults(Map<String, dynamic> config) {
+    config.putIfAbsent('tcp-concurrent', () => true);
+    config.putIfAbsent('unified-delay', () => true);
   }
 
   static const _localProxyPorts = <String>[

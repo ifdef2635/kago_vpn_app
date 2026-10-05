@@ -47,9 +47,11 @@ class ProxiesScreen extends ConsumerWidget {
                     ref.read(proxySortProvider.notifier).state = value,
                 itemBuilder: (_) => <PopupMenuEntry<ProxySort>>[
                       PopupMenuItem(
-                          value: ProxySort.config, child: Text(tr('По порядку'))),
+                          value: ProxySort.config,
+                          child: Text(tr('По порядку'))),
                       PopupMenuItem(
-                          value: ProxySort.delay, child: Text(tr('По задержке'))),
+                          value: ProxySort.delay,
+                          child: Text(tr('По задержке'))),
                       PopupMenuItem(
                           value: ProxySort.name, child: Text(tr('По имени'))),
                     ]),
@@ -62,13 +64,15 @@ class ProxiesScreen extends ConsumerWidget {
           Text(
               online
                   ? tr('Выберите активный узел. Данные берутся из ядра Mihomo.')
-                  : tr('Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.'),
+                  : tr(
+                      'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.'),
               style: TextStyle(color: context.kago.muted, fontSize: 13)),
           const SizedBox(height: 16),
           groupsAsync.when(
             loading: () => const LoadingPanel(),
             error: (error, _) => ErrorPanel(
-                message: tr('Не удалось получить группы прокси: {error}', <String, Object?>{'error': error}),
+                message: tr('Не удалось получить группы прокси: {error}',
+                    <String, Object?>{'error': error}),
                 onRetry: () => ref.invalidate(proxyGroupsProvider)),
             data: (items) {
               final group = _activeGroup(items, selectedName);
@@ -99,10 +103,17 @@ class ProxiesScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Text(
                         !online
-                            ? tr('{type} · {length} шт.', <String, Object?>{'type': group.type, 'length': group.nodes.length})
+                            ? tr('{type} · {length} шт.', <String, Object?>{
+                                'type': group.type,
+                                'length': group.nodes.length
+                              })
                             : group.isSelectable
-                                ? tr('{type} · {length} шт.', <String, Object?>{'type': group.type, 'length': group.nodes.length})
-                                : tr('{type} · узел выбирается автоматически', <String, Object?>{'type': group.type}),
+                                ? tr('{type} · {length} шт.', <String, Object?>{
+                                    'type': group.type,
+                                    'length': group.nodes.length
+                                  })
+                                : tr('{type} · узел выбирается автоматически',
+                                    <String, Object?>{'type': group.type}),
                         style:
                             TextStyle(color: context.kago.muted, fontSize: 12)),
                     if (group.description != null &&
@@ -193,14 +204,16 @@ Future<void> _selectNode(
     ref.invalidate(ipInfoProvider);
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('Не удалось выбрать узел: {error}', <String, Object?>{'error': error}))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Не удалось выбрать узел: {error}',
+              <String, Object?>{'error': error}))));
     }
   }
 }
 
-/// Tests every real node of [group] (not nested groups or REJECT), six at a
-/// time, and publishes results after each batch so cards fill in progressively.
+/// Tests every real node of [group] (not nested groups or REJECT) with eight
+/// parallel workers. Each result is shown as soon as it arrives, and one slow
+/// node (up to the 5 s timeout) no longer holds back the others.
 Future<void> _testGroupDelays(
     BuildContext context, WidgetRef ref, ProxyGroup group) async {
   final controller = ref.read(mihomoControllerProvider);
@@ -212,22 +225,28 @@ Future<void> _testGroupDelays(
   final pending = ref.read(proxyDelayTestingProvider.notifier);
   pending.state = names.toSet();
   try {
-    const batchSize = 6;
-    for (var start = 0; start < names.length; start += batchSize) {
-      final batch = names.skip(start).take(batchSize).toList(growable: false);
-      final results = await Future.wait(batch.map((name) async =>
-          MapEntry<String, int?>(name, await controller.testDelay(name))));
-      final next = Map<String, int>.of(ref.read(proxyDelaysProvider));
-      for (final result in results) {
-        next[result.key] = result.value ?? -1;
+    // Workers take from the end, so reverse to keep the config order.
+    final queue = names.reversed.toList();
+    Future<void> worker() async {
+      while (queue.isNotEmpty) {
+        final name = queue.removeLast();
+        final delay = await controller.testDelay(name);
+        ref.read(proxyDelaysProvider.notifier).state = <String, int>{
+          ...ref.read(proxyDelaysProvider),
+          name: delay ?? -1,
+        };
+        pending.state = <String>{...pending.state}..remove(name);
       }
-      ref.read(proxyDelaysProvider.notifier).state = next;
-      pending.state = pending.state.difference(batch.toSet());
     }
+
+    await Future.wait(<Future<void>>[
+      for (var i = 0; i < 8 && i < names.length; i++) worker(),
+    ]);
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('Не удалось проверить задержку: {error}', <String, Object?>{'error': error}))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Не удалось проверить задержку: {error}',
+              <String, Object?>{'error': error}))));
     }
   } finally {
     pending.state = const <String>{};
@@ -294,9 +313,7 @@ class _NodeCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       constraints: const BoxConstraints(minHeight: 78),
       decoration: BoxDecoration(
-          color: selected
-              ? context.kago.accentSoft
-              : context.kago.surface,
+          color: selected ? context.kago.accentSoft : context.kago.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
               color: selected

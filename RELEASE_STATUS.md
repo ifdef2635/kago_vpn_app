@@ -2,7 +2,18 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-05 (localization)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (optimization)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — оптимизация (версия 0.1.0+1)
+
+Сделано:
+- **Контроллер:** secret Mihomo читается из защищённого хранилища один раз, а не при каждом запросе (опрос соединений раз в секунду делал два чтения DPAPI/Keystore в секунду).
+- **Проверка задержки:** 8 параллельных потоков вместо пачек по 6. Медленный узел (таймаут 5 с) больше не задерживает остальные, результат появляется сразу по готовности.
+- **Счётчики подписки:** запоминается метод (HEAD/GET), которым сервер отдаёт `subscription-userinfo`. Панель, отвечающая только на GET, не получает лишний HEAD каждую минуту; если сработавший метод перестал отдавать счётчики, пробуется второй.
+- **Ядро:** по умолчанию (если подписка не задала) `tcp-concurrent: true` — параллельное подключение ко всем IP хоста, и `unified-delay: true` — задержка без учёта рукопожатия, как во FlClash.
+- **Размер APK:** CI дополнительно собирает APK только для arm64 (почти все телефоны) — примерно вдвое меньше универсального; к артефакту приложен `SHA256SUMS.txt`. Нативное ядро собирается с `-trimpath -buildvcs=false`.
+
+Проверено: `flutter analyze` — без замечаний, `flutter test` — 78 тестов.
 
 ## 2026-10-05 — многоязычность: русский и английский (версия 0.1.0+1)
 

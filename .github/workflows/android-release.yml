@@ -109,11 +109,19 @@ jobs:
         id: dist
         run: |
           VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
-          NAME="KaGoVPN-Android-${VERSION%%+*}-${{ steps.signing.outputs.kind }}.apk"
+          BASE="KaGoVPN-Android-${VERSION%%+*}-${{ steps.signing.outputs.kind }}"
           mkdir -p dist/android
-          cp build/app/outputs/flutter-apk/app-release.apk "dist/android/$NAME"
-          (cd dist/android && sha256sum "$NAME" > "$NAME.sha256")
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          # Universal APK (arm64 + x86_64) for any phone and the emulator.
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/android/$BASE.apk"
+          echo "name=$BASE" >> "$GITHUB_OUTPUT"
+
+      # Почти все телефоны — arm64: отдельный APK без x86_64 примерно вдвое меньше.
+      - name: flutter build apk --split-per-abi (arm64)
+        run: |
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            "dist/android/${{ steps.dist.outputs.name }}-arm64.apk"
+          cd dist/android && sha256sum *.apk > SHA256SUMS.txt && ls -lh
 
       - uses: actions/upload-artifact@v4
         with:

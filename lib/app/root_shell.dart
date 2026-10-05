@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/network/app_providers.dart';
+import '../core/theme/app_widgets.dart';
 import '../core/theme/kago_theme.dart';
 import '../features/account/account_screen.dart';
 import '../features/connections/connections_screen.dart';
@@ -116,18 +117,7 @@ class RootShell extends ConsumerWidget {
 class _BrandMark extends StatelessWidget {
   const _BrandMark();
   @override
-  Widget build(BuildContext context) => Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-            color: context.kago.brand, borderRadius: BorderRadius.circular(14)),
-        child: const Center(
-            child: Text('K',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900))),
-      );
+  Widget build(BuildContext context) => const KagoLogo(size: 42);
 }
 
 /// Fades and slightly lifts the content whenever the selected tab changes. The

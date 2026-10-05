@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Монохромный слой адаптивной иконки (108dp, рисунок в безопасной зоне). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="22.64"
+        android:translateY="22.64"
+        android:scaleX="0.98"
+        android:scaleY="0.98">
+        <path
+            android:pathData="M3,32 C18,8 46,8 61,32 C46,56 18,56 3,32 Z"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineJoin="round" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M32,21 A11,11 0 1,1 31.99,21 Z" />
+        <path
+            android:pathData="M49,5 L15,59"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

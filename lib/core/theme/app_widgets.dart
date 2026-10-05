@@ -77,3 +77,18 @@ class LoadingPanel extends StatelessWidget {
       child: Padding(
           padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
 }
+
+/// The KAGO logo (the eye from usekago.net) — the same picture as the app icon.
+class KagoLogo extends StatelessWidget {
+  const KagoLogo({super.key, this.size = 44});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+        'assets/branding/kago_icon.png',
+        width: size,
+        height: size,
+        filterQuality: FilterQuality.medium,
+        semanticLabel: 'KAGO',
+      );
+}

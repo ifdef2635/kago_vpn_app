@@ -153,6 +153,16 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 	cfg.General.Tun.Inet4Address = addresses.ipv4
 	cfg.General.Tun.Inet6Address = addresses.ipv6
 	cfg.General.AllowLan = false
+	// Traffic enters only through the TUN. No local proxy ports (any app on the phone
+	// could use them to detect the VPN and its exit address) and no inbound servers.
+	cfg.General.Port = 0
+	cfg.General.SocksPort = 0
+	cfg.General.RedirPort = 0
+	cfg.General.TProxyPort = 0
+	cfg.General.MixedPort = 0
+	cfg.General.TuicServer.Enable = false
+	cfg.General.ShadowSocksConfig = ""
+	cfg.General.VmessConfig = ""
 
 	// The app controls the API endpoint; reject any subscription-supplied remote controller.
 	controllerHost, _, splitErr := net.SplitHostPort(cfg.Controller.ExternalController)

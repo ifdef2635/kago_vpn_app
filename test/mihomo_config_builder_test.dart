@@ -59,6 +59,24 @@ void main() {
     expect(dns['nameserver'], isNotEmpty);
   });
 
+  test('Android config closes local proxy ports and verbose logs', () async {
+    final directory = await Directory.systemTemp.createTemp('kago-hard-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}${Platform.pathSeparator}active.yaml');
+    await file.writeAsString(
+        '{"mixed-port":7890,"port":7891,"socks-port":7892,"log-level":"debug"}');
+
+    await const MihomoConfigBuilder()
+        .prepareAndroidTunnelConfig(file, endpoint: 'http://127.0.0.1:9090');
+
+    final result =
+        jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(result['mixed-port'], 0);
+    expect(result.containsKey('port'), isFalse);
+    expect(result.containsKey('socks-port'), isFalse);
+    expect(result['log-level'], 'warning');
+  });
+
   test('Android config keeps DNS that the subscription enables', () async {
     final directory = await Directory.systemTemp.createTemp('kago-dns-test-');
     addTearDown(() => directory.delete(recursive: true));

@@ -84,6 +84,7 @@ class MihomoConfigBuilder {
     tun['enable'] = false;
     tun['auto-route'] = false;
     _ensureAndroidDns(decoded);
+    _hardenAndroid(decoded);
     _lockToLoopback(decoded);
     decoded['external-controller'] = '${uri.host}:${uri.port}';
     if (secret == null || secret.isEmpty) {
@@ -122,6 +123,27 @@ class MihomoConfigBuilder {
     };
   }
 
+  static const _localProxyPorts = <String>[
+    'port',
+    'socks-port',
+    'redir-port',
+    'tproxy-port',
+  ];
+
+  /// On Android all traffic goes through the VpnService TUN, so the local
+  /// HTTP/SOCKS ports are not needed. Left open they are an unauthenticated
+  /// proxy for every app on the phone: any app could find the port on
+  /// 127.0.0.1, see that a VPN is running and learn the VPN exit address.
+  /// `info` logs list every visited domain; keep only warnings and errors.
+  static void _hardenAndroid(Map<String, dynamic> config) {
+    config['mixed-port'] = 0;
+    for (final key in _localProxyPorts) {
+      config.remove(key);
+    }
+    final level = config['log-level'];
+    if (level != 'error' && level != 'silent') config['log-level'] = 'warning';
+  }
+
   /// Subscription YAML is untrusted. It must not expose the local proxy or the
   /// controller to other machines, start extra listeners, or make the core
   /// download/serve an external web UI.
@@ -140,6 +162,10 @@ class MihomoConfigBuilder {
     'external-controller-pipe',
     'external-controller-cors',
     'tls',
+    // Inbound servers: a subscription must not make the core accept connections.
+    'tuic-server',
+    'ss-config',
+    'vmess-config',
   ];
 
   static void _lockToLoopback(Map<String, dynamic> config) {

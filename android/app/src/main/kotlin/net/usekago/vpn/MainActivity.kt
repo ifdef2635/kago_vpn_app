@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -69,6 +70,14 @@ class MainActivity : FlutterActivity() {
                 }
                 "status" -> result.success(mapOf("state" to if (KaGoVpnService.isConnected) "connected" else "disconnected"))
                 "coreVersion" -> result.success(runCatching { MihomoNativeCore.version() }.getOrNull())
+                "openVpnSettings" -> {
+                    // "Always-on VPN" and "Block connections without VPN" (kill switch) are
+                    // system settings; an app cannot turn them on itself.
+                    val opened = runCatching {
+                        startActivity(Intent(Settings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }.isSuccess
+                    result.success(opened)
+                }
                 else -> result.notImplemented()
             }
         }

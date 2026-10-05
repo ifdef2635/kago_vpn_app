@@ -16,6 +16,33 @@ class MihomoWindowsSystemProxy {
   static const proxyServer =
       'http=127.0.0.1:7890;https=127.0.0.1:7890;socks=127.0.0.1:7890';
   static const proxyBypass = 'localhost;127.0.0.1;[::1]';
+
+  /// Russian sites that refuse to work through a VPN or outside Russia
+  /// (Yandex, VK, banks, Gosuslugi, marketplaces). With "Russian sites
+  /// directly" on, apps that use the system proxy reach them without it —
+  /// the Windows counterpart of the Android per-app bypass.
+  static const russianBypass = <String>[
+    '*.ru',
+    '*.su',
+    '*.xn--p1ai', // .рф
+    '*.yandex.com',
+    '*.yandex.net',
+    '*.yastatic.net',
+    '*.vk.com',
+    '*.vk.me',
+    '*.userapi.com',
+    '*.vkuser.net',
+    '*.mycdn.me',
+    '*.okcdn.ru',
+    '*.wbstatic.net',
+    '*.ozone.ru',
+  ];
+  static const bypassRussianKey = 'kago.windows.bypassRussian';
+
+  /// The ProxyOverride value for the current setting.
+  static String overrideFor({required bool bypassRussian}) => bypassRussian
+      ? <String>[proxyBypass, ...russianBypass].join(';')
+      : proxyBypass;
   static const _backupKey = 'mihomo.windows.proxy.backup.v1';
   static const _ownedProxyKey = 'mihomo.windows.proxy.owned.v1';
 
@@ -28,13 +55,35 @@ class MihomoWindowsSystemProxy {
     await preferences.setString(_backupKey, jsonEncode(snapshot));
     await preferences.setString(_ownedProxyKey, proxyServer);
 
+    final bypassRussian = preferences.getBool(bypassRussianKey) ?? false;
     final key = _openRegistryKey();
     try {
       key.createValue(const RegistryValue.int32('ProxyEnable', 1));
       key.createValue(const RegistryValue.string('ProxyServer', proxyServer));
-      key.createValue(const RegistryValue.string('ProxyOverride', proxyBypass));
+      key.createValue(RegistryValue.string(
+          'ProxyOverride', overrideFor(bypassRussian: bypassRussian)));
       // A static proxy should not be shadowed by a subscription/PAC URL.
       key.createValue(const RegistryValue.string('AutoConfigURL', ''));
+    } finally {
+      key.close();
+    }
+    _refreshWinInet();
+  }
+
+  /// Saves the "Russian sites directly" choice and, while the KaGo proxy is
+  /// active, applies it right away.
+  Future<void> setBypassRussian(bool value) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(bypassRussianKey, value);
+    if (!Platform.isWindows) return;
+    final current = _readSnapshot();
+    final owned = current['ProxyEnable'] == 1 &&
+        current['ProxyServer'] == preferences.getString(_ownedProxyKey);
+    if (!owned) return;
+    final key = _openRegistryKey();
+    try {
+      key.createValue(RegistryValue.string(
+          'ProxyOverride', overrideFor(bypassRussian: value)));
     } finally {
       key.close();
     }

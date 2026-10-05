@@ -23,6 +23,7 @@ VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) �
 ### Windows x64
 
 - Ядро скачивается и обновляется автоматически (сборка compatible, ZIP, `v1.19.32`) в `%APPDATA%\KaGo\core`, с проверкой SHA-256; при недоступном `api.github.com` — запасная загрузка с `github.com`.
+- «Российские сайты — напрямую» (Настройки → Подключение): `.ru`/`.рф`, Яндекс, VK, банки и Госуслуги добавляются в исключения системного прокси и открываются без VPN.
 - Подключение через обратимый системный прокси Windows (`127.0.0.1:7890`). Это **не** полноценный TUN: приложения, которые не используют системный прокси, идут мимо VPN.
 
 ## Сборка Android
@@ -53,6 +54,12 @@ Windows PowerShell:
 Скрипт собирает ядро Mihomo `v1.19.32` для обоих ABI, запускает `flutter analyze` и `flutter test`, собирает AAB/APK и копирует их в `dist/android/`. Ключ подписи читается только из переменных окружения `KAGO_ANDROID_KEYSTORE`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`; без них сборка не подписана. Создать ключ можно скриптом `tool/create_android_upload_key.ps1`. Храните ключ вне репозитория, сделайте резервную копию и не пересылайте ключ и пароли в чатах.
 
 ## Сборка Windows
+
+### В GitHub Actions (рекомендуется)
+
+Workflow `.github/workflows/windows-release.yml` (раннер `windows-latest`) запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он выполняет `tool/build_windows_release.ps1` (формат, analyze, тесты, `flutter build windows --release`, ZIP), собирает установщик Inno Setup (`windows/installer/kago_vpn.iss`) и выкладывает в **Artifacts**: `KaGoVPN-Windows-x64-Setup-<версия>.exe`, переносной `KaGoVPN-Windows-x64-<версия>.zip` и `SHA256SUMS.txt`. Установщик ставит приложение для текущего пользователя без прав администратора (`%LOCALAPPDATA%\Programs\KaGo VPN`), создаёт ярлыки и деинсталлятор.
+
+### Локально
 
 На Windows с Flutter stable и Visual Studio 2022 (компонент **Desktop development with C++**):
 

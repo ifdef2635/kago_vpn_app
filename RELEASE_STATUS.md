@@ -2,7 +2,22 @@
 
 **Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
 
-_Last updated: 2026-10-03 (third change set)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Last updated: 2026-10-05 (Android APK via CI)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+
+## 2026-10-05 — сборка Android release APK (версия 0.1.0+1)
+
+Сделано:
+- Новый workflow `.github/workflows/android-release.yml` (GitHub Actions, Flutter 3.47.5, Java 17): `pub get` → `analyze` → `test` → `flutter build apk --release` (arm64-v8a, x86_64) → проверка подписи (`apksigner`) и наличия `libkago_mihomo_bridge.so` → артефакт `KaGoVPN-Android-<версия>-<release|debugsigned>.apk` + `.sha256`. Запуск: вручную (workflow_dispatch, после попадания файла в `main`), push в `claude/**`, `feat/**`, `fix/**`, тег `v*` (тег дополнительно создаёт GitHub Release).
+- Подпись: если заданы секреты `KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD` — ключом владельца. Иначе — одноразовым debug-ключом (`KAGO_ANDROID_DEBUG_SIGNING=true` в `android/app/build.gradle.kts`): APK устанавливается для тестов, но **не для публикации**, и следующая такая сборка не встанет поверх как обновление. Локальные сборки без этой переменной не изменились.
+- Нативное ядро в CI не пересобирается: используются закоммиченные `jniLibs` (Mihomo v1.19.32).
+
+Исправлено:
+- Предупреждение `flutter analyze` (неиспользуемый `dart:async` в `lib/app/root_shell.dart`), из-за которого CI падал бы.
+- Проверено в этой сессии (Linux, Flutter 3.47.5): `flutter analyze` — без замечаний; `flutter test` — все 59 тестов проходят. Это закрывает пункт «not analyzed / not tested» для изменений от 2026-10-03.
+
+Осталось:
+- Сам APK в этой сессии не собран: сетевая политика окружения блокирует `dl.google.com` (Android SDK). Сборка выполняется в GitHub Actions; результат первого запуска workflow ещё не проверен.
+- Добавить секреты ключа подписи в репозиторий для настоящего релиза; тесты на устройстве (см. ниже) по-прежнему нужны.
 
 ## Implemented and verified in source
 

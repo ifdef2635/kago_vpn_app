@@ -1,27 +1,41 @@
-# Android embedded Mihomo bridge
+# Встроенный мост Mihomo для Android
 
-The Android build uses the official Mihomo Go module pinned to `v1.19.32` (the same stable version discovered by the Windows updater). `go.mod` replaces the module with the pinned source under `native/mihomo`; the source pin and module-proxy checksum are recorded in `native/CORE_PIN.md`.
+Android-сборка использует официальный Go-модуль Mihomo, закреплённый на `v1.19.32` (та же стабильная версия, что и у обновления ядра на Windows). `go.mod` подменяет модуль закреплёнными исходниками из `native/mihomo`; версия и контрольная сумма модуля записаны в `native/CORE_PIN.md`.
 
-`KaGoVpnService` obtains Android's consent through `VpnService.prepare()`, establishes the TUN with `VpnService.Builder`, and passes the descriptor to `libkago_mihomo_bridge.so`. The Go adapter duplicates the file descriptor before returning success, sets the Mihomo `file-descriptor` field, and leaves routing to Android (`auto-route: false`). It installs Mihomo's socket hook to call `VpnService.protect(int)` before outbound sockets are opened. A failed TUN attach is fail-closed and must not leave the Android VPN routes active.
+## Как это работает
 
-The C++ JNI shim is compiled into the same shared object as the CGo exports. The APK/AAB must contain `libkago_mihomo_bridge.so` for every shipped ABI under `android/app/src/main/jniLibs/<abi>/`. Core updates are delivered only with a newly signed KaGo VPN APK/AAB; the app must not download and load a replacement native library at runtime. `tool/build_android_release.ps1` is the supported Windows build entry point.
+`KaGoVpnService` получает согласие пользователя через `VpnService.prepare()`, создаёт TUN через `VpnService.Builder` и передаёт дескриптор в `libkago_mihomo_bridge.so`. Go-адаптер (`core.go`):
 
-The embedded Mihomo release carries GPL-3.0 licensing. Keep its `LICENSE`, this source tree, corresponding-source notices, and licenses for bundled Go dependencies with the Android release. The intended distribution license for KaGo VPN must be reviewed for compatibility before public distribution, especially if the app is intended to remain closed-source.
+- дублирует дескриптор до возврата успеха и записывает его в поле Mihomo `file-descriptor`, маршрутизацию оставляет Android (`auto-route: false`);
+- задаёт абсолютные пути рабочей папки и конфига (`SetHomeDir`, `SetConfig`) — иначе Mihomo пишет `config.yaml` в корень `/`, доступный только для чтения;
+- ставит хук сокетов Mihomo, который вызывает `VpnService.protect(int)` до открытия исходящих соединений;
+- отключает все локальные порты (`port`, `socks-port`, `mixed-port` и др.) и входящие серверы (`tuic-server`, `ss-config`, `vmess-config`), контроллер — только на loopback;
+- для DNS-серверов `system` использует `1.1.1.1` и `8.8.8.8` (в режиме `cmfa` Mihomo не знает DNS Android);
+- если TUN не подключился, возвращает ошибку с причиной из лога ядра; запуск «fail-closed» — маршруты VPN не остаются активными.
 
+Ядро собирается с тегом **`cmfa`** — режим Mihomo для встраивания в Android-приложения. Без него при создании TUN Mihomo читает `/data/system/packages.list`, недоступный обычному приложению.
 
-## Reproducible Android core build
+C++ JNI-прослойка (`kago_mihomo_jni_android.cpp`) компилируется в тот же shared object, что и CGo-экспорты. APK/AAB должен содержать `libkago_mihomo_bridge.so` для каждого ABI в `android/app/src/main/jniLibs/<abi>/`.
 
-From Linux/macOS/WSL with Go, Flutter and Android SDK/NDK installed:
+## Сборка ядра
+
+Linux/macOS/WSL с Go, Flutter и Android SDK/NDK:
 
 ```bash
 export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
-# Leave ANDROID_NDK_HOME unset to select the highest installed side-by-side NDK,
-# or set it to the NDK version required by the Flutter Gradle plugin.
+# Без ANDROID_NDK_HOME берётся самая новая установленная NDK;
+# либо укажите версию NDK, которую требует Flutter Gradle plugin.
 ./tool/build_android_native.sh
 ```
 
-The script runs host-side parser tests, then cross-compiles the `android && cgo` Go package and JNI C++ shim for `arm64-v8a` and `x86_64`. It places both `libkago_mihomo_bridge.so` and the matching NDK `libc++_shared.so` in each `jniLibs/<abi>/` directory. `tool/build_android_native.ps1` is the Windows/PowerShell equivalent. The Android app bundle build must follow so Gradle packages those ABI libraries.
+Скрипт запускает тесты адаптера на хосте, затем кросс-компилирует пакет `android && cgo` и JNI-прослойку для `arm64-v8a` и `x86_64` (`-tags cmfa -trimpath`) и кладёт `libkago_mihomo_bridge.so` и `libc++_shared.so` из NDK в `jniLibs/<abi>/`. На Windows то же делает `tool/build_android_native.ps1`. После этого нужна сборка APK/AAB, чтобы Gradle упаковал библиотеки. В GitHub Actions ядро пересобирается автоматически при каждой сборке APK.
 
-This source build was compiled in the Sandbox against the pinned Mihomo release for both Android ABIs and the shared libraries export the Kotlin JNI entry points. A native compile does not prove device-level VPN operation: physical-device checks are still required for consent/revoke lifecycle, TUN attach, protected sockets, DNS/IPv6 behavior, data routing, and disconnect/leak cleanup.
+Компиляция не доказывает работу VPN на устройстве: согласие и отзыв, подключение TUN, защиту сокетов, DNS/IPv6, маршрутизацию и очистку при отключении нужно проверять на реальном телефоне.
 
-For a release APK/AAB, run `tool/build_android_release.ps1` on Windows or `tool/build_android_release.sh` on Linux/macOS/WSL. Production signing variables must be supplied locally; private keystores/passwords are never included in the repository or archive. Android core updates are packaged with the signed app through a configured app store/channel, not fetched as a replacement native library.
+## Обновления и лицензия
+
+Новое ядро поставляется только с новой подписанной версией KaGo VPN (APK/AAB) через выбранный магазин или канал обновлений; приложение не скачивает и не загружает замену нативной библиотеки во время работы.
+
+Mihomo распространяется под GPL-3.0. Вместе с Android-релизом храните его `LICENSE`, эти исходники, уведомления об исходном коде и лицензии Go-зависимостей. Совместимость с лицензией KaGo VPN нужно проверить до публичного распространения, особенно если приложение остаётся закрытым.
+
+Для релизного APK/AAB используйте `tool/build_android_release.ps1` (Windows) или `tool/build_android_release.sh` (Linux/macOS/WSL). Переменные подписи задаются только локально или в секретах CI; ключи и пароли не попадают в репозиторий.

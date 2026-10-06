@@ -25,6 +25,9 @@ import java.util.concurrent.Executors
 class KaGoVpnService : VpnService() {
     private val worker = Executors.newSingleThreadExecutor()
     @Volatile private var coreStarted = false
+    // Set in onDestroy: a start still running on the worker must not leave
+    // the core up without the service (nothing could stop it then).
+    @Volatile private var destroyed = false
 
     override fun onCreate() {
         super.onCreate()
@@ -34,7 +37,7 @@ class KaGoVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                worker.execute { stopTunnel("disconnected", stopSelfAfter = true) }
+                runOnWorker { stopTunnel("disconnected", stopSelfAfter = true) }
                 return START_NOT_STICKY
             }
             ACTION_START, null -> {
@@ -51,14 +54,19 @@ class KaGoVpnService : VpnService() {
                 isStarting = true
                 KaGoVpnEvents.emit("starting")
                 KaGoTileService.requestUpdate(this)
-                worker.execute { startTunnel(configPath) }
+                runOnWorker { startTunnel(configPath) }
                 return START_STICKY
             }
             else -> return START_NOT_STICKY
         }
     }
 
+    private fun runOnWorker(task: () -> Unit) {
+        if (!worker.isShutdown) runCatching { worker.execute(task) }
+    }
+
     private fun startTunnel(configPath: String) {
+        if (destroyed) return
         if (coreStarted) {
             isStarting = false
             return
@@ -109,6 +117,10 @@ class KaGoVpnService : VpnService() {
             // The native ABI contract requires the core to dup(tunFd) before returning success.
             descriptor.close()
             descriptor = null
+            if (destroyed) {
+                runCatching { MihomoNativeCore.stop() }
+                return
+            }
             coreStarted = true
             isConnected = true
             isStarting = false
@@ -127,7 +139,9 @@ class KaGoVpnService : VpnService() {
 
     @Suppress("DEPRECATION")
     private fun stopTunnel(state: String, message: String? = null, stopSelfAfter: Boolean = false) {
-        if (coreStarted) runCatching { MihomoNativeCore.stop() }
+        // Idempotent in the core; called even if this instance did not start
+        // it (a previous instance may have).
+        runCatching { MihomoNativeCore.stop() }
         coreStarted = false
         isConnected = false
         isStarting = false
@@ -143,11 +157,12 @@ class KaGoVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        worker.execute { stopTunnel("revoked", stopSelfAfter = true) }
+        runOnWorker { stopTunnel("revoked", stopSelfAfter = true) }
     }
 
     override fun onDestroy() {
-        if (coreStarted) runCatching { MihomoNativeCore.stop() }
+        destroyed = true
+        runCatching { MihomoNativeCore.stop() }
         coreStarted = false
         isConnected = false
         isStarting = false
@@ -158,7 +173,9 @@ class KaGoVpnService : VpnService() {
 
     override fun onBind(intent: Intent?): IBinder? = super.onBind(intent)
 
-    private val packageByUid = ConcurrentHashMap<Int, String>()
+    // uid -> (package, time). Short-lived: Android reuses the uid of an
+    // uninstalled app, and a stale name would route a new app by old rules.
+    private val packageByUid = ConcurrentHashMap<Int, Pair<String, Long>>()
 
     /**
      * Called by the native core (JNI) for PROCESS-NAME rules: the package that
@@ -176,9 +193,12 @@ class KaGoVpnService : VpnService() {
             )
         }.getOrDefault(-1)
         if (uid < 0) return null
-        packageByUid[uid]?.let { return it }
-        val name = runCatching { packageManager.getPackagesForUid(uid)?.firstOrNull() }.getOrNull() ?: return null
-        packageByUid[uid] = name
+        val now = android.os.SystemClock.elapsedRealtime()
+        packageByUid[uid]?.let { (name, at) -> if (now - at < PACKAGE_CACHE_MS) return name }
+        // A shared uid has several packages: no single name to match rules on.
+        val packages = runCatching { packageManager.getPackagesForUid(uid) }.getOrNull()
+        val name = packages?.singleOrNull() ?: return null
+        packageByUid[uid] = name to now
         return name
     }
 
@@ -212,6 +232,7 @@ class KaGoVpnService : VpnService() {
     }
 
     companion object {
+        private const val PACKAGE_CACHE_MS = 30_000L
         const val ACTION_START = "net.usekago.app.START"
         const val ACTION_STOP = "net.usekago.app.STOP"
         const val EXTRA_CONFIG_PATH = "configPath"

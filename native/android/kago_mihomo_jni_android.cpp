@@ -65,7 +65,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_net_usekago_vpn_MihomoNativeCore_start(JNIEnv* env, jobject, jobject vpn_service,
+Java_net_usekago_app_MihomoNativeCore_start(JNIEnv* env, jobject, jobject vpn_service,
                                             jstring config_path, jstring work_dir, jint tun_fd, jint mtu,
                                             jstring stack, jstring tunnel_address, jstring tunnel_dns) {
   std::string config;
@@ -119,7 +119,7 @@ Java_net_usekago_vpn_MihomoNativeCore_start(JNIEnv* env, jobject, jobject vpn_se
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_net_usekago_vpn_MihomoNativeCore_stop(JNIEnv* env, jobject) {
+Java_net_usekago_app_MihomoNativeCore_stop(JNIEnv* env, jobject) {
   // stop() must synchronously join core workers before the callback target is released.
   const int result = kago_mihomo_stop();
   kago_mihomo_set_socket_protector(nullptr);
@@ -128,7 +128,7 @@ Java_net_usekago_vpn_MihomoNativeCore_stop(JNIEnv* env, jobject) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_net_usekago_vpn_MihomoNativeCore_version(JNIEnv* env, jobject) {
+Java_net_usekago_app_MihomoNativeCore_version(JNIEnv* env, jobject) {
   char* version = kago_mihomo_version();
   jstring result = env->NewStringUTF(version == nullptr ? "" : version);
   if (version != nullptr) kago_mihomo_free_string(version);
@@ -136,7 +136,7 @@ Java_net_usekago_vpn_MihomoNativeCore_version(JNIEnv* env, jobject) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_net_usekago_vpn_MihomoNativeCore_lastError(JNIEnv* env, jobject) {
+Java_net_usekago_app_MihomoNativeCore_lastError(JNIEnv* env, jobject) {
   char* message = kago_mihomo_last_error();
   jstring result = env->NewStringUTF(message == nullptr ? "" : message);
   if (message != nullptr) kago_mihomo_free_string(message);

@@ -16,7 +16,7 @@ import '../../core/l10n/l10n.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-  static const _vpnChannel = MethodChannel('net.usekago.vpn/service');
+  static const _vpnChannel = MethodChannel('net.usekago.app/service');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

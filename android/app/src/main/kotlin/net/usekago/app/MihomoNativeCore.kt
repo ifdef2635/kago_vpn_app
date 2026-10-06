@@ -1,4 +1,4 @@
-package net.usekago.vpn
+package net.usekago.app
 
 /** JNI symbols are implemented by the bundled libkago_mihomo_bridge.so. */
 object MihomoNativeCore {

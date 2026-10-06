@@ -209,7 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _openVpnSettings() async {
     var opened = false;
     try {
-      opened = await const MethodChannel('net.usekago.vpn/service')
+      opened = await const MethodChannel('net.usekago.app/service')
               .invokeMethod<bool>('openVpnSettings') ??
           false;
     } on MissingPluginException {

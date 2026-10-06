@@ -1,4 +1,4 @@
-package net.usekago.vpn
+package net.usekago.app
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -170,8 +170,8 @@ class KaGoVpnService : VpnService() {
     }
 
     companion object {
-        const val ACTION_START = "net.usekago.vpn.START"
-        const val ACTION_STOP = "net.usekago.vpn.STOP"
+        const val ACTION_START = "net.usekago.app.START"
+        const val ACTION_STOP = "net.usekago.app.STOP"
         const val EXTRA_CONFIG_PATH = "configPath"
         private const val CHANNEL_ID = "kago_vpn_status"
         private const val NOTIFICATION_ID = 7401

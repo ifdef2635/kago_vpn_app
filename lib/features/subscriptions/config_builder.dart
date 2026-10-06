@@ -209,9 +209,11 @@ class MihomoConfigBuilder {
       'allow-private-network': false,
     };
     // The macOS TUN core runs as root: a subscription must not set the clock.
+    // The key is removed (default off): the TUN wrapper refuses any config
+    // that names it.
     final ntp = config['ntp'];
     if (ntp is Map<String, dynamic>) {
-      ntp['write-to-system'] = false;
+      ntp.remove('write-to-system');
     } else if (ntp != null) {
       config.remove('ntp');
     }

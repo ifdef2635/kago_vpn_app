@@ -121,6 +121,18 @@ jobs:
           ./mihomo -v | tee version.txt
           grep -q "${MIHOMO_VERSION#v}" version.txt
 
+      # Единственная set-uid программа (режим TUN): запускает root-ядро с
+      # фиксированными аргументами и проверяет конфиг (macos/helper/kago_tun.c).
+      - name: Обёртка TUN (kago-tun, universal)
+        run: |
+          set -euo pipefail
+          cc -Wall -Wextra -Werror -DKAGO_TUN_SELF_TEST -o core/kago-tun-test macos/helper/kago_tun.c
+          ./core/kago-tun-test
+          clang -O2 -Wall -Wextra -Werror -arch arm64 -arch x86_64 -mmacosx-version-min=12.0 \
+            -o core/kago-tun macos/helper/kago_tun.c
+          lipo -info core/kago-tun
+          codesign --force --sign - core/kago-tun
+
       - name: flutter build macos --release
         run: flutter build macos --release --split-debug-info=build/symbols/macos
 
@@ -141,6 +153,7 @@ jobs:
           set -euo pipefail
           APP="build/macos/Build/Products/Release/KaGo VPN.app"
           cp core/mihomo "$APP/Contents/Resources/mihomo"
+          cp core/kago-tun "$APP/Contents/Resources/kago-tun"
           if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_PASSWORD" ]]; then
             KEYCHAIN="$RUNNER_TEMP/kago-signing.keychain-db"
             KEYCHAIN_PASSWORD="$(uuidgen)"
@@ -160,6 +173,7 @@ jobs:
             echo "KAGO_MAC_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
             # Изнутри наружу: ядро, фреймворки, затем само приложение.
             codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/mihomo"
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/kago-tun"
             find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0 |
               xargs -0 -I{} codesign --force --options runtime --timestamp --sign "$IDENTITY" "{}"
             codesign --force --options runtime --timestamp \

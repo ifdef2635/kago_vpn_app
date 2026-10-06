@@ -15,19 +15,28 @@ import 'mihomo_windows_system_proxy.dart';
 ///
 /// The system proxy covers only apps that honour it (Safari, Chrome);
 /// Telegram, games and most native apps connect directly. "All traffic" (TUN)
-/// needs a root core, so — as FlClashX and Clash Verge do — a copy of the
-/// bundled core is made setuid root once, after the administrator password.
+/// needs a root core. After the administrator password the app installs, in
+/// the root-owned [rootDir], a root copy of the core and `kago-tun`
+/// (macos/helper/kago_tun.c) — the only set-uid program, which ignores its
+/// arguments and environment, runs the core with a fixed root-owned home and
+/// takes the config on stdin, refusing keys that would let it write outside
+/// that home or set the clock. (A set-uid Mihomo itself, as FlClashX ships it,
+/// gives root to any program of an admin user.)
 abstract final class MihomoMacosCore {
   static const tunKey = 'kago.macos.tun';
   static const _pidKey = 'kago.macos.core.pid';
-  static const _authorizedHashKey = 'kago.macos.core.authorizedSha256';
-  static const _bundledHashKey = 'kago.macos.core.bundledSha256';
+  static const rootDir = '/Library/Application Support/net.usekago.app';
+  static const rootCorePath = '$rootDir/mihomo';
+  static const helperPath = '$rootDir/kago-tun';
+
+  static String get _resources =>
+      '${File(Platform.resolvedExecutable).parent.parent.path}/Resources';
 
   /// `…/KaGo VPN.app/Contents/MacOS/KaGo VPN` -> `…/Contents/Resources/mihomo`.
-  static File get executable {
-    final macOsDir = File(Platform.resolvedExecutable).parent;
-    return File('${macOsDir.parent.path}/Resources/mihomo');
-  }
+  static File get executable => File('$_resources/mihomo');
+
+  /// The bundled set-uid wrapper (`Contents/Resources/kago-tun`).
+  static File get bundledHelper => File('$_resources/kago-tun');
 
   static Future<MihomoCoreInstall?> installed() async {
     final file = executable;
@@ -36,8 +45,8 @@ abstract final class MihomoMacosCore {
         version: MihomoPinnedCore.version, executable: file, updated: false);
   }
 
-  /// The setuid-root copy: `~/Library/Application Support/net.usekago.app/core/mihomo`.
-  static Future<File> privilegedFile() async {
+  /// The set-uid core of versions 1.0.3–1.0.4 in the user's folder; removed.
+  static Future<File> _legacyPrivilegedFile() async {
     final support = await getApplicationSupportDirectory();
     return File('${support.path}/core/mihomo');
   }
@@ -49,8 +58,8 @@ abstract final class MihomoMacosCore {
   static Future<void> setTunEnabled(bool value) async =>
       (await SharedPreferences.getInstance()).setBool(tunKey, value);
 
-  /// `stat -f '%Su:%Sg %Sp'` of a core that may run as root: owned by
-  /// root:admin, setuid, not writable by group or others.
+  /// `stat -f '%Su:%Sg %Sp'` of the wrapper: owned by root:admin, set-uid,
+  /// not writable by group or others.
   static bool isPrivilegedStat(String output) {
     final parts = output.trim().split(RegExp(r'\s+'));
     if (parts.length < 2 || parts[0] != 'root:admin') return false;
@@ -61,39 +70,64 @@ abstract final class MihomoMacosCore {
         mode[8] != 'w';
   }
 
-  /// SHA-256 of the bundled core, cached by size and modification time
-  /// (hashing the ~60 MB universal binary takes a moment).
-  static Future<String> _bundledHash() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stat = await executable.stat();
-    final stamp = '${stat.size}:${stat.modified.millisecondsSinceEpoch}';
-    final cached = prefs.getString(_bundledHashKey);
-    if (cached != null && cached.startsWith('$stamp=')) {
-      return cached.substring(stamp.length + 1);
-    }
-    final hash = (await sha256.bind(executable.openRead()).first).toString();
-    await prefs.setString(_bundledHashKey, '$stamp=$hash');
+  /// `stat` of the root core: a regular file owned by root, not set-uid, not
+  /// writable by group or others.
+  static bool isRootOwnedStat(String output) {
+    final parts = output.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2 || !parts[0].startsWith('root:')) return false;
+    final mode = parts[1];
+    return mode.length == 10 &&
+        mode[0] == '-' &&
+        mode[3] != 's' &&
+        mode[5] != 'w' &&
+        mode[8] != 'w';
+  }
+
+  static final Map<String, String> _hashCache = <String, String>{};
+
+  /// SHA-256 of [file], cached for this run by path, size and modification
+  /// time (hashing the ~60 MB universal core takes a moment).
+  static Future<String> _hash(File file) async {
+    final stat = await file.stat();
+    final key =
+        '${file.path}:${stat.size}:${stat.modified.microsecondsSinceEpoch}';
+    final cached = _hashCache[key];
+    if (cached != null) return cached;
+    final hash = (await sha256.bind(file.openRead()).first).toString();
+    _hashCache[key] = hash;
     return hash;
   }
 
-  /// The root copy, if it exists and holds the same core as the app bundle.
-  /// Compared by content, so an app update with the same core version does
-  /// not ask for the password again; a new core does. The copy is root-owned,
-  /// so only root can change it after it was hashed.
-  static Future<File?> authorizedCore() async {
+  static Future<String> _stat(String path) async {
+    final result =
+        await Process.run('/usr/bin/stat', <String>['-f', '%Su:%Sg %Sp', path]);
+    return result.exitCode == 0 ? '${result.stdout}' : '';
+  }
+
+  /// The installed wrapper, if it and the root core are root-owned and hold
+  /// the same files as this app bundle (compared by content, so an app update
+  /// asks for the password again only when one of them changed).
+  static Future<File?> authorizedHelper() async {
     if (!Platform.isMacOS) return null;
-    final file = await privilegedFile();
-    if (!await file.exists() || !await executable.exists()) return null;
-    final result = await Process.run(
-        '/usr/bin/stat', <String>['-f', '%Su:%Sg %Sp', file.path]);
-    if (result.exitCode != 0 || !isPrivilegedStat('${result.stdout}')) {
+    final helper = File(helperPath);
+    final core = File(rootCorePath);
+    if (!await helper.exists() ||
+        !await core.exists() ||
+        !await executable.exists() ||
+        !await bundledHelper.exists()) {
       return null;
     }
-    final prefs = await SharedPreferences.getInstance();
-    final authorized = prefs.getString(_authorizedHashKey);
-    return authorized != null && authorized == await _bundledHash()
-        ? file
-        : null;
+    if (!isPrivilegedStat(await _stat(helperPath)) ||
+        !isRootOwnedStat(await _stat(rootCorePath))) {
+      return null;
+    }
+    try {
+      final same = await _hash(core) == await _hash(executable) &&
+          await _hash(helper) == await _hash(bundledHelper);
+      return same ? helper : null;
+    } on FileSystemException {
+      return null;
+    }
   }
 
   static String shellQuote(String value) =>
@@ -107,84 +141,150 @@ abstract final class MihomoMacosCore {
         'with prompt "${escape(prompt)}" with administrator privileges';
   }
 
-  /// Makes the root copy (one macOS password prompt). Only members of the
-  /// `admin` group may run it (mode 4750), so a standard account on the same
-  /// Mac cannot start a root process with it. Returns null on success, or why
-  /// it failed.
+  /// The root install script. Everything is written inside the root-owned
+  /// [rootDir] (no user-writable path is written as root), and each file is
+  /// checked against the hash taken from the bundle before it gets its owner
+  /// and mode, so a file swapped in the meantime is refused.
+  static String installScript({
+    required String coreSource,
+    required String coreHash,
+    required String helperSource,
+    required String helperHash,
+    required String legacyFile,
+  }) {
+    String hashOf(String path) =>
+        '"\$(/usr/bin/shasum -a 256 $path | /usr/bin/cut -d " " -f 1)"';
+    return <String>[
+      'set -e',
+      'umask 077',
+      'D=${shellQuote(rootDir)}',
+      r'[ ! -L "$D" ]',
+      r'/bin/mkdir -p "$D"',
+      r'/usr/sbin/chown root:wheel "$D"',
+      r'/bin/chmod 755 "$D"',
+      r'N="$D/.new"',
+      r'/bin/rm -rf "$N"',
+      r'/bin/mkdir "$N"',
+      "trap '/bin/rm -rf \"\$N\"' EXIT",
+      '/bin/cp -X ${shellQuote(coreSource)} "\$N/mihomo"',
+      '/bin/cp -X ${shellQuote(helperSource)} "\$N/kago-tun"',
+      '[ ${hashOf(r'"$N/mihomo"')} = ${shellQuote(coreHash)} ]',
+      '[ ${hashOf(r'"$N/kago-tun"')} = ${shellQuote(helperHash)} ]',
+      r'/usr/sbin/chown root:wheel "$N/mihomo"',
+      r'/bin/chmod 755 "$N/mihomo"',
+      r'/usr/sbin/chown root:admin "$N/kago-tun"',
+      r'/bin/chmod 4750 "$N/kago-tun"',
+      r'/bin/mv -f "$N/mihomo" "$D/mihomo"',
+      r'/bin/mv -f "$N/kago-tun" "$D/kago-tun"',
+      r'/bin/mkdir -p "$D/run"',
+      r'/usr/sbin/chown root:wheel "$D/run"',
+      r'/bin/chmod 700 "$D/run"',
+      '/bin/rm -f ${shellQuote(legacyFile)}',
+    ].join('\n');
+  }
+
+  /// Installs the wrapper and the root core (one macOS password prompt).
+  /// Only members of the `admin` group may run the wrapper (mode 4750).
+  /// Returns null on success, or why it failed.
   static Future<String?> authorize() async {
     final groups = await Process.run('/usr/bin/id', const <String>['-Gn']);
     if (!'${groups.stdout}'.split(RegExp(r'\s+')).contains('admin')) {
       return tr('Нужна учётная запись администратора macOS.');
     }
-    final file = await privilegedFile();
-    await file.parent.create(recursive: true);
-    final hash = await _bundledHash();
-    final target = shellQuote(file.path);
-    final command = <String>[
-      'rm -f $target',
-      'cp -p ${shellQuote(executable.path)} $target',
-      'xattr -c $target',
-      'chown root:admin $target',
-      'chmod 4750 $target',
-    ].join(' && ');
+    if (!await executable.exists() || !await bundledHelper.exists()) {
+      return tr('Не удалось скопировать ядро.');
+    }
+    final script = installScript(
+      coreSource: executable.path,
+      coreHash: await _hash(executable),
+      helperSource: bundledHelper.path,
+      helperHash: await _hash(bundledHelper),
+      legacyFile: (await _legacyPrivilegedFile()).path,
+    );
     final result = await Process.run('/usr/bin/osascript', <String>[
       '-e',
-      adminScript(command,
+      adminScript(script,
           tr('KaGo VPN включает режим «Весь трафик через VPN». Это нужно один раз.')),
     ]);
     if (result.exitCode == 0) {
-      final copied =
-          (await sha256.bind(file.openRead()).first).toString() == hash;
-      if (!copied) return tr('Не удалось скопировать ядро.');
-      await (await SharedPreferences.getInstance())
-          .setString(_authorizedHashKey, hash);
-      return null;
+      return await authorizedHelper() == null
+          ? tr('Не удалось скопировать ядро.')
+          : null;
     }
     final error = '${result.stderr}'.trim();
     return error.contains('-128') ? tr('Отменено.') : error;
   }
 
-  /// The core to run and whether to turn TUN on. Asks for the password at
-  /// most once: if the user cancels, TUN is switched off in settings and the
-  /// app keeps working through the system proxy.
+  /// The program to run and whether it is the TUN wrapper (which takes the
+  /// config on stdin). Asks for the password at most once: if the user
+  /// cancels, TUN is switched off in settings and the app keeps working
+  /// through the system proxy with the unprivileged bundled core.
   static Future<({File binary, bool tun})> resolve(
       void Function(String) log) async {
-    var core = await authorizedCore();
-    final wantTun = await tunEnabled();
-    if (core == null && wantTun) {
+    await _removeLegacy();
+    if (!await tunEnabled()) return (binary: executable, tun: false);
+    var helper = await authorizedHelper();
+    if (helper == null) {
       final error = await authorize();
       if (error == null) {
-        core = await authorizedCore();
+        helper = await authorizedHelper();
       } else {
         await setTunEnabled(false);
         log(tr('Режим «Весь трафик через VPN» выключен: {error}',
             <String, Object?>{'error': error}));
       }
     }
-    // Once authorized, the root core runs in both modes, so its cache and
-    // rule files in the profile folder stay writable by one owner.
-    return (binary: core ?? executable, tun: core != null && wantTun);
+    return helper == null
+        ? (binary: executable, tun: false)
+        : (binary: helper, tun: true);
+  }
+
+  /// The old set-uid core in the user's folder gave root to any program of an
+  /// admin user. The folder is the user's, so no root is needed to delete it.
+  static Future<void> _removeLegacy() async {
+    try {
+      final legacy = await _legacyPrivilegedFile();
+      if (await legacy.exists()) await legacy.delete();
+    } catch (_) {
+      // The next authorization script removes it too.
+    }
+  }
+
+  /// `ps -o lstart=`: the start time, which tells a reused pid apart.
+  static Future<String?> _startTime(int pid) async {
+    final result =
+        await Process.run('/bin/ps', <String>['-p', '$pid', '-o', 'lstart=']);
+    final value = '${result.stdout}'.trim();
+    return result.exitCode == 0 && value.isNotEmpty ? value : null;
   }
 
   static Future<void> rememberPid(int? pid) async {
     final prefs = await SharedPreferences.getInstance();
     if (pid == null) {
       await prefs.remove(_pidKey);
-    } else {
-      await prefs.setInt(_pidKey, pid);
+      return;
     }
+    final started = await _startTime(pid);
+    if (started != null) await prefs.setString(_pidKey, '$pid|$started');
   }
 
   /// A core left running by a crashed app keeps the ports and, as root, the
-  /// TUN routes; stop it before starting a new one.
+  /// TUN routes; stop it before starting a new one. Only the very process
+  /// that was started (same pid and start time, a mihomo binary) is signalled.
   static Future<void> killStale() async {
     final prefs = await SharedPreferences.getInstance();
-    final pid = prefs.getInt(_pidKey);
-    if (pid == null) return;
+    final saved = prefs.get(_pidKey);
     await prefs.remove(_pidKey);
-    final result =
+    if (saved is! String) return;
+    final separator = saved.indexOf('|');
+    if (separator <= 0) return;
+    final pid = int.tryParse(saved.substring(0, separator));
+    if (pid == null) return;
+    final started = await _startTime(pid);
+    if (started == null || started != saved.substring(separator + 1)) return;
+    final name =
         await Process.run('/bin/ps', <String>['-p', '$pid', '-o', 'comm=']);
-    if ('${result.stdout}'.trim().endsWith('mihomo')) {
+    if ('${name.stdout}'.trim().endsWith('mihomo')) {
       Process.killPid(pid);
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }

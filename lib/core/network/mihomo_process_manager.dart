@@ -214,9 +214,19 @@ class MihomoProcessManager {
     await configFile.writeAsString(jsonEncode(config), flush: true);
 
     final directory = File(configPath).parent.path;
+    // The macOS TUN wrapper takes no arguments: it runs the root core with its
+    // own root-owned home and reads the config from stdin.
     final process = await Process.start(
-        binary, <String>['-d', directory, '-f', configPath],
+        binary,
+        tunMode
+            ? const <String>[]
+            : <String>['-d', directory, '-f', configPath],
         mode: ProcessStartMode.normal);
+    if (tunMode) {
+      process.stdin.add(utf8.encode(jsonEncode(config)));
+      await process.stdin.flush();
+      await process.stdin.close();
+    }
     _process = process;
     if (Platform.isMacOS) unawaited(MihomoMacosCore.rememberPid(process.pid));
     _stdout = process.stdout

@@ -4,12 +4,12 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:win32_registry/win32_registry.dart';
+import '../storage/secure_storage.dart';
 
 /// App version for the User-Agent; `test/user_agent_test.dart` keeps it in
 /// step with pubspec.yaml.
-const kagoAppVersion = '1.0.1';
+const kagoAppVersion = '1.0.2';
 
 /// Mihomo core built into the app (Android) and downloaded on Windows.
 const kagoCoreVersion = '1.19.32';
@@ -114,7 +114,7 @@ class DeviceIdentity {
       .toUpperCase();
 
   static Future<String> _storedRandomId() async {
-    const storage = FlutterSecureStorage();
+    const storage = kagoSecureStorage;
     try {
       final saved = await storage.read(key: _storageKey);
       if (saved != null && saved.isNotEmpty) return saved;

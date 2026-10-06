@@ -11,6 +11,7 @@ import 'config_builder.dart';
 import 'subscription_content_parser.dart';
 import 'subscription_parser.dart';
 import '../../core/l10n/l10n.dart';
+import '../../core/storage/secure_storage.dart';
 
 class ImportedSubscription {
   const ImportedSubscription(
@@ -30,7 +31,7 @@ class ImportedSubscription {
 
 class SubscriptionRepository {
   SubscriptionRepository({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? kagoSecureStorage;
   static const _key = 'kago.profiles.v1';
   final FlutterSecureStorage _storage;
 

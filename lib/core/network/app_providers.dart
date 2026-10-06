@@ -155,10 +155,10 @@ final mihomoWindowsCoreUpdaterProvider = Provider<MihomoWindowsCoreUpdater>(
 final mihomoProcessProvider = Provider<MihomoProcessManager>((ref) {
   final manager = MihomoProcessManager(
       coreUpdater: ref.watch(mihomoWindowsCoreUpdaterProvider));
-  if (Platform.isWindows) {
+  if (Platform.isWindows || Platform.isMacOS) {
     unawaited(manager.recoverStaleSystemProxy());
-    unawaited(manager.prepareCore());
   }
+  if (Platform.isWindows) unawaited(manager.prepareCore());
   // If the core dies by itself the system proxy is already restored; make the
   // UI say "disconnected" instead of staying on "connected".
   final exitSubscription = manager.exits.listen((_) {

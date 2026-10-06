@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/device/device_identity.dart';
 import '../../core/network/app_providers.dart';
+import '../../core/network/mihomo_macos.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/network/mihomo_windows_system_proxy.dart';
 import '../../core/theme/app_widgets.dart';
@@ -35,7 +36,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isMacOS) {
       SharedPreferences.getInstance().then((prefs) {
         if (!mounted) return;
         setState(() => _bypassRussian =
@@ -148,7 +149,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: tr('Адрес контроллера'),
                   subtitle: _endpoint,
                   onTap: _editEndpoint),
-              if (!Platform.isAndroid && !Platform.isWindows)
+              if (Platform.isLinux)
                 _SettingsTile(
                     icon: Icons.terminal_rounded,
                     title: tr('Путь к Mihomo'),
@@ -193,7 +194,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   size: 20, color: context.kago.muted),
               onTap: _openVpnSettings),
         ],
-        if (Platform.isWindows)
+        if (Platform.isWindows || Platform.isMacOS)
           _SettingsTile(
               icon: Icons.alt_route_rounded,
               title: tr('Российские сайты — напрямую'),
@@ -201,7 +202,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing:
                   Switch(value: _bypassRussian, onChanged: _setBypassRussian),
               onTap: () => _setBypassRussian(!_bypassRussian)),
-        if (!Platform.isAndroid && !Platform.isWindows)
+        if (Platform.isLinux)
           _SettingsTile(
               icon: Icons.lan_outlined,
               title: tr('Режим подключения'),
@@ -263,19 +264,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => ref.invalidate(androidCoreUpdateStatusProvider)),
       ];
     }
+    if (Platform.isMacOS) {
+      return <Widget>[
+        _SettingsTile(
+            icon: Icons.memory_rounded,
+            title: 'Mihomo · macOS',
+            subtitle: tr(
+                'Встроено в приложение: {version}. Обновляется вместе с KaGo VPN.',
+                <String, Object?>{'version': MihomoPinnedCore.version})),
+      ];
+    }
     return <Widget>[
       _SettingsTile(
           icon: Icons.memory_rounded,
           title: tr('Mihomo · внешний бинарник'),
           subtitle: tr(
-              'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.')),
+              'На Linux пока нужен внешний Mihomo. Встроенное ядро есть в версиях для Windows, macOS и Android.')),
     ];
   }
 
   Future<void> _setBypassRussian(bool value) async {
     setState(() => _bypassRussian = value);
     try {
-      await MihomoWindowsSystemProxy().setBypassRussian(value);
+      if (Platform.isMacOS) {
+        await MihomoMacosSystemProxy().setBypassRussian(value);
+      } else {
+        await MihomoWindowsSystemProxy().setBypassRussian(value);
+      }
     } catch (error) {
       _snack(tr(
           'Не удалось сохранить: {error}', <String, Object?>{'error': error}));

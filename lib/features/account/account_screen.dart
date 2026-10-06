@@ -83,20 +83,9 @@ class AccountScreen extends ConsumerWidget {
             error: (error, _) => <Widget>[
               ErrorPanel(message: '$error', onRetry: () => refreshAccount(ref)),
             ],
+            // Subscriptions come only from a KAGO account: a guest signs in.
             data: (value) => value == null
-                ? ref.watch(importedSubscriptionProvider).valueOrNull == null
-                    ? <Widget>[
-                        const _LoginCard(),
-                        const SizedBox(height: 16),
-                        const _LocalSubscriptionHero(),
-                      ]
-                    // A subscription added by link already works: show it
-                    // first and fold the sign-in form into one line.
-                    : <Widget>[
-                        const _LocalSubscriptionHero(),
-                        const SizedBox(height: 16),
-                        const _LoginCard(collapsed: true),
-                      ]
+                ? <Widget>[const _LoginCard()]
                 : <Widget>[
                     const _AccountHero(),
                     const SizedBox(height: 16),
@@ -204,10 +193,8 @@ bool _androidVpnOn(WidgetRef ref) =>
 // ─── Sign in / register ────────────────────────────────────────
 
 class _LoginCard extends ConsumerStatefulWidget {
-  const _LoginCard({this.collapsed = false});
+  const _LoginCard();
 
-  /// Start as a one-line "sign in" row that opens the form on tap.
-  final bool collapsed;
   @override
   ConsumerState<_LoginCard> createState() => _LoginCardState();
 }
@@ -219,7 +206,6 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   bool _register = false;
   bool _busy = false;
   bool _hidden = true;
-  late bool _collapsed = widget.collapsed;
 
   @override
   void dispose() {
@@ -334,32 +320,6 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
-    if (_collapsed) {
-      return SurfaceCard(
-        onTap: () => setState(() => _collapsed = false),
-        child: Row(children: <Widget>[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-                color: p.accentSoft, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.person_outline_rounded, color: p.accent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(tr('Войти в аккаунт KAGO'),
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text(tr('Устройства, промокоды и продление — в приложении'),
-                      style: TextStyle(color: p.muted, fontSize: 12)),
-                ]),
-          ),
-          Icon(Icons.chevron_right_rounded, color: p.muted),
-        ]),
-      );
-    }
     return SurfaceCard(
       padding: const EdgeInsets.all(22),
       child: AutofillGroup(
@@ -769,122 +729,6 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// A guest: the subscription saved on this device (from its link's
-/// `subscription-userinfo` header).
-class _LocalSubscriptionHero extends ConsumerWidget {
-  const _LocalSubscriptionHero();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final item = ref.watch(importedSubscriptionProvider).valueOrNull;
-    final vpnOn = _vpnOn(ref);
-    final p = context.kago;
-    if (item == null) {
-      return _HeroFrame(
-        child: _HeroMessage(
-          pill: tr('На этом устройстве'),
-          pillColor: p.heroMuted,
-          title: tr('Подписка не добавлена'),
-          text: tr(
-              'Войдите в аккаунт — подписка добавится автоматически. Или вставьте ссылку из личного кабинета.'),
-          actions: <Widget>[
-            _HeroButton(
-                primary: true,
-                icon: Icons.add_rounded,
-                label: tr('Добавить по ссылке'),
-                onPressed: () =>
-                    DashboardScreen.showAddSubscription(context, ref)),
-            _HeroButton(
-                icon: Icons.sell_outlined,
-                label: tr('Тарифы'),
-                onPressed: () => openUrl(context, _plansUrl)),
-          ],
-        ),
-      );
-    }
-    final now = DateTime.now();
-    final expired = item.expiresAt != null && item.expiresAt!.isBefore(now);
-    return _HeroFrame(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _Pill(
-              label: expired
-                  ? tr('Истекла')
-                  : vpnOn
-                      ? tr('Подключено')
-                      : tr('На этом устройстве'),
-              color:
-                  expired ? const Color(0xFFFFB4B4) : const Color(0xFF5BE49B),
-              background: Colors.white.withValues(alpha: .1)),
-          const SizedBox(height: 14),
-          Text(item.name,
-              style: TextStyle(
-                  color: p.heroText,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(
-              item.expiresAt == null
-                  ? tr('Бессрочно')
-                  : expired
-                      ? tr('Истекла {date}', <String, Object?>{
-                          'date': formatLongDate(item.expiresAt!)
-                        })
-                      : tr('Активна до {date}', <String, Object?>{
-                          'date': formatLongDate(item.expiresAt!)
-                        }),
-              style: TextStyle(color: p.heroMuted, fontSize: 13)),
-          const SizedBox(height: 16),
-          Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
-            _HeroButton(
-                primary: true,
-                icon: vpnOn
-                    ? Icons.stop_rounded
-                    : Icons.power_settings_new_rounded,
-                label: vpnOn ? tr('Отключиться') : tr('Подключиться'),
-                onPressed: () => DashboardScreen.toggleVpn(
-                    context, ref, _androidVpnOn(ref))),
-            _HeroButton(
-                icon: Icons.sync_rounded,
-                label: tr('Обновить данные'),
-                onPressed: () async {
-                  try {
-                    await SubscriptionRepository().refreshUsage();
-                    ref.invalidate(importedSubscriptionProvider);
-                    if (context.mounted) {
-                      showSnack(context, tr('Данные подписки обновлены.'));
-                    }
-                  } catch (error) {
-                    if (context.mounted) showSnack(context, _errorText(error));
-                  }
-                }),
-          ]),
-          const SizedBox(height: 18),
-          Row(children: <Widget>[
-            Expanded(
-                child: _HeroStat(
-                    label: tr('Осталось'),
-                    value: remainingLabel(item.expiresAt, now))),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _HeroStat(
-                    label: tr('Использовано'),
-                    value: formatBytes(item.usedBytes))),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _HeroStat(
-                    label: tr('Трафик'),
-                    value: item.totalBytes > 0
-                        ? formatBytes(item.totalBytes)
-                        : tr('Безлимит'))),
-          ]),
-        ],
       ),
     );
   }

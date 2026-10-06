@@ -72,7 +72,8 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           _SubscriptionCard(
               profile: profile.valueOrNull,
-              onAdd: () => showAddSubscription(context, ref)),
+              onAction: () =>
+                  refreshSubscription(context, ref, profile.valueOrNull)),
           const SizedBox(height: 10),
           SurfaceCard(
               padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
@@ -93,7 +94,7 @@ class DashboardScreen extends ConsumerWidget {
                           Text(tr('Ваш сервер'),
                               style: TextStyle(fontSize: 12, color: p.muted)),
                           const SizedBox(height: 2),
-                          Text(node ?? group?.name ?? tr('Добавьте подписку'),
+                          Text(node ?? group?.name ?? tr('Войдите в аккаунт'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -199,7 +200,9 @@ class DashboardScreen extends ConsumerWidget {
           final config = await const MihomoConfigBuilder().activeConfigFile();
           if (!await config.exists()) {
             if (context.mounted) {
-              _showMessage(context, tr('Сначала добавьте YAML-подписку.'));
+              ref.read(rootTabIndexProvider.notifier).state = 3;
+              _showMessage(context,
+                  tr('Сначала войдите в аккаунт KAGO во вкладке «Кабинет».'));
             }
             return;
           }
@@ -252,105 +255,28 @@ class DashboardScreen extends ConsumerWidget {
     }
   }
 
-  static Future<void> showAddSubscription(
-      BuildContext context, WidgetRef ref) async {
-    final input = TextEditingController();
-    var busy = false;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-          builder: (dialogBuildContext, setDialogState) => AlertDialog(
-                title: Text(tr('Добавить подписку')),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    TextField(
-                        controller: input,
-                        autofocus: true,
-                        keyboardType: TextInputType.url,
-                        decoration: InputDecoration(
-                            hintText: 'https://…',
-                            labelText: tr('Ссылка на конфигурацию'))),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: busy
-                            ? null
-                            : () async {
-                                final value = (await Clipboard.getData(
-                                        Clipboard.kTextPlain))
-                                    ?.text
-                                    ?.trim();
-                                if (!dialogContext.mounted) return;
-                                if (value == null || value.isEmpty) {
-                                  _showMessage(
-                                      dialogContext, tr('Буфер обмена пуст.'));
-                                  return;
-                                }
-                                input.text = value;
-                                input.selection = TextSelection.collapsed(
-                                    offset: value.length);
-                              },
-                        icon: const Icon(Icons.content_paste_rounded),
-                        label: Text(tr('Вставить из буфера')),
-                      ),
-                    ),
-                  ],
-                ),
-                actions: <Widget>[
-                  TextButton(
-                      onPressed:
-                          busy ? null : () => Navigator.of(dialogContext).pop(),
-                      child: Text(tr('Отмена'))),
-                  FilledButton(
-                      onPressed: busy
-                          ? null
-                          : () async {
-                              setDialogState(() => busy = true);
-                              try {
-                                final profile = await SubscriptionRepository()
-                                    .import(input.text);
-                                if (!dialogContext.mounted) return;
-                                ref.invalidate(importedSubscriptionProvider);
-                                Navigator.of(dialogContext).pop();
-                                final desktop = Platform.isWindows ||
-                                    Platform.isLinux ||
-                                    Platform.isMacOS;
-                                _showMessage(
-                                    context,
-                                    desktop
-                                        ? tr(
-                                            'Профиль «{name}» сохранён. Встроенный Mihomo загрузится при первом подключении.',
-                                            <String, Object?>{
-                                                'name': profile.name
-                                              })
-                                        : tr(
-                                            'Профиль «{name}» сохранён. При подключении Android использует встроенное native Mihomo ядро.',
-                                            <String, Object?>{
-                                                'name': profile.name
-                                              }));
-                              } catch (error) {
-                                setDialogState(() => busy = false);
-                                ScaffoldMessenger.of(dialogBuildContext)
-                                    .showSnackBar(SnackBar(
-                                        content: Text(tr(
-                                            'Не удалось добавить профиль: {error}',
-                                            <String, Object?>{
-                                      'error': error
-                                    }))));
-                              }
-                            },
-                      child: busy
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(tr('Загрузить'))),
-                ],
-              )),
-    );
-    input.dispose();
+  /// Subscriptions come only from the KAGO account: without one the button
+  /// leads to the account tab; with one it reloads the saved subscription.
+  static Future<void> refreshSubscription(BuildContext context, WidgetRef ref,
+      ImportedSubscription? profile) async {
+    if (profile == null || profile.url.isEmpty) {
+      ref.read(rootTabIndexProvider.notifier).state = 3;
+      return;
+    }
+    _showMessage(context, tr('Обновляем подписку…'));
+    try {
+      await SubscriptionRepository().import(profile.url);
+      ref.invalidate(importedSubscriptionProvider);
+      ref.invalidate(proxyGroupsProvider);
+      if (context.mounted) _showMessage(context, tr('Подписка обновлена.'));
+    } catch (error) {
+      if (context.mounted) {
+        _showMessage(
+            context,
+            tr('Не удалось обновить подписку: {error}',
+                <String, Object?>{'error': error}));
+      }
+    }
   }
 
   static void _showMessage(BuildContext context, String value) =>
@@ -386,15 +312,15 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard({required this.profile, required this.onAdd});
+  const _SubscriptionCard({required this.profile, required this.onAction});
   final ImportedSubscription? profile;
-  final VoidCallback onAdd;
+  final VoidCallback onAction;
   @override
   Widget build(BuildContext context) {
     final profile = this.profile;
     final String details;
     if (profile == null) {
-      details = tr('Добавьте ссылку, чтобы увидеть трафик и срок');
+      details = tr('Войдите в аккаунт KAGO — подписка подключится сама');
     } else {
       final used = profile.totalBytes > 0
           ? tr('{used} из {total}', <String, Object?>{
@@ -419,7 +345,7 @@ class _SubscriptionCard extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                Text(profile?.name ?? tr('Подписка не добавлена'),
+                Text(profile?.name ?? tr('Нет подписки'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -430,8 +356,8 @@ class _SubscriptionCard extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: context.kago.muted)),
               ])),
           TextButton(
-              onPressed: onAdd,
-              child: Text(profile == null ? tr('Добавить') : tr('Обновить'))),
+              onPressed: onAction,
+              child: Text(profile == null ? tr('Войти') : tr('Обновить'))),
         ]));
   }
 }

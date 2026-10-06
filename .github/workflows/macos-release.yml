@@ -1,0 +1,158 @@
+name: macOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Опубликовать GitHub Release v<версия из pubspec.yaml>'
+        type: boolean
+        default: false
+  push:
+    branches:
+      - 'claude/**'
+      - 'feat/**'
+      - 'fix/**'
+    tags:
+      - 'v*'
+    paths:
+      - 'lib/**'
+      - 'macos/**'
+      - 'assets/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/macos-release.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      FLUTTER_VERSION: '3.47.5'
+      # Встроенное ядро — та же закреплённая версия, что на Windows и Android.
+      MIHOMO_VERSION: 'v1.19.32'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test
+        run: flutter test
+
+      - name: Версия
+        id: version
+        run: |
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          NAME="${VERSION%%+*}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
+            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+            exit 1
+          fi
+
+      # Ядро Mihomo для Apple Silicon и Intel из официального релиза: проверка
+      # SHA-256 из GitHub API, затем один universal-бинарник (lipo) с ad-hoc
+      # подписью (lipo снимает подпись Go-линкера, а arm64 без подписи не запустится).
+      - name: Ядро Mihomo (universal)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p core && cd core
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/MetaCubeX/mihomo/releases/tags/$MIHOMO_VERSION" > release.json
+          pick() {
+            for name in "$@"; do
+              if jq -e --arg n "$name" '.assets[] | select(.name == $n)' release.json > /dev/null; then
+                echo "$name"; return 0
+              fi
+            done
+            return 1
+          }
+          fetch() {
+            local name="$1" out="$2"
+            local url digest
+            url="$(jq -r --arg n "$name" '.assets[] | select(.name == $n) | .browser_download_url' release.json)"
+            digest="$(jq -r --arg n "$name" '.assets[] | select(.name == $n) | .digest // ""' release.json)"
+            curl -fsSL "$url" -o "$name"
+            if [[ -n "$digest" ]]; then
+              echo "${digest#sha256:}  $name" | shasum -a 256 -c -
+            else
+              echo "::warning::Для $name в релизе нет SHA-256; проверены только HTTPS-источник и запуск."
+            fi
+            gunzip -c "$name" > "$out"
+            chmod +x "$out"
+          }
+          ARM="$(pick "mihomo-darwin-arm64-$MIHOMO_VERSION.gz")"
+          AMD="$(pick "mihomo-darwin-amd64-compatible-$MIHOMO_VERSION.gz" \
+                      "mihomo-darwin-amd64-v1-$MIHOMO_VERSION.gz" \
+                      "mihomo-darwin-amd64-$MIHOMO_VERSION.gz")"
+          echo "arm64: $ARM"; echo "x86_64: $AMD"
+          fetch "$ARM" mihomo-arm64
+          fetch "$AMD" mihomo-amd64
+          lipo -create -output mihomo mihomo-arm64 mihomo-amd64
+          lipo -info mihomo
+          codesign --force --sign - mihomo
+          ./mihomo -v | tee version.txt
+          grep -q "${MIHOMO_VERSION#v}" version.txt
+
+      - name: flutter build macos --release
+        run: flutter build macos --release
+
+      - name: Встроить ядро и подписать приложение
+        run: |
+          set -euo pipefail
+          APP="build/macos/Build/Products/Release/KaGo VPN.app"
+          cp core/mihomo "$APP/Contents/Resources/mihomo"
+          # Без сертификата Apple Developer — ad-hoc подпись всего бандла
+          # (ядро внутри должно войти в печать подписи).
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist"
+
+      - name: Собрать .dmg
+        id: dist
+        run: |
+          set -euo pipefail
+          NAME="KaGoVPN-macOS-${{ steps.version.outputs.name }}"
+          mkdir -p dmgroot dist/macos
+          cp -R "build/macos/Build/Products/Release/KaGo VPN.app" dmgroot/
+          ln -s /Applications dmgroot/Applications
+          hdiutil create -volname "KaGo VPN" -srcfolder dmgroot -ov -format UDZO "dist/macos/$NAME.dmg"
+          cd dist/macos && shasum -a 256 *.dmg > SHA256SUMS-macOS.txt && ls -lh
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dist.outputs.name }}
+          path: dist/macos/*
+          retention-days: 30
+
+      # Тег v<версия> или ручной запуск с release=true; тот же релиз, что у Android.
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: KaGo VPN ${{ steps.version.outputs.name }}
+          files: dist/macos/*
+          prerelease: false

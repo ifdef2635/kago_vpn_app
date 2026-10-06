@@ -41,8 +41,14 @@ class MihomoController {
 
   Future<String> get endpoint async {
     final prefs = await SharedPreferences.getInstance();
-    return (prefs.getString(_endpointKey) ?? 'http://127.0.0.1:9090')
-        .replaceAll(RegExp(r'/+$'), '');
+    final saved = prefs.getString(_endpointKey);
+    // A value saved by an older version may point elsewhere; the secret is
+    // sent with every request, so only a loopback controller is used.
+    try {
+      return normalizeEndpoint(saved ?? defaultEndpoint);
+    } on FormatException {
+      return defaultEndpoint;
+    }
   }
 
   Future<String?> get configuredSecret => _secret();
@@ -69,6 +75,10 @@ class MihomoController {
     await prefs.setString(_endpointKey, normalized);
   }
 
+  static const defaultEndpoint = 'http://127.0.0.1:9090';
+
+  /// Only the local core: the controller secret is sent with every request,
+  /// and the app never drives a remote Mihomo.
   static String normalizeEndpoint(String endpoint) {
     final normalized = endpoint.trim().replaceAll(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);
@@ -84,9 +94,9 @@ class MihomoController {
     }
     final isLoopback =
         <String>['127.0.0.1', 'localhost'].contains(uri.host.toLowerCase());
-    if (uri.scheme == 'http' && !isLoopback) {
-      throw FormatException(tr(
-          'HTTP разрешён только для localhost; удалённый контроллер должен использовать HTTPS.'));
+    if (!isLoopback || uri.scheme != 'http') {
+      throw FormatException(
+          tr('Контроллер — только локальное ядро: http://127.0.0.1:<порт>.'));
     }
     return normalized;
   }

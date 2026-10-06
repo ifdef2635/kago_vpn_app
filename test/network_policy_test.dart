@@ -4,14 +4,16 @@ import 'package:kago_vpn/features/subscriptions/subscription_repository.dart';
 
 void main() {
   group('Mihomo controller endpoint policy', () {
-    test('allows local HTTP and remote HTTPS', () {
+    test('allows only the local core over HTTP', () {
       expect(
         MihomoController.normalizeEndpoint('http://127.0.0.1:9090/'),
         'http://127.0.0.1:9090',
       );
+      // The secret goes with every request: never to another host.
       expect(
-        MihomoController.normalizeEndpoint('https://controller.example.net'),
-        'https://controller.example.net',
+        () => MihomoController.normalizeEndpoint(
+            'https://controller.example.net'),
+        throwsFormatException,
       );
     });
 

@@ -85,6 +85,9 @@ class MihomoConfigBuilder {
     // Do not let Mihomo create a second OS TUN or rewrite the routes itself.
     tun['enable'] = false;
     tun['auto-route'] = false;
+    // The embedded core has no gVisor: a panel template with `gvisor` or
+    // `mixed` would fail with "gVisor is not included in this build".
+    tun['stack'] = 'system';
     _ensureAndroidDns(decoded);
     _performanceDefaults(decoded);
     _hardenAndroid(decoded);

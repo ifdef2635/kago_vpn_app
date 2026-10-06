@@ -25,7 +25,7 @@ void main() {
         await Directory.systemTemp.createTemp('kago-controller-test-');
     addTearDown(() => directory.delete(recursive: true));
     final file = File('${directory.path}${Platform.pathSeparator}active.yaml');
-    await file.writeAsString('{"tun":{"enable":true}}');
+    await file.writeAsString('{"tun":{"enable":true,"stack":"gvisor"}}');
 
     await const MihomoConfigBuilder().prepareAndroidTunnelConfig(
       file,
@@ -40,6 +40,8 @@ void main() {
     final tun = result['tun'] as Map<String, dynamic>;
     expect(tun['enable'], isFalse);
     expect(tun['auto-route'], isFalse);
+    // The embedded core has no gVisor.
+    expect(tun['stack'], 'system');
   });
 
   test('Android config gets Mihomo DNS when the subscription has none',

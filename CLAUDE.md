@@ -5,7 +5,7 @@
 ## О проекте
 
 KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядром Mihomo (Clash Meta).
-Основная платформа: **Windows x64**; также Android и macOS (.dmg, ядро встроено в приложение, системный прокси через `networksetup`). Ориентир по UX и функциональности — FlClashX.
+Основная платформа: **Windows x64**; также Android и macOS (.dmg, ядро встроено в приложение, системный прокси через `networksetup` и TUN через setuid-копию ядра, как во FlClashX). Ориентир по UX и функциональности — FlClashX.
 
 ## Обязательные правила
 
@@ -25,7 +25,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - Версия в `pubspec.yaml`: `X.Y.Z+N`, `N = X*10000 + Y*100 + Z` (versionCode Android; проверяет `test/version_test.dart`). Ту же `X.Y.Z` держать в `kagoAppVersion` (`lib/core/device/device_identity.dart`).
 - **Каждое некрупное обновление, которое попадает к пользователям, увеличивает версию на 0.0.1** (1.0.0 → 1.0.1, build 10000 → 10001). Крупное — 0.1.0.
 - Обновление ставится поверх старой версии, только если не меняются имя пакета `net.usekago.app` и ключ подписи (секреты `KAGO_ANDROID_*` в GitHub). Их не менять.
-- Android-релиз — один APK для arm64. Не использовать `--split-per-abi`: он меняет versionCode.
+- Android-релиз — один APK для arm64. Не использовать `--split-per-abi`: он меняет versionCode. Другие ABI исключены в `packaging.jniLibs`, а `.so` сжаты (`useLegacyPackaging`). Без этого APK весил 132 МБ вместо ~30.
 - Релиз — тег `v<X.Y.Z>`, совпадающий с `pubspec.yaml`, или ручной запуск workflow с `release=true`: тег создаёт сам GitHub Actions. Это нужно, потому что из облачной сессии Claude тег не пушится. Порядок: сначала Android (создаёт релиз), после его завершения — Windows и macOS (`macos-release.yml`, .dmg). Без ключа подписи релизная сборка падает намеренно. macOS: с секретами `KAGO_MACOS_*`/`KAGO_APPLE_*` — подпись Developer ID и нотаризация, без них — ad-hoc (Gatekeeper предупреждает).
 
 - В виджетах читать `AsyncValue` через `valueOrNull`/`when`, не `.value`: при ошибке `.value` выбрасывает её, и в релизе вместо экрана виден серый блок.

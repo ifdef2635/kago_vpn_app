@@ -88,7 +88,7 @@ class MihomoConfigBuilder {
     // The embedded core has no gVisor: a panel template with `gvisor` or
     // `mixed` would fail with "gVisor is not included in this build".
     tun['stack'] = 'system';
-    _ensureAndroidDns(decoded);
+    ensureDns(decoded);
     _performanceDefaults(decoded);
     _hardenAndroid(decoded);
     _lockToLoopback(decoded);
@@ -101,11 +101,11 @@ class MihomoConfigBuilder {
     await file.writeAsString(jsonEncode(decoded), flush: true);
   }
 
-  /// Android has no /etc/resolv.conf, and DNS queries hijacked from the TUN are
+  /// DNS queries hijacked from a TUN (Android, macOS "all traffic") are
   /// answered only by Mihomo's own DNS. Without `dns.enable` every lookup fails
   /// (apps and proxy server hostnames alike), so turn it on when the
   /// subscription does not. A subscription that enables DNS is kept as is.
-  static void _ensureAndroidDns(Map<String, dynamic> config) {
+  static void ensureDns(Map<String, dynamic> config) {
     final existing = config['dns'];
     if (existing is Map<String, dynamic> && existing['enable'] == true) return;
     config['dns'] = <String, dynamic>{
@@ -194,6 +194,10 @@ class MihomoConfigBuilder {
     for (final key in _dropped) {
       config.remove(key);
     }
+    // A DNS server on 0.0.0.0:53 would answer the whole LAN (the macOS TUN
+    // core runs as root and could bind it). Hijacked queries need no listener.
+    final dns = config['dns'];
+    if (dns is Map<String, dynamic>) dns.remove('listen');
   }
 
   Map<String, dynamic> _convertMap(YamlMap input) => <String, dynamic>{

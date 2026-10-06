@@ -27,10 +27,17 @@ final proxyGroupsProvider = FutureProvider<List<ProxyGroup>>((ref) async {
   return ref.watch(mihomoControllerProvider).proxies();
 });
 
+/// False while the app is hidden (minimized, in the background, screen off):
+/// polls and timers that only feed the screen pause and resume on return.
+final appForegroundProvider = StateProvider<bool>((ref) => true);
+
 /// Polls `/connections` once per second while something watches it, and derives
 /// the current download/upload speed from the cumulative counters.
 final connectionsSnapshotProvider =
     StreamProvider.autoDispose<ConnectionsSnapshot>((ref) {
+  if (!ref.watch(appForegroundProvider)) {
+    return const Stream<ConnectionsSnapshot>.empty();
+  }
   final controller = ref.watch(mihomoControllerProvider);
   final output = StreamController<ConnectionsSnapshot>();
   DateTime? previousAt;
@@ -206,15 +213,19 @@ final ipInfoProvider = FutureProvider.autoDispose<IpInfo>((ref) async {
 /// Keeps the traffic counters of the saved subscription fresh. Without this
 /// they changed only when the subscription was re-imported. Runs at start and
 /// whenever the VPN turns on or off, then every minute while connected and
-/// every five minutes otherwise. Only the counters are re-read; the saved
-/// profile config is untouched.
+/// every five minutes otherwise; paused in the background, where nothing
+/// shows them. Only the counters are re-read; the saved profile config is
+/// untouched.
+DateTime? _lastUsageRefresh;
 final subscriptionUsageRefresherProvider = Provider<void>((ref) {
   final active = ref.watch(vpnActiveProvider);
+  if (!ref.watch(appForegroundProvider)) return;
   var busy = false;
 
   Future<void> refresh() async {
     if (busy) return;
     busy = true;
+    _lastUsageRefresh = DateTime.now();
     try {
       final updated = await SubscriptionRepository().refreshUsage();
       if (updated != null) ref.invalidate(importedSubscriptionProvider);
@@ -229,7 +240,12 @@ final subscriptionUsageRefresherProvider = Provider<void>((ref) {
       active ? const Duration(minutes: 1) : const Duration(minutes: 5),
       (_) => unawaited(refresh()));
   ref.onDispose(timer.cancel);
-  unawaited(refresh());
+  // Returning to the app refreshes at once, but not more than every 30 s.
+  final last = _lastUsageRefresh;
+  if (last == null ||
+      DateTime.now().difference(last) > const Duration(seconds: 30)) {
+    unawaited(refresh());
+  }
 });
 
 /// Index of the selected root tab (0 = home, 1 = servers, 2 = traffic,

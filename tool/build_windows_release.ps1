@@ -16,7 +16,7 @@ if (-not $SkipTests) {
     & flutter test
     if ($LASTEXITCODE -ne 0) { throw 'flutter test failed.' }
 }
-& flutter build windows --release
+& flutter build windows --release --split-debug-info=build/symbols/windows
 if ($LASTEXITCODE -ne 0) { throw 'Windows release build failed.' }
 
 $ReleaseDir = Join-Path $ProjectRoot 'build/windows/x64/runner/Release'

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/subscriptions/config_builder.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_macos.dart';
 import 'mihomo_windows_core_updater.dart';
@@ -30,9 +31,9 @@ class MihomoProcessManager {
   /// system proxy; Linux uses a manual core path.
   static bool get _managedDesktop => Platform.isWindows || Platform.isMacOS;
 
-  Future<void> _enableSystemProxy() async {
+  Future<void> _enableSystemProxy({bool tun = false}) async {
     if (Platform.isWindows) await _windowsSystemProxy.enable();
-    if (Platform.isMacOS) await _macosSystemProxy.enable();
+    if (Platform.isMacOS) await _macosSystemProxy.enable(tun: tun);
   }
 
   Future<void> _restoreSystemProxy() async {
@@ -134,6 +135,7 @@ class MihomoProcessManager {
     final overridePath = (await executable)?.trim() ?? '';
     final usingOverride = overridePath.isNotEmpty;
     final String binary;
+    var tunMode = false;
     if (usingOverride) {
       binary = overridePath;
     } else if (Platform.isWindows) {
@@ -142,7 +144,10 @@ class MihomoProcessManager {
       _writeLog(tr('Запускается встроенный Mihomo {version}.',
           <String, Object?>{'version': core.version}));
     } else if (Platform.isMacOS) {
-      binary = MihomoMacosCore.executable.path;
+      await MihomoMacosCore.killStale();
+      final core = await MihomoMacosCore.resolve(_writeLog);
+      binary = core.binary.path;
+      tunMode = core.tun;
       _writeLog(tr('Запускается встроенный Mihomo {version}.',
           <String, Object?>{'version': MihomoPinnedCore.version}));
     } else {
@@ -185,9 +190,20 @@ class MihomoProcessManager {
       final tunValue = config['tun'];
       final tun =
           tunValue is Map<String, dynamic> ? tunValue : <String, dynamic>{};
-      tun['enable'] = false;
-      tun['auto-route'] = false;
-      tun['auto-detect-interface'] = false;
+      if (tunMode) {
+        // macOS "all traffic" mode: the root core creates a utun and routes
+        // every app through it (Telegram ignores the system proxy).
+        tun['enable'] = true;
+        tun.putIfAbsent('stack', () => 'mixed');
+        tun['auto-route'] = true;
+        tun['auto-detect-interface'] = true;
+        tun['dns-hijack'] = const <String>['any:53'];
+        MihomoConfigBuilder.ensureDns(config);
+      } else {
+        tun['enable'] = false;
+        tun['auto-route'] = false;
+        tun['auto-detect-interface'] = false;
+      }
       config['tun'] = tun;
     }
     final host = controllerUri.host == '::1' ? '[::1]' : controllerUri.host;
@@ -202,6 +218,7 @@ class MihomoProcessManager {
         binary, <String>['-d', directory, '-f', configPath],
         mode: ProcessStartMode.normal);
     _process = process;
+    if (Platform.isMacOS) unawaited(MihomoMacosCore.rememberPid(process.pid));
     _stdout = process.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter())
@@ -213,6 +230,7 @@ class MihomoProcessManager {
     unawaited(process.exitCode.then((code) {
       if (identical(_process, process)) {
         _process = null;
+        if (Platform.isMacOS) unawaited(MihomoMacosCore.rememberPid(null));
         unawaited(_restoreSystemProxy());
         if (!_exits.isClosed) _exits.add(code);
       }
@@ -232,8 +250,9 @@ class MihomoProcessManager {
         await controller.version();
         _writeLog(tr('Mihomo controller готов.'));
         if (_managedDesktop) {
-          await _enableSystemProxy();
+          await _enableSystemProxy(tun: tunMode);
           _writeLog(tr('Системный прокси направлен на 127.0.0.1:7890.'));
+          if (tunMode) _writeLog(tr('Весь трафик идёт через VPN (TUN).'));
         }
         return;
       } catch (error) {
@@ -256,6 +275,7 @@ class MihomoProcessManager {
     _stdout = null;
     _stderr = null;
     process.kill();
+    if (Platform.isMacOS) unawaited(MihomoMacosCore.rememberPid(null));
     try {
       await process.exitCode.timeout(const Duration(seconds: 3));
     } on TimeoutException {

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/l10n.dart';
@@ -9,7 +11,15 @@ import 'mihomo_windows_system_proxy.dart';
 /// Mihomo shipped inside the macOS app bundle (`Contents/Resources/mihomo`, a
 /// universal arm64 + x86_64 binary added by the CI build and signed with the
 /// app). It is updated together with the app, like the Android core.
+///
+/// The system proxy covers only apps that honour it (Safari, Chrome);
+/// Telegram, games and most native apps connect directly. "All traffic" (TUN)
+/// needs a root core, so — as FlClashX and Clash Verge do — a copy of the
+/// bundled core is made setuid root once, after the administrator password.
 abstract final class MihomoMacosCore {
+  static const tunKey = 'kago.macos.tun';
+  static const _pidKey = 'kago.macos.core.pid';
+
   /// `…/KaGo VPN.app/Contents/MacOS/KaGo VPN` -> `…/Contents/Resources/mihomo`.
   static File get executable {
     final macOsDir = File(Platform.resolvedExecutable).parent;
@@ -22,17 +32,154 @@ abstract final class MihomoMacosCore {
     return MihomoCoreInstall(
         version: MihomoPinnedCore.version, executable: file, updated: false);
   }
+
+  /// The setuid-root copy: `~/Library/Application Support/net.usekago.app/core/mihomo`.
+  static Future<File> privilegedFile() async {
+    final support = await getApplicationSupportDirectory();
+    return File('${support.path}/core/mihomo');
+  }
+
+  /// "All traffic through VPN" (TUN) is on by default.
+  static Future<bool> tunEnabled() async =>
+      (await SharedPreferences.getInstance()).getBool(tunKey) ?? true;
+
+  static Future<void> setTunEnabled(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(tunKey, value);
+
+  /// `stat -f '%Su:%Sg %Sp'` of a core that may run as root: owned by
+  /// root:admin, setuid, not writable by group or others.
+  static bool isPrivilegedStat(String output) {
+    final parts = output.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2 || parts[0] != 'root:admin') return false;
+    final mode = parts[1];
+    return mode.length == 10 &&
+        mode[3] == 's' &&
+        mode[5] != 'w' &&
+        mode[8] != 'w';
+  }
+
+  /// The root copy, if it exists and is the same build as the bundled core
+  /// (`cp -p` keeps size and modification time; a new app version brings a
+  /// new core and asks again).
+  static Future<File?> authorizedCore() async {
+    if (!Platform.isMacOS) return null;
+    final file = await privilegedFile();
+    final bundled = executable;
+    if (!await file.exists() || !await bundled.exists()) return null;
+    final result = await Process.run(
+        '/usr/bin/stat', <String>['-f', '%Su:%Sg %Sp', file.path]);
+    if (result.exitCode != 0 || !isPrivilegedStat('${result.stdout}')) {
+      return null;
+    }
+    final copy = await file.stat();
+    final source = await bundled.stat();
+    final sameBuild = copy.size == source.size &&
+        copy.modified.millisecondsSinceEpoch ~/ 1000 ==
+            source.modified.millisecondsSinceEpoch ~/ 1000;
+    return sameBuild ? file : null;
+  }
+
+  static String shellQuote(String value) =>
+      "'${value.replaceAll("'", r"'\''")}'";
+
+  /// AppleScript `do shell script … with administrator privileges` for [command].
+  static String adminScript(String command, String prompt) {
+    String escape(String value) =>
+        value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+    return 'do shell script "${escape(command)}" '
+        'with prompt "${escape(prompt)}" with administrator privileges';
+  }
+
+  /// Makes the root copy (one macOS password prompt). Only members of the
+  /// `admin` group may run it (mode 4750), so a standard account on the same
+  /// Mac cannot start a root process with it. Returns null on success, or why
+  /// it failed.
+  static Future<String?> authorize() async {
+    final groups = await Process.run('/usr/bin/id', const <String>['-Gn']);
+    if (!'${groups.stdout}'.split(RegExp(r'\s+')).contains('admin')) {
+      return tr('Нужна учётная запись администратора macOS.');
+    }
+    final file = await privilegedFile();
+    await file.parent.create(recursive: true);
+    final target = shellQuote(file.path);
+    final command = <String>[
+      'rm -f $target',
+      'cp -p ${shellQuote(executable.path)} $target',
+      'xattr -c $target',
+      'chown root:admin $target',
+      'chmod 4750 $target',
+    ].join(' && ');
+    final result = await Process.run('/usr/bin/osascript', <String>[
+      '-e',
+      adminScript(
+          command,
+          tr('KaGo VPN включает режим «Весь трафик через VPN». Это нужно один раз.')),
+    ]);
+    if (result.exitCode == 0) return null;
+    final error = '${result.stderr}'.trim();
+    return error.contains('-128') ? tr('Отменено.') : error;
+  }
+
+  /// The core to run and whether to turn TUN on. Asks for the password at
+  /// most once: if the user cancels, TUN is switched off in settings and the
+  /// app keeps working through the system proxy.
+  static Future<({File binary, bool tun})> resolve(
+      void Function(String) log) async {
+    var core = await authorizedCore();
+    final wantTun = await tunEnabled();
+    if (core == null && wantTun) {
+      final error = await authorize();
+      if (error == null) {
+        core = await authorizedCore();
+      } else {
+        await setTunEnabled(false);
+        log(tr('Режим «Весь трафик через VPN» выключен: {error}',
+            <String, Object?>{'error': error}));
+      }
+    }
+    // Once authorized, the root core runs in both modes, so its cache and
+    // rule files in the profile folder stay writable by one owner.
+    return (binary: core ?? executable, tun: core != null && wantTun);
+  }
+
+  static Future<void> rememberPid(int? pid) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (pid == null) {
+      await prefs.remove(_pidKey);
+    } else {
+      await prefs.setInt(_pidKey, pid);
+    }
+  }
+
+  /// A core left running by a crashed app keeps the ports and, as root, the
+  /// TUN routes; stop it before starting a new one.
+  static Future<void> killStale() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pid = prefs.getInt(_pidKey);
+    if (pid == null) return;
+    await prefs.remove(_pidKey);
+    final result = await Process.run(
+        '/bin/ps', <String>['-p', '$pid', '-o', 'comm=']);
+    if ('${result.stdout}'.trim().endsWith('mihomo')) {
+      Process.killPid(pid);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+  }
 }
 
 /// Reversible macOS system proxy (System Settings → Network → Proxies) for
 /// every enabled network service, set with `networksetup` as Clash Verge
 /// does. Apps that honour the system proxy go through Mihomo on
-/// 127.0.0.1:7890; it is not a full-device TUN.
+/// 127.0.0.1:7890. With TUN on, DNS of those services is pointed at public
+/// resolvers so lookups enter the TUN and Mihomo answers them (a router
+/// address on the LAN would bypass it), as FlClashX does.
 class MihomoMacosSystemProxy {
   static const _networksetup = '/usr/sbin/networksetup';
   static const _host = '127.0.0.1';
   static const _port = '7890';
   static const _ownedKey = 'mihomo.macos.proxy.services.v1';
+  static const _dnsKey = 'mihomo.macos.dns.v1';
+  static const tunDns = <String>['1.1.1.1', '8.8.8.8'];
   static const _baseBypass = <String>[
     'localhost',
     '127.0.0.1',
@@ -59,6 +206,14 @@ class MihomoMacosSystemProxy {
       .where((line) => line.isNotEmpty && !line.startsWith('*'))
       .toList(growable: false);
 
+  /// Parses `networksetup -getdnsservers`: one address per line, or a
+  /// sentence when the servers come from DHCP (restored with `Empty`).
+  static List<String> parseDnsServers(String output) => output
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty && !line.contains(' '))
+      .toList(growable: false);
+
   Future<List<String>> _services() async {
     final result = await Process.run(
         _networksetup, const <String>['-listallnetworkservices']);
@@ -76,7 +231,7 @@ class MihomoMacosSystemProxy {
     return error.isEmpty ? '${result.stdout}'.trim() : error;
   }
 
-  Future<void> enable() async {
+  Future<void> enable({bool tun = false}) async {
     _requireMacos();
     await restoreIfOwned();
     final preferences = await SharedPreferences.getInstance();
@@ -85,6 +240,7 @@ class MihomoMacosSystemProxy {
             preferences.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ??
                 false);
     final owned = <String>[];
+    final savedDns = <String, List<String>>{};
     String? lastError;
     for (final service in await _services()) {
       final errors = <String?>[
@@ -98,8 +254,20 @@ class MihomoMacosSystemProxy {
       } else {
         lastError = errors.first;
       }
+      if (tun) {
+        final current =
+            await Process.run(_networksetup, <String>['-getdnsservers', service]);
+        if (current.exitCode == 0 &&
+            await _run(<String>['-setdnsservers', service, ...tunDns]) ==
+                null) {
+          savedDns[service] = parseDnsServers('${current.stdout}');
+        }
+      }
     }
     await preferences.setStringList(_ownedKey, owned);
+    if (savedDns.isNotEmpty) {
+      await preferences.setString(_dnsKey, jsonEncode(savedDns));
+    }
     if (owned.isEmpty) {
       throw StateError(tr(
           'Не удалось включить системный прокси macOS: {error}. Нужна учётная запись администратора.',
@@ -120,19 +288,37 @@ class MihomoMacosSystemProxy {
     }
   }
 
-  /// Turns the proxies off on the services KaGo turned them on (also after a
-  /// crash, at the next start).
+  /// Turns the proxies off and gives back the DNS servers on the services
+  /// KaGo changed (also after a crash, at the next start).
   Future<void> restoreIfOwned() async {
     if (!Platform.isMacOS) return;
     final preferences = await SharedPreferences.getInstance();
     final owned = preferences.getStringList(_ownedKey);
-    if (owned == null) return;
-    for (final service in owned) {
-      await _run(<String>['-setwebproxystate', service, 'off']);
-      await _run(<String>['-setsecurewebproxystate', service, 'off']);
-      await _run(<String>['-setsocksfirewallproxystate', service, 'off']);
+    if (owned != null) {
+      for (final service in owned) {
+        await _run(<String>['-setwebproxystate', service, 'off']);
+        await _run(<String>['-setsecurewebproxystate', service, 'off']);
+        await _run(<String>['-setsocksfirewallproxystate', service, 'off']);
+      }
+      await preferences.remove(_ownedKey);
     }
-    await preferences.remove(_ownedKey);
+    final dns = preferences.getString(_dnsKey);
+    if (dns != null) {
+      final Object? decoded = jsonDecode(dns);
+      if (decoded is Map<String, dynamic>) {
+        for (final entry in decoded.entries) {
+          final servers = entry.value is List
+              ? (entry.value as List).whereType<String>().toList()
+              : const <String>[];
+          await _run(<String>[
+            '-setdnsservers',
+            entry.key,
+            if (servers.isEmpty) 'Empty' else ...servers,
+          ]);
+        }
+      }
+      await preferences.remove(_dnsKey);
+    }
   }
 
   void _requireMacos() {

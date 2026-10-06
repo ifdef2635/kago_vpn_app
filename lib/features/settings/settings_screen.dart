@@ -29,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _coreUpdating = false;
   String _windowsCoreStatus = tr('Проверяется…');
   bool _bypassRussian = false;
+  bool _macTun = true;
 
   /// Technical rows (core, logs, controller) stay folded away by default.
   bool _advanced = false;
@@ -39,8 +40,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (Platform.isWindows || Platform.isMacOS) {
       SharedPreferences.getInstance().then((prefs) {
         if (!mounted) return;
-        setState(() => _bypassRussian =
-            prefs.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ?? false);
+        setState(() {
+          _bypassRussian =
+              prefs.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ?? false;
+          _macTun = prefs.getBool(MihomoMacosCore.tunKey) ?? true;
+        });
       }).catchError((Object _) {});
     }
     final manager = ref.read(mihomoProcessProvider);
@@ -194,6 +198,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   size: 20, color: context.kago.muted),
               onTap: _openVpnSettings),
         ],
+        if (Platform.isMacOS)
+          _SettingsTile(
+              icon: Icons.vpn_lock_rounded,
+              title: tr('Весь трафик через VPN'),
+              subtitle: tr(
+                  'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.'),
+              trailing: Switch(value: _macTun, onChanged: _setMacTun),
+              onTap: () => _setMacTun(!_macTun)),
         if (Platform.isWindows || Platform.isMacOS)
           _SettingsTile(
               icon: Icons.alt_route_rounded,
@@ -290,6 +302,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await MihomoMacosSystemProxy().setBypassRussian(value);
       } else {
         await MihomoWindowsSystemProxy().setBypassRussian(value);
+      }
+    } catch (error) {
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+    }
+  }
+
+  Future<void> _setMacTun(bool value) async {
+    setState(() => _macTun = value);
+    try {
+      await MihomoMacosCore.setTunEnabled(value);
+      if (value && await MihomoMacosCore.authorizedCore() == null) {
+        final error = await MihomoMacosCore.authorize();
+        if (error != null) {
+          await MihomoMacosCore.setTunEnabled(false);
+          if (mounted) setState(() => _macTun = false);
+          _snack(tr('Не включено: {error}', <String, Object?>{'error': error}));
+          return;
+        }
+      }
+      if (ref.read(desktopCoreRunningProvider)) {
+        _snack(tr('Переподключитесь, чтобы применить.'));
       }
     } catch (error) {
       _snack(tr(

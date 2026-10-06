@@ -181,6 +181,8 @@ class MihomoConfigBuilder {
     'external-controller-unix',
     'external-controller-pipe',
     'external-controller-cors',
+    // Answers DNS on the controller port without the secret.
+    'external-doh-server',
     'tls',
     // Inbound servers: a subscription must not make the core accept connections.
     'tuic-server',
@@ -188,11 +190,42 @@ class MihomoConfigBuilder {
     'vmess-config',
   ];
 
+  /// Applied to every config before the core starts (also re-applied by the
+  /// desktop process manager to the file it reads back from disk).
+  static void lockToLoopback(Map<String, dynamic> config) =>
+      _lockToLoopback(config);
+
   static void _lockToLoopback(Map<String, dynamic> config) {
     config['allow-lan'] = false;
     config['bind-address'] = '127.0.0.1';
     for (final key in _dropped) {
       config.remove(key);
+    }
+    // Empty allow-origins means "any origin" in the core's CORS library:
+    // name one that never matches, so no web page can read controller
+    // replies, and refuse Private Network Access preflights.
+    config['external-controller-cors'] = <String, dynamic>{
+      'allow-origins': const <String>['https://controller.invalid'],
+      'allow-private-network': false,
+    };
+    // The macOS TUN core runs as root: a subscription must not set the clock.
+    final ntp = config['ntp'];
+    if (ntp is Map<String, dynamic>) {
+      ntp['write-to-system'] = false;
+    } else if (ntp != null) {
+      config.remove('ntp');
+    }
+    // An HTTP provider writes what it downloads to its `path`, which may be
+    // any file in the core's folder — the active config included. Without a
+    // path the core stores it under a hash of the URL.
+    for (final key in const <String>['rule-providers', 'proxy-providers']) {
+      final providers = config[key];
+      if (providers is! Map<String, dynamic>) continue;
+      for (final provider in providers.values) {
+        if (provider is Map<String, dynamic> && provider['type'] != 'file') {
+          provider.remove('path');
+        }
+      }
     }
     // A DNS server on 0.0.0.0:53 would answer the whole LAN (the macOS TUN
     // core runs as root and could bind it). Hijacked queries need no listener.

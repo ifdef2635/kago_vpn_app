@@ -207,8 +207,8 @@ class MihomoProcessManager {
       config['tun'] = tun;
     }
     final host = controllerUri.host == '::1' ? '[::1]' : controllerUri.host;
-    config['allow-lan'] = false;
-    config['bind-address'] = '127.0.0.1';
+    // The file on disk is re-read here: apply the same lock-down as on import.
+    MihomoConfigBuilder.lockToLoopback(config);
     config['external-controller'] = '$host:${controllerUri.port}';
     config['secret'] = await controller.ensureSecret();
     await configFile.writeAsString(jsonEncode(config), flush: true);

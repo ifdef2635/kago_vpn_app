@@ -2,6 +2,11 @@ name: Windows release
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Опубликовать GitHub Release v<версия из pubspec.yaml> (нужен ключ подписи)'
+        type: boolean
+        default: false
   push:
     branches:
       - 'claude/**'
@@ -70,7 +75,7 @@ jobs:
           Copy-Item dist/KaGoVPN-Windows-x64-Setup-*.exe dist/out/
           Get-ChildItem dist/out -File | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
-          } | Set-Content dist/out/SHA256SUMS.txt
+          } | Set-Content dist/out/SHA256SUMS-Windows.txt
           Get-ChildItem dist/out | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
@@ -79,9 +84,13 @@ jobs:
           path: dist/out/*
           retention-days: 30
 
-      - name: GitHub Release (для тега v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Тег v<версия> или ручной запуск с release=true; тот же релиз, что у Android.
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.version }}
+          target_commitish: ${{ github.sha }}
+          name: KaGo VPN ${{ env.version }}
           files: dist/out/*
-          prerelease: true
+          prerelease: false

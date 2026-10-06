@@ -32,7 +32,7 @@ VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) �
 
 ### В GitHub Actions (рекомендуется)
 
-Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает один release APK для arm64 и выкладывает в раздел **Artifacts** `KaGoVPN-Android-<версия>.apk` и `SHA256SUMS.txt`. Тег `v<версия>` (например, `v1.0.0`) создаёт GitHub Release; тег должен совпадать с версией в `pubspec.yaml`.
+Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает один release APK для arm64 и выкладывает в раздел **Artifacts** `KaGoVPN-Android-<версия>.apk` и `SHA256SUMS-Android.txt`. GitHub Release `v<версия>` (например, `v1.0.0`) создаётся пушем тега `v<версия>`, совпадающего с версией в `pubspec.yaml`, или ручным запуском workflow (Actions → Run workflow) с флагом `release`. Во втором случае тег создаётся на выбранном коммите автоматически. Сначала запускается Android, затем Windows: оба выкладывают файлы в один релиз.
 
 Подпись: если в секретах репозитория есть `KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`, APK подписывается постоянным ключом владельца, и каждая новая версия ставится поверх предыдущей как обновление. Без секретов сборка из ветки подписывается одноразовым тестовым ключом (с пометкой `debugsigned`, обновлением не ставится), а сборка по тегу завершается ошибкой.
 
@@ -66,7 +66,7 @@ Windows PowerShell:
 
 ### В GitHub Actions (рекомендуется)
 
-Workflow `.github/workflows/windows-release.yml` (раннер `windows-latest`) запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он выполняет `tool/build_windows_release.ps1` (формат, analyze, тесты, `flutter build windows --release`, ZIP), собирает установщик Inno Setup (`windows/installer/kago_vpn.iss`) и выкладывает в **Artifacts**: `KaGoVPN-Windows-x64-Setup-<версия>.exe`, переносной `KaGoVPN-Windows-x64-<версия>.zip` и `SHA256SUMS.txt`. Установщик ставит приложение для текущего пользователя без прав администратора (`%LOCALAPPDATA%\Programs\KaGo VPN`), создаёт ярлыки и деинсталлятор.
+Workflow `.github/workflows/windows-release.yml` (раннер `windows-latest`) запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он выполняет `tool/build_windows_release.ps1` (формат, analyze, тесты, `flutter build windows --release`, ZIP), собирает установщик Inno Setup (`windows/installer/kago_vpn.iss`) и выкладывает в **Artifacts**: `KaGoVPN-Windows-x64-Setup-<версия>.exe`, переносной `KaGoVPN-Windows-x64-<версия>.zip` и `SHA256SUMS-Windows.txt`. Установщик ставит приложение для текущего пользователя без прав администратора (`%LOCALAPPDATA%\Programs\KaGo VPN`), создаёт ярлыки и деинсталлятор.
 
 ### Локально
 

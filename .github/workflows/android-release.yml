@@ -2,6 +2,11 @@ name: Android release APK
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Опубликовать GitHub Release v<версия из pubspec.yaml> (нужен ключ подписи)'
+        type: boolean
+        default: false
   push:
     branches:
       - 'claude/**'
@@ -89,7 +94,7 @@ jobs:
             } >> "$GITHUB_ENV"
             echo "kind=release" >> "$GITHUB_OUTPUT"
             echo 'Подпись ключом владельца (секреты репозитория).'
-          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          elif [[ "$GITHUB_REF" == refs/tags/v* || "${{ inputs.release }}" == "true" ]]; then
             # A public release signed with a throwaway key could never be
             # updated in place, so a tag build needs the owner's key.
             echo '::error::Релиз по тегу требует ключ подписи: задайте секреты KAGO_ANDROID_KEYSTORE_BASE64, KAGO_ANDROID_KEYSTORE_PASSWORD, KAGO_ANDROID_KEY_ALIAS, KAGO_ANDROID_KEY_PASSWORD.'
@@ -132,7 +137,7 @@ jobs:
           [[ "$KIND" == release ]] || BASE="$BASE-$KIND"
           mkdir -p dist/android
           cp build/app/outputs/flutter-apk/app-release.apk "dist/android/$BASE.apk"
-          cd dist/android && sha256sum *.apk > SHA256SUMS.txt && ls -lh
+          cd dist/android && sha256sum *.apk > SHA256SUMS-Android.txt && ls -lh
           echo "name=$BASE" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
@@ -141,10 +146,14 @@ jobs:
           path: dist/android/*
           retention-days: 30
 
-      - name: GitHub Release (для тега v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Тег v<версия> или ручной запуск с release=true: тег создаётся на этом
+      # коммите, если его ещё нет.
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
           files: dist/android/*
           name: KaGo VPN ${{ steps.version.outputs.name }}
           prerelease: false

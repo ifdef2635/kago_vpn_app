@@ -124,7 +124,10 @@ void main() {
 
   test('ensureDns keeps a subscription DNS and adds one when missing', () {
     final own = <String, dynamic>{
-      'dns': <String, dynamic>{'enable': true, 'nameserver': <String>['x']}
+      'dns': <String, dynamic>{
+        'enable': true,
+        'nameserver': <String>['x']
+      }
     };
     MihomoConfigBuilder.ensureDns(own);
     expect((own['dns'] as Map)['nameserver'], <String>['x']);

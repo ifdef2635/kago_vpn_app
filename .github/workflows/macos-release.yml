@@ -1,10 +1,12 @@
 name: macOS release
 
 on:
+  # Выпуск релиза — только через release.yml (собирает все три платформы и
+  # публикует .apk, .exe и .dmg вместе); здесь — проверочная сборка.
   workflow_dispatch:
+  workflow_call:
     inputs:
       release:
-        description: 'Опубликовать GitHub Release v<версия из pubspec.yaml>'
         type: boolean
         default: false
   push:
@@ -12,8 +14,6 @@ on:
       - 'claude/**'
       - 'feat/**'
       - 'fix/**'
-    tags:
-      - 'v*'
     paths:
       - 'lib/**'
       - 'macos/**'
@@ -27,7 +27,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: macos-release-${{ github.ref }}
+  group: ${{ github.workflow }}-macos-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -54,6 +54,9 @@ jobs:
         run: |
           flutter config --no-enable-swift-package-manager
           flutter pub get
+
+      - name: Формат
+        run: dart format --output=none --set-exit-if-changed lib test
 
       - name: flutter analyze
         run: flutter analyze
@@ -209,14 +212,3 @@ jobs:
           name: ${{ steps.dist.outputs.name }}
           path: dist/macos/*
           retention-days: 30
-
-      # Тег v<версия> или ручной запуск с release=true; тот же релиз, что у Android.
-      - name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.name }}
-          target_commitish: ${{ github.sha }}
-          name: KaGo VPN ${{ steps.version.outputs.name }}
-          files: dist/macos/*
-          prerelease: false

@@ -496,7 +496,8 @@ const stringsEn = <String, String>{
   'Отменено.': 'Cancelled.',
   'Режим «Весь трафик через VPN» выключен: {error}':
       '"All traffic through VPN" is off: {error}',
-  'Весь трафик идёт через VPN (TUN).': 'All traffic goes through the VPN (TUN).',
+  'Весь трафик идёт через VPN (TUN).':
+      'All traffic goes through the VPN (TUN).',
   'Весь трафик через VPN': 'All traffic through VPN',
   'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.':
       'For Telegram and apps that ignore the system proxy. Asks for the administrator password once.',

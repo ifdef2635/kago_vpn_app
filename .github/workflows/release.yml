@@ -1,0 +1,85 @@
+name: Release
+
+# Единственный путь к GitHub Release: собирает Android, Windows и macOS
+# параллельно и публикует v<версия> только если готовы все три файла —
+# .apk, .exe и .dmg. Запуск: тег v<версия> (совпадает с pubspec.yaml) или
+# Actions → Release → Run workflow (тег создаётся на выбранном коммите).
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    uses: ./.github/workflows/android-release.yml
+    with:
+      release: true
+    secrets: inherit
+
+  windows:
+    uses: ./.github/workflows/windows-release.yml
+    with:
+      release: true
+    secrets: inherit
+
+  macos:
+    uses: ./.github/workflows/macos-release.yml
+    with:
+      release: true
+    secrets: inherit
+
+  publish:
+    needs: [android, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Версия
+        id: version
+        run: |
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          NAME="${VERSION%%+*}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
+            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+            exit 1
+          fi
+
+      # Артефакты платформ: KaGoVPN-Android-*, KaGoVPN-Windows-x64-*,
+      # KaGoVPN-macOS-* (символы отладки называются symbols-* и не входят).
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: KaGoVPN-*
+          path: dist
+          merge-multiple: true
+
+      - name: Проверить состав релиза
+        run: |
+          V="${{ steps.version.outputs.name }}"
+          ls -lh dist
+          for f in "KaGoVPN-Android-$V.apk" "KaGoVPN-Windows-x64-Setup-$V.exe" "KaGoVPN-macOS-$V.dmg" \
+                   SHA256SUMS-Android.txt SHA256SUMS-Windows.txt SHA256SUMS-macOS.txt; do
+            test -s "dist/$f" || { echo "::error::В релизе нет $f" >&2; exit 1; }
+          done
+          if ls dist | grep -q debugsigned; then
+            echo "::error::APK подписан debug-ключом — такой нельзя публиковать." >&2
+            exit 1
+          fi
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: KaGo VPN ${{ steps.version.outputs.name }}
+          files: dist/*
+          prerelease: false
+          make_latest: true

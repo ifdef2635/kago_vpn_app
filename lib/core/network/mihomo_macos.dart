@@ -111,8 +111,7 @@ abstract final class MihomoMacosCore {
     ].join(' && ');
     final result = await Process.run('/usr/bin/osascript', <String>[
       '-e',
-      adminScript(
-          command,
+      adminScript(command,
           tr('KaGo VPN включает режим «Весь трафик через VPN». Это нужно один раз.')),
     ]);
     if (result.exitCode == 0) return null;
@@ -158,8 +157,8 @@ abstract final class MihomoMacosCore {
     final pid = prefs.getInt(_pidKey);
     if (pid == null) return;
     await prefs.remove(_pidKey);
-    final result = await Process.run(
-        '/bin/ps', <String>['-p', '$pid', '-o', 'comm=']);
+    final result =
+        await Process.run('/bin/ps', <String>['-p', '$pid', '-o', 'comm=']);
     if ('${result.stdout}'.trim().endsWith('mihomo')) {
       Process.killPid(pid);
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -255,8 +254,8 @@ class MihomoMacosSystemProxy {
         lastError = errors.first;
       }
       if (tun) {
-        final current =
-            await Process.run(_networksetup, <String>['-getdnsservers', service]);
+        final current = await Process.run(
+            _networksetup, <String>['-getdnsservers', service]);
         if (current.exitCode == 0 &&
             await _run(<String>['-setdnsservers', service, ...tunDns]) ==
                 null) {

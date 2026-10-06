@@ -32,7 +32,7 @@ VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) �
 
 ### В GitHub Actions (рекомендуется)
 
-Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает один release APK для arm64 и выкладывает в раздел **Artifacts** `KaGoVPN-Android-<версия>.apk` и `SHA256SUMS-Android.txt`. GitHub Release `v<версия>` (например, `v1.0.0`) создаётся пушем тега `v<версия>`, совпадающего с версией в `pubspec.yaml`, или ручным запуском workflow (Actions → Run workflow) с флагом `release`. Во втором случае тег создаётся на выбранном коммите автоматически. Сначала запускается Android, затем Windows: оба выкладывают файлы в один релиз.
+Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает один release APK для arm64 и выкладывает в раздел **Artifacts** `KaGoVPN-Android-<версия>.apk` и `SHA256SUMS-Android.txt`. GitHub Release `v<версия>` публикует только workflow `.github/workflows/release.yml`. Его запускает пуш тега `v<версия>`, совпадающего с версией в `pubspec.yaml`, или ручной запуск (Actions → Release → Run workflow): тег создаётся на выбранном коммите автоматически. Он собирает Android, Windows и macOS параллельно и публикует релиз, только когда готовы все три файла: `.apk`, `.exe`, `.dmg`. Если какая-то платформа упала, релиз не публикуется.
 
 Подпись: если в секретах репозитория есть `KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`, APK подписывается постоянным ключом владельца, и каждая новая версия ставится поверх предыдущей как обновление. Без секретов сборка из ветки подписывается одноразовым тестовым ключом (с пометкой `debugsigned`, обновлением не ставится), а сборка по тегу завершается ошибкой.
 
@@ -83,11 +83,11 @@ Windows PowerShell:
    - `KAGO_APPLE_ID` — Apple ID (email);
    - `KAGO_APPLE_TEAM_ID` — Team ID (10 символов, developer.apple.com → Membership);
    - `KAGO_APPLE_APP_PASSWORD` — пароль приложения из п. 3.
-5. Перезапустить `macos-release.yml` с `release=true`: файл `.dmg` в релизе заменится нотаризованным.
+5. Перезапустить `release.yml`: файлы релиза заменятся, `.dmg` — нотаризованным.
 
 ## Сборка macOS
 
-Workflow `.github/workflows/macos-release.yml` (раннер `macos-latest`): analyze, тесты, загрузка Mihomo для darwin arm64 и amd64 с проверкой SHA-256, объединение в universal-бинарник (`lipo`), `flutter build macos --release`, встраивание ядра, ad-hoc подпись всего бандла и `hdiutil` → `KaGoVPN-macOS-<версия>.dmg` и `SHA256SUMS-macOS.txt`. Публикуется в тот же GitHub Release по тегу или ручным запуском с `release=true`.
+Workflow `.github/workflows/macos-release.yml` (раннер `macos-latest`): analyze, тесты, загрузка Mihomo для darwin arm64 и amd64 с проверкой SHA-256, объединение в universal-бинарник (`lipo`), `flutter build macos --release`, встраивание ядра, ad-hoc подпись всего бандла и `hdiutil` → `KaGoVPN-macOS-<версия>.dmg` и `SHA256SUMS-macOS.txt`. Публикуется вместе с Android и Windows через `release.yml`.
 
 ## Сборка Windows
 

@@ -19,7 +19,7 @@ class DeviceIdentity {
   DeviceIdentity._();
   static final instance = DeviceIdentity._();
 
-  static const _channel = MethodChannel('net.usekago.vpn/service');
+  static const _channel = MethodChannel('net.usekago.app/service');
   static const _storageKey = 'kago.device.hwid.v1';
 
   Future<Map<String, String>>? _headers;

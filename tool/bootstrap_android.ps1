@@ -8,7 +8,7 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 
 $androidRoot = Join-Path $projectRoot 'android'
 $appRoot = Join-Path $androidRoot 'app'
-$customRoot = Join-Path $appRoot 'src/main/kotlin/net/usekago/vpn'
+$customRoot = Join-Path $appRoot 'src/main/kotlin/net/usekago/app'
 $customFiles = @('MainActivity.kt', 'MihomoNativeCore.kt', 'KaGoVpnService.kt')
 $gradleKts = Join-Path $appRoot 'build.gradle.kts'
 $gradleGroovy = Join-Path $appRoot 'build.gradle'
@@ -36,14 +36,14 @@ if (-not $hasRunner) {
 
 if (Test-Path $gradleKts) {
   $gradleText = Get-Content $gradleKts -Raw
-  $gradleText = [regex]::Replace($gradleText, '(?m)^(\s*namespace\s*=\s*)"[^"]+"', '$1"net.usekago.vpn"')
-  $gradleText = [regex]::Replace($gradleText, '(?m)^(\s*applicationId\s*=\s*)"[^"]+"', '$1"net.usekago.vpn"')
+  $gradleText = [regex]::Replace($gradleText, '(?m)^(\s*namespace\s*=\s*)"[^"]+"', '$1"net.usekago.app"')
+  $gradleText = [regex]::Replace($gradleText, '(?m)^(\s*applicationId\s*=\s*)"[^"]+"', '$1"net.usekago.app"')
   $gradleText = [regex]::Replace($gradleText, '(?m)^\s*signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)\s*\r?\n', '')
   Set-Content -Path $gradleKts -Value $gradleText -NoNewline -Encoding utf8
 } elseif (Test-Path $gradleGroovy) {
   $gradleText = Get-Content $gradleGroovy -Raw
-  $gradleText = [regex]::Replace($gradleText, '(?m)^\s*namespace\s+["'']([^"'']+)["'']', '    namespace "net.usekago.vpn"')
-  $gradleText = [regex]::Replace($gradleText, '(?m)^\s*applicationId\s+["'']([^"'']+)["'']', '        applicationId "net.usekago.vpn"')
+  $gradleText = [regex]::Replace($gradleText, '(?m)^\s*namespace\s+["'']([^"'']+)["'']', '    namespace "net.usekago.app"')
+  $gradleText = [regex]::Replace($gradleText, '(?m)^\s*applicationId\s+["'']([^"'']+)["'']', '        applicationId "net.usekago.app"')
   $gradleText = [regex]::Replace($gradleText, '(?m)^\s*signingConfig\s+signingConfigs\.debug\s*\r?\n', '')
   Set-Content -Path $gradleGroovy -Value $gradleText -NoNewline -Encoding utf8
 }
@@ -90,12 +90,12 @@ $application.SetAttribute('name', $androidNs, '${applicationName}')
 
 $mainActivity = $document.SelectSingleNode("/manifest/application/activity[intent-filter/action[@android:name='android.intent.action.MAIN']]", $namespaces)
 if ($null -eq $mainActivity) { throw 'В AndroidManifest не найден launcher Activity.' }
-$mainActivity.SetAttribute('name', $androidNs, 'net.usekago.vpn.MainActivity')
+$mainActivity.SetAttribute('name', $androidNs, 'net.usekago.app.MainActivity')
 
-$service = $document.SelectSingleNode("/manifest/application/service[@android:name='net.usekago.vpn.KaGoVpnService']", $namespaces)
+$service = $document.SelectSingleNode("/manifest/application/service[@android:name='net.usekago.app.KaGoVpnService']", $namespaces)
 if ($null -eq $service) {
   $service = $document.CreateElement('service')
-  $service.SetAttribute('name', $androidNs, 'net.usekago.vpn.KaGoVpnService')
+  $service.SetAttribute('name', $androidNs, 'net.usekago.app.KaGoVpnService')
   $service.SetAttribute('permission', $androidNs, 'android.permission.BIND_VPN_SERVICE')
   $service.SetAttribute('exported', $androidNs, 'true')
   $service.SetAttribute('foregroundServiceType', $androidNs, 'systemExempted')

@@ -1,4 +1,4 @@
-package net.usekago.vpn
+package net.usekago.app
 
 import android.content.Context
 import android.content.Intent

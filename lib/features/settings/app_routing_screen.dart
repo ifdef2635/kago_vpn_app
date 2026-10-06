@@ -55,7 +55,7 @@ class AppRoutingScreen extends StatefulWidget {
 }
 
 class _AppRoutingScreenState extends State<AppRoutingScreen> {
-  static const _channel = MethodChannel('net.usekago.vpn/service');
+  static const _channel = MethodChannel('net.usekago.app/service');
   List<_App>? _apps;
   String _mode = 'off';
   final _selected = <String>{};

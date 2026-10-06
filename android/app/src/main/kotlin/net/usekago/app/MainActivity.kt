@@ -1,4 +1,4 @@
-package net.usekago.vpn
+package net.usekago.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -20,8 +20,8 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val methodChannelName = "net.usekago.vpn/service"
-    private val eventChannelName = "net.usekago.vpn/events"
+    private val methodChannelName = "net.usekago.app/service"
+    private val eventChannelName = "net.usekago.app/events"
     private val permissionRequestCode = 7402
     private var pendingResult: MethodChannel.Result? = null
     private var pendingConfigPath: String? = null

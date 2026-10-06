@@ -117,7 +117,7 @@ final latestMihomoReleaseProvider = FutureProvider<MihomoReleaseInfo>(
 final androidNativeCoreVersionProvider = FutureProvider<String?>((ref) async {
   if (!Platform.isAndroid) return null;
   try {
-    return await const MethodChannel('net.usekago.vpn/service')
+    return await const MethodChannel('net.usekago.app/service')
         .invokeMethod<String>('coreVersion');
   } on MissingPluginException {
     return null;

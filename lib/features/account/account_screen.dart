@@ -377,6 +377,31 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: p.muted, fontSize: 13)),
             const SizedBox(height: 18),
+            if (!_register) ...<Widget>[
+              // Telegram first: most accounts were created by the bot.
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                    backgroundColor: telegramBlue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700)),
+                onPressed: _busy ? null : _telegram,
+                icon: const Icon(Icons.telegram, size: 22),
+                label: Text(tr('Войти через Telegram')),
+              ),
+              const SizedBox(height: 16),
+              Row(children: <Widget>[
+                Expanded(child: Divider(color: p.border)),
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(tr('или по email'),
+                        style: TextStyle(color: p.muted, fontSize: 12))),
+                Expanded(child: Divider(color: p.border)),
+              ]),
+              const SizedBox(height: 16),
+            ],
             if (_register) ...<Widget>[
               TextField(
                   controller: _name,
@@ -448,26 +473,6 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
               TextButton(
                   onPressed: _busy ? null : _forgot,
                   child: Text(tr('Забыли пароль?'))),
-            if (!_register) ...<Widget>[
-              Row(children: <Widget>[
-                Expanded(child: Divider(color: p.border)),
-                Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(tr('или'),
-                        style: TextStyle(color: p.muted, fontSize: 12))),
-                Expanded(child: Divider(color: p.border)),
-              ]),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                    // Telegram blue, as on usekago.net.
-                    backgroundColor: const Color(0xFF229ED9),
-                    minimumSize: const Size.fromHeight(48)),
-                onPressed: _busy ? null : _telegram,
-                icon: const Icon(Icons.send_rounded, size: 18),
-                label: Text(tr('Войти через Telegram')),
-              ),
-            ],
           ],
         ),
       ),
@@ -1378,14 +1383,13 @@ class _ProfileCard extends ConsumerWidget {
                 style: TextStyle(color: p.muted, fontSize: 12)),
             const SizedBox(height: 8),
             FilledButton.icon(
-              style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF229ED9)),
+              style: FilledButton.styleFrom(backgroundColor: telegramBlue),
               onPressed: () async {
                 await SiteSessionScreen.open(context, SiteSessionMode.cabinet,
                     api: ref.read(kagoApiProvider));
                 refreshAccount(ref);
               },
-              icon: const Icon(Icons.send_rounded, size: 18),
+              icon: const Icon(Icons.telegram, size: 20),
               label: Text(tr('Привязать Telegram')),
             ),
           ],

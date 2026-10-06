@@ -8,6 +8,11 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
 import android.provider.Settings
+import android.view.Surface
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import android.view.View
+import android.view.ViewGroup
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -31,6 +36,15 @@ class MainActivity : FlutterActivity() {
         requestHighestRefreshRate()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Flutter's SurfaceView exists by now; vote on its surface too.
+        if (hasFocus) voteSurfaceFrameRate()
+    }
+
+    /** Highest refresh rate of the current display mode set, 0 if unknown. */
+    private var highestRefreshRate = 0f
+
     /**
      * Many phones keep apps at 60 Hz unless they ask for more. Pick the mode with
      * the highest refresh rate at the current resolution so Flutter animations
@@ -52,10 +66,59 @@ class MainActivity : FlutterActivity() {
                         it.physicalHeight == current.physicalHeight
                 }
                 .maxByOrNull { it.refreshRate } ?: return@runCatching
-            if (best.modeId == current.modeId) return@runCatching
+            highestRefreshRate = best.refreshRate
             val params = window.attributes
             params.preferredDisplayModeId = best.modeId
+            // Some OEM schedulers (MIUI/HyperOS, ColorOS) read only this one.
+            params.preferredRefreshRate = best.refreshRate
             window.attributes = params
+        }
+        voteSurfaceFrameRate()
+    }
+
+    private val surfaceCallback = object : SurfaceHolder.Callback {
+        override fun surfaceCreated(holder: SurfaceHolder) = applyFrameRate(holder.surface)
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) =
+            applyFrameRate(holder.surface)
+        override fun surfaceDestroyed(holder: SurfaceHolder) {}
+    }
+    private val watchedSurfaces = mutableSetOf<SurfaceView>()
+
+    /**
+     * Flutter draws into a SurfaceView. On adaptive panels (LTPO/VRR: Samsung,
+     * Pixel, Xiaomi…) the system picks the rate from each surface's own vote,
+     * and a surface without one is held at 60 Hz even though the display mode
+     * is 120 Hz. So the Flutter surface asks for the panel's top rate itself.
+     */
+    private fun voteSurfaceFrameRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || highestRefreshRate <= 0f) return
+        runCatching {
+            surfaceViews(window.decorView).forEach { view ->
+                if (watchedSurfaces.add(view)) view.holder.addCallback(surfaceCallback)
+                applyFrameRate(view.holder.surface)
+            }
+        }
+    }
+
+    private fun surfaceViews(root: View): List<SurfaceView> = when (root) {
+        is SurfaceView -> listOf(root)
+        is ViewGroup -> (0 until root.childCount).flatMap { surfaceViews(root.getChildAt(it)) }
+        else -> emptyList()
+    }
+
+    private fun applyFrameRate(surface: Surface?) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        if (surface == null || !surface.isValid || highestRefreshRate <= 0f) return
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                surface.setFrameRate(
+                    highestRefreshRate,
+                    Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS,
+                )
+            } else {
+                surface.setFrameRate(highestRefreshRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
+            }
         }
     }
 

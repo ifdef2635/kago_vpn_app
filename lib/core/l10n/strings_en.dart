@@ -375,9 +375,6 @@ const stringsEn = <String, String>{
   'Не удалось проверить задержку: {error}': 'Could not test latency: {error}',
   'Таймаут': 'Timeout',
   '{value} мс': '{value} ms',
-  '{v} Гц · анимации и прокрутка на полной частоте':
-      '{v} Hz · animations and scrolling at full rate',
-  'Частота экрана не определена': 'Display refresh rate unknown',
   'Проверяется…': 'Checking…',
   'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.':
       'Mihomo is not installed yet: it will be downloaded automatically to %APPDATA%\\KaGo\\core.',
@@ -389,60 +386,24 @@ const stringsEn = <String, String>{
   'Тёмная': 'Dark',
   'Чисто чёрный фон': 'Pure black background',
   'Тёмная тема для OLED-дисплеев': 'Dark theme for OLED displays',
-  'Частота экрана': 'Refresh rate',
   'Подключение': 'Connection',
   'Адрес контроллера': 'Controller address',
-  'Secret контроллера': 'Controller secret',
-  'Создаётся автоматически и хранится в защищённом хранилище':
-      'Generated automatically and kept in secure storage',
   'Режим подключения': 'Connection mode',
-  'Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.':
-      'Windows system proxy (127.0.0.1:7890). Apps that use it are covered; this is not a full TUN.',
   'Путь к Mihomo': 'Mihomo path',
   'Не задан. Укажите путь к бинарнику Mihomo.':
       'Not set. Specify the path to the Mihomo binary.',
-  'Безопасность': 'Security',
-  'Ядро Mihomo': 'Mihomo core',
-  'Диагностика': 'Diagnostics',
   'Логи Mihomo': 'Mihomo logs',
-  'Последние строки лога ядра и загрузки': 'Latest core and download log lines',
   'О приложении': 'About',
-  'Версия и сайт': 'Version and website',
-  'KaGo VPN · usekago.net · клиент на ядре Mihomo':
-      'KaGo VPN · usekago.net · client based on the Mihomo core',
   'Лицензии': 'Licenses',
-  'Mihomo распространяется под GPL-3.0': 'Mihomo is distributed under GPL-3.0',
   'Блокировать интернет без VPN': 'Block the internet without VPN',
-  'Kill switch: в системных настройках включите для KaGo VPN «Постоянная VPN» и «Блокировать соединения без VPN»':
-      'Kill switch: in system settings, turn on “Always-on VPN” and “Block connections without VPN” for KaGo VPN',
-  'Защита от утечек': 'Leak protection',
-  'DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля заблокирован, обход VPN приложениями запрещён':
-      'DNS only through the core (DoH, fake-ip), IPv6 outside the tunnel is blocked, apps cannot bypass the VPN',
-  'Без локальных прокси-портов': 'No local proxy ports',
-  'Другие приложения на телефоне не могут через 127.0.0.1 обнаружить VPN и узнать адрес сервера. В логах ядра не сохраняются посещённые сайты.':
-      'Other apps on the phone cannot use 127.0.0.1 to detect the VPN or learn the server address. Core logs do not keep visited sites.',
-  'Ограничение режима прокси': 'Proxy mode limitation',
-  'Приложения, которые не используют системный прокси Windows, и их DNS-запросы идут мимо VPN.':
-      'Apps that do not use the Windows system proxy, and their DNS requests, bypass the VPN.',
-  'Локальный доступ': 'Local access',
-  'Прокси и контроллер слушают только 127.0.0.1; подписка не может открыть порты для сети или запустить входящие серверы.':
-      'The proxy and controller listen on 127.0.0.1 only; a subscription cannot open ports to the network or start inbound servers.',
   'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».':
       'Open “Settings → Network → VPN” and turn on “Always-on VPN” for KaGo VPN.',
   '{windowsCoreStatus} Остановите ядро, чтобы обновить.':
       '{windowsCoreStatus} Stop the core to update.',
-  'Папка ядра': 'Core folder',
-  'Путь скопирован.': 'Path copied.',
-  'Проверка и обновление': 'Check and update',
-  'Автозагрузка с GitHub, проверка SHA-256 при установке и перед запуском, старые версии удаляются автоматически.':
-      'Downloaded from GitHub automatically, SHA-256 checked on install and before start, old versions removed automatically.',
   'Проверка версии встроенного Mihomo…':
       'Checking the embedded Mihomo version…',
   'Не удалось проверить upstream release: {error}':
       'Could not check the upstream release: {error}',
-  'Обновление ядра': 'Core updates',
-  'Ядро поставляется внутри подписанного APK/AAB и обновляется вместе с приложением; удалённая подмена .so отключена.':
-      'The core ships inside the signed APK/AAB and is updated with the app; remote .so replacement is disabled.',
   'Mihomo · внешний бинарник': 'Mihomo · external binary',
   'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.':
       'Linux/macOS still need an external Mihomo. Built-in automatic updates support Windows x64.',
@@ -496,8 +457,6 @@ const stringsEn = <String, String>{
   'Устройства, промокоды и продление — в приложении':
       'Devices, promo codes and renewal — right in the app',
   'Приложения и VPN': 'Apps and VPN',
-  'Раздельное туннелирование: выбрать приложения, которые работают без VPN (Яндекс Музыка, VK, банки)':
-      'Split tunneling: choose apps that work without the VPN (Yandex Music, VK, banks)',
   'Раздельное туннелирование доступно только на Android.':
       'Split tunneling is only available on Android.',
   'Сохранено. Изменения применятся при следующем подключении VPN.':
@@ -516,8 +475,6 @@ const stringsEn = <String, String>{
   'Российские сервисы — мимо VPN': 'Russian services — bypass VPN',
   'Поиск приложения': 'Search apps',
   'Российские сайты — напрямую': 'Russian sites — direct',
-  'Сайты .ru/.рф, Яндекс, VK, банки и Госуслуги открываются без VPN — они часто не работают через VPN или из-за границы':
-      '.ru/.рф sites, Yandex, VK, banks and Gosuslugi open without the VPN — they often do not work through a VPN or from abroad',
   'или': 'or',
   'Войти через Telegram': 'Sign in with Telegram',
   'Привяжите Telegram, чтобы входить через бота и в приложении.':
@@ -532,4 +489,24 @@ const stringsEn = <String, String>{
       'Tap “Войти через Telegram” and confirm the sign-in in Telegram. This window closes by itself.',
   'Здесь можно привязать Telegram к аккаунту. Нажмите «Готово», когда закончите.':
       'Link Telegram to your account here. Tap “Done” when finished.',
+  'Назад': 'Back',
+  'Входим в аккаунт…': 'Signing you in…',
+  'Подключаемся к usekago.net…': 'Connecting to usekago.net…',
+  'Подтвердите вход в Telegram — пароль не нужен. Аккаунт KAGO и подписка подключатся автоматически.':
+      'Confirm the sign-in in Telegram, no password needed. Your KAGO account and subscription connect automatically.',
+  'Продолжить с Telegram': 'Continue with Telegram',
+  'Вход через официальный сайт Telegram':
+      'Signed in via the official Telegram website',
+  'или по email': 'or with email',
+  'Дополнительно': 'Advanced',
+  'Для опытных пользователей': 'For advanced users',
+  'Ядро, логи и адрес контроллера': 'Core, logs and controller address',
+  'Приложения без VPN': 'Apps without VPN',
+  'Например, Яндекс Музыка, VK и банки':
+      'For example Yandex Music, VK and banks',
+  'Включается в системных настройках VPN':
+      'Turned on in the system VPN settings',
+  'Яндекс, VK, банки и Госуслуги — без VPN':
+      'Yandex, VK, banks and Gosuslugi bypass the VPN',
+  'Системный прокси 127.0.0.1:7890': 'System proxy 127.0.0.1:7890',
 };

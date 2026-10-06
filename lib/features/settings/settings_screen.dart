@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
@@ -13,46 +14,6 @@ import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
 import 'app_routing_screen.dart';
 import '../../core/l10n/l10n.dart';
-
-/// Refresh rate Flutter currently renders at ("144 Гц"). Updates when the window
-/// moves to another monitor or the display mode changes.
-class _RefreshRateLabel extends StatefulWidget {
-  const _RefreshRateLabel();
-
-  @override
-  State<_RefreshRateLabel> createState() => _RefreshRateLabelState();
-}
-
-class _RefreshRateLabelState extends State<_RefreshRateLabel>
-    with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeMetrics() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hz = View.of(context).display.refreshRate;
-    return Text(
-        hz > 0
-            ? tr('{v} Гц · анимации и прокрутка на полной частоте',
-                <String, Object?>{'v': hz.round()})
-            : tr('Частота экрана не определена'),
-        style: TextStyle(fontSize: 12, color: context.kago.muted));
-  }
-}
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -66,6 +27,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _coreUpdating = false;
   String _windowsCoreStatus = tr('Проверяется…');
   bool _bypassRussian = false;
+
+  /// Technical rows (core, logs, controller) stay folded away by default.
+  bool _advanced = false;
 
   @override
   void initState() {
@@ -158,117 +122,89 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onTap: () => ref
                       .read(appearanceProvider.notifier)
                       .setPureBlack(!appearance.pureBlack)),
-            _SettingsTile(
-                icon: Icons.speed_rounded,
-                title: tr('Частота экрана'),
-                subtitleWidget: const _RefreshRateLabel()),
           ]),
-          _SettingsGroup(title: tr('Подключение'), children: <Widget>[
-            if (Platform.isAndroid)
-              _SettingsTile(
-                  icon: Icons.apps_rounded,
-                  title: tr('Приложения и VPN'),
-                  subtitle: tr(
-                      'Раздельное туннелирование: выбрать приложения, которые работают без VPN (Яндекс Музыка, VK, банки)'),
-                  onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                          builder: (_) => const AppRoutingScreen()))),
-            _SettingsTile(
-                icon: Icons.hub_outlined,
-                title: tr('Адрес контроллера'),
-                subtitle: _endpoint,
-                onTap: _editEndpoint),
-            _SettingsTile(
-                icon: Icons.vpn_key_outlined,
-                title: tr('Secret контроллера'),
-                subtitle: tr(
-                    'Создаётся автоматически и хранится в защищённом хранилище')),
-            if (Platform.isWindows)
-              _SettingsTile(
-                  icon: Icons.lan_outlined,
-                  title: tr('Режим подключения'),
-                  subtitle: tr(
-                      'Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.')),
-            if (Platform.isWindows)
-              _SettingsTile(
-                  icon: Icons.alt_route_rounded,
-                  title: tr('Российские сайты — напрямую'),
-                  subtitle: tr(
-                      'Сайты .ru/.рф, Яндекс, VK, банки и Госуслуги открываются без VPN — они часто не работают через VPN или из-за границы'),
-                  trailing: Switch(
-                      value: _bypassRussian, onChanged: _setBypassRussian),
-                  onTap: () => _setBypassRussian(!_bypassRussian)),
-            if (!Platform.isAndroid && !Platform.isWindows)
-              _SettingsTile(
-                  icon: Icons.terminal_rounded,
-                  title: tr('Путь к Mihomo'),
-                  subtitle: _binary.isEmpty
-                      ? tr('Не задан. Укажите путь к бинарнику Mihomo.')
-                      : _binary,
-                  onTap: _editBinary),
-          ]),
-          _SettingsGroup(title: tr('Безопасность'), children: _securityTiles()),
           _SettingsGroup(
-              title: tr('Ядро Mihomo'),
-              children: _coreTiles(coreRunning, androidUpdate)),
-          _SettingsGroup(title: tr('Диагностика'), children: <Widget>[
+              title: tr('Подключение'), children: _connectionTiles()),
+          _SettingsGroup(title: tr('Дополнительно'), children: <Widget>[
             _SettingsTile(
-                icon: Icons.receipt_long_outlined,
-                title: tr('Логи Mihomo'),
-                subtitle: tr('Последние строки лога ядра и загрузки'),
-                onTap: _showLogs),
+                icon: Icons.build_outlined,
+                title: tr('Для опытных пользователей'),
+                subtitle: tr('Ядро, логи и адрес контроллера'),
+                trailing: AnimatedRotation(
+                    turns: _advanced ? .5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.expand_more_rounded,
+                        color: context.kago.muted)),
+                onTap: () => setState(() => _advanced = !_advanced)),
+            if (_advanced) ...<Widget>[
+              ..._coreTiles(coreRunning, androidUpdate),
+              _SettingsTile(
+                  icon: Icons.receipt_long_outlined,
+                  title: tr('Логи Mihomo'),
+                  onTap: _showLogs),
+              _SettingsTile(
+                  icon: Icons.hub_outlined,
+                  title: tr('Адрес контроллера'),
+                  subtitle: _endpoint,
+                  onTap: _editEndpoint),
+              if (!Platform.isAndroid && !Platform.isWindows)
+                _SettingsTile(
+                    icon: Icons.terminal_rounded,
+                    title: tr('Путь к Mihomo'),
+                    subtitle: _binary.isEmpty
+                        ? tr('Не задан. Укажите путь к бинарнику Mihomo.')
+                        : _binary,
+                    onTap: _editBinary),
+            ],
           ]),
           _SettingsGroup(title: tr('О приложении'), children: <Widget>[
             _SettingsTile(
-                icon: Icons.info_outline_rounded,
-                title: tr('Версия и сайт'),
-                subtitle: tr('KaGo VPN · usekago.net · клиент на ядре Mihomo')),
+                icon: Icons.language_rounded,
+                title: 'KaGo VPN',
+                subtitle: 'usekago.net',
+                trailing: Icon(Icons.open_in_new_rounded,
+                    size: 20, color: context.kago.muted),
+                onTap: () => launchUrl(Uri.parse('https://usekago.net'),
+                    mode: LaunchMode.externalApplication)),
             _SettingsTile(
                 icon: Icons.description_outlined,
                 title: tr('Лицензии'),
-                subtitle: tr('Mihomo распространяется под GPL-3.0'),
                 onTap: () => showLicensePage(
                     context: context, applicationName: 'KaGo VPN')),
           ]),
         ]);
   }
 
-  List<Widget> _securityTiles() {
-    if (Platform.isAndroid) {
-      return <Widget>[
-        _SettingsTile(
-            icon: Icons.shield_outlined,
-            title: tr('Блокировать интернет без VPN'),
-            subtitle: tr(
-                'Kill switch: в системных настройках включите для KaGo VPN «Постоянная VPN» и «Блокировать соединения без VPN»'),
-            trailing: const Icon(Icons.open_in_new_rounded),
-            onTap: _openVpnSettings),
-        _SettingsTile(
-            icon: Icons.dns_outlined,
-            title: tr('Защита от утечек'),
-            subtitle: tr(
-                'DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля заблокирован, обход VPN приложениями запрещён')),
-        _SettingsTile(
-            icon: Icons.visibility_off_outlined,
-            title: tr('Без локальных прокси-портов'),
-            subtitle: tr(
-                'Другие приложения на телефоне не могут через 127.0.0.1 обнаружить VPN и узнать адрес сервера. В логах ядра не сохраняются посещённые сайты.')),
+  List<Widget> _connectionTiles() => <Widget>[
+        if (Platform.isAndroid) ...<Widget>[
+          _SettingsTile(
+              icon: Icons.apps_rounded,
+              title: tr('Приложения без VPN'),
+              subtitle: tr('Например, Яндекс Музыка, VK и банки'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const AppRoutingScreen()))),
+          _SettingsTile(
+              icon: Icons.shield_outlined,
+              title: tr('Блокировать интернет без VPN'),
+              subtitle: tr('Включается в системных настройках VPN'),
+              trailing: Icon(Icons.open_in_new_rounded,
+                  size: 20, color: context.kago.muted),
+              onTap: _openVpnSettings),
+        ],
+        if (Platform.isWindows)
+          _SettingsTile(
+              icon: Icons.alt_route_rounded,
+              title: tr('Российские сайты — напрямую'),
+              subtitle: tr('Яндекс, VK, банки и Госуслуги — без VPN'),
+              trailing:
+                  Switch(value: _bypassRussian, onChanged: _setBypassRussian),
+              onTap: () => _setBypassRussian(!_bypassRussian)),
+        if (!Platform.isAndroid && !Platform.isWindows)
+          _SettingsTile(
+              icon: Icons.lan_outlined,
+              title: tr('Режим подключения'),
+              subtitle: tr('Системный прокси 127.0.0.1:7890')),
       ];
-    }
-    return <Widget>[
-      if (Platform.isWindows)
-        _SettingsTile(
-            icon: Icons.warning_amber_rounded,
-            title: tr('Ограничение режима прокси'),
-            subtitle: tr(
-                'Приложения, которые не используют системный прокси Windows, и их DNS-запросы идут мимо VPN.')),
-      _SettingsTile(
-          icon: Icons.lock_outline_rounded,
-          title: tr('Локальный доступ'),
-          subtitle: tr(
-              'Прокси и контроллер слушают только 127.0.0.1; подписка не может открыть порты для сети или запустить входящие серверы.')),
-    ];
-  }
 
   Future<void> _openVpnSettings() async {
     var opened = false;
@@ -306,20 +242,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     color:
                         coreRunning ? context.kago.muted : context.kago.accent),
             onTap: _coreUpdating || coreRunning ? null : _checkWindowsCore),
-        _SettingsTile(
-            icon: Icons.folder_outlined,
-            title: tr('Папка ядра'),
-            subtitle: r'%APPDATA%\KaGo\core · нажмите, чтобы скопировать путь',
-            onTap: () async {
-              await Clipboard.setData(
-                  const ClipboardData(text: r'%APPDATA%\KaGo\core'));
-              _snack(tr('Путь скопирован.'));
-            }),
-        _SettingsTile(
-            icon: Icons.verified_user_outlined,
-            title: tr('Проверка и обновление'),
-            subtitle: tr(
-                'Автозагрузка с GitHub, проверка SHA-256 при установке и перед запуском, старые версии удаляются автоматически.')),
       ];
     }
     if (Platform.isAndroid) {
@@ -337,11 +259,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: status,
             trailing: Icon(Icons.refresh_rounded, color: context.kago.accent),
             onTap: () => ref.invalidate(androidCoreUpdateStatusProvider)),
-        _SettingsTile(
-            icon: Icons.verified_user_outlined,
-            title: tr('Обновление ядра'),
-            subtitle: tr(
-                'Ядро поставляется внутри подписанного APK/AAB и обновляется вместе с приложением; удалённая подмена .so отключена.')),
       ];
     }
     return <Widget>[

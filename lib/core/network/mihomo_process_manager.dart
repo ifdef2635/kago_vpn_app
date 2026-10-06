@@ -5,21 +5,41 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'mihomo_controller.dart';
+import 'mihomo_macos.dart';
 import 'mihomo_windows_core_updater.dart';
 import 'mihomo_windows_system_proxy.dart';
 import '../l10n/l10n.dart';
 
-/// Desktop lifecycle for built-in Windows Mihomo or an optional user-supplied executable.
+/// Desktop lifecycle: the managed Windows core, the core bundled in the macOS
+/// app, or (Linux) a user-supplied executable.
 class MihomoProcessManager {
   MihomoProcessManager({
     MihomoWindowsCoreUpdater? coreUpdater,
     MihomoWindowsSystemProxy? windowsSystemProxy,
+    MihomoMacosSystemProxy? macosSystemProxy,
   })  : _coreUpdater = coreUpdater ?? MihomoWindowsCoreUpdater(),
-        _windowsSystemProxy = windowsSystemProxy ?? MihomoWindowsSystemProxy();
+        _windowsSystemProxy = windowsSystemProxy ?? MihomoWindowsSystemProxy(),
+        _macosSystemProxy = macosSystemProxy ?? MihomoMacosSystemProxy();
 
   static const _binaryKey = 'mihomo.binary';
   final MihomoWindowsCoreUpdater _coreUpdater;
   final MihomoWindowsSystemProxy _windowsSystemProxy;
+  final MihomoMacosSystemProxy _macosSystemProxy;
+
+  /// Windows and macOS have a built-in core and route apps through the
+  /// system proxy; Linux uses a manual core path.
+  static bool get _managedDesktop => Platform.isWindows || Platform.isMacOS;
+
+  Future<void> _enableSystemProxy() async {
+    if (Platform.isWindows) await _windowsSystemProxy.enable();
+    if (Platform.isMacOS) await _macosSystemProxy.enable();
+  }
+
+  Future<void> _restoreSystemProxy() async {
+    if (Platform.isWindows) await _windowsSystemProxy.restoreIfOwned();
+    if (Platform.isMacOS) await _macosSystemProxy.restoreIfOwned();
+  }
+
   Process? _process;
   StreamSubscription<String>? _stdout;
   StreamSubscription<String>? _stderr;
@@ -51,12 +71,12 @@ class MihomoProcessManager {
     return tr('\nЛог ядра:\n{v}', <String, Object?>{'v': tail.join('\n')});
   }
 
-  /// Manual core path. Only Linux/macOS use it (they have no built-in core);
-  /// on Windows the core is always the managed one, so a path saved by an
-  /// older version is dropped instead of silently overriding it.
+  /// Manual core path. Only Linux uses it (it has no built-in core); on
+  /// Windows and macOS the core is always the managed one, so a path saved by
+  /// an older version is dropped instead of silently overriding it.
   Future<String?> get executable async {
     final prefs = await SharedPreferences.getInstance();
-    if (Platform.isWindows) {
+    if (_managedDesktop) {
       if (prefs.containsKey(_binaryKey)) await prefs.remove(_binaryKey);
       return null;
     }
@@ -64,7 +84,7 @@ class MihomoProcessManager {
   }
 
   Future<void> saveExecutable(String path) async {
-    if (Platform.isWindows) return;
+    if (_managedDesktop) return;
     final value = path.trim();
     final prefs = await SharedPreferences.getInstance();
     if (value.isEmpty) {
@@ -74,7 +94,8 @@ class MihomoProcessManager {
     }
   }
 
-  Future<MihomoCoreInstall?> installedCore() => _coreUpdater.installed();
+  Future<MihomoCoreInstall?> installedCore() =>
+      Platform.isMacOS ? MihomoMacosCore.installed() : _coreUpdater.installed();
 
   /// Downloads or updates the managed Windows core in the background so it is
   /// ready before the first connection. Failures are logged, never thrown.
@@ -92,7 +113,7 @@ class MihomoProcessManager {
 
   Future<void> recoverStaleSystemProxy() async {
     try {
-      await _windowsSystemProxy.restoreIfOwned();
+      await _restoreSystemProxy();
     } catch (error) {
       _writeLog(tr(
           'Не удалось восстановить сохранённые proxy settings: {error}',
@@ -120,6 +141,10 @@ class MihomoProcessManager {
       binary = core.executable.path;
       _writeLog(tr('Запускается встроенный Mihomo {version}.',
           <String, Object?>{'version': core.version}));
+    } else if (Platform.isMacOS) {
+      binary = MihomoMacosCore.executable.path;
+      _writeLog(tr('Запускается встроенный Mihomo {version}.',
+          <String, Object?>{'version': MihomoPinnedCore.version}));
     } else {
       throw StateError(
           tr('Для этой desktop-платформы укажите путь к Mihomo в настройках.'));
@@ -155,7 +180,7 @@ class MihomoProcessManager {
       throw FormatException(tr('Активная конфигурация Mihomo повреждена.'));
     }
     final config = decoded;
-    if (Platform.isWindows) {
+    if (_managedDesktop) {
       config['mixed-port'] = 7890;
       final tunValue = config['tun'];
       final tun =
@@ -188,7 +213,7 @@ class MihomoProcessManager {
     unawaited(process.exitCode.then((code) {
       if (identical(_process, process)) {
         _process = null;
-        if (Platform.isWindows) unawaited(_windowsSystemProxy.restoreIfOwned());
+        unawaited(_restoreSystemProxy());
         if (!_exits.isClosed) _exits.add(code);
       }
       _writeLog(tr('Mihomo завершился с кодом {code}.',
@@ -206,10 +231,9 @@ class MihomoProcessManager {
       try {
         await controller.version();
         _writeLog(tr('Mihomo controller готов.'));
-        if (Platform.isWindows) {
-          await _windowsSystemProxy.enable();
-          _writeLog(
-              tr('Системный прокси Windows направлен на 127.0.0.1:7890.'));
+        if (_managedDesktop) {
+          await _enableSystemProxy();
+          _writeLog(tr('Системный прокси направлен на 127.0.0.1:7890.'));
         }
         return;
       } catch (error) {
@@ -223,7 +247,7 @@ class MihomoProcessManager {
   }
 
   Future<void> stop() async {
-    if (Platform.isWindows) await _windowsSystemProxy.restoreIfOwned();
+    await _restoreSystemProxy();
     final process = _process;
     if (process == null) return;
     _process = null;

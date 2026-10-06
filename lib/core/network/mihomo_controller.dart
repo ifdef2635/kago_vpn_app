@@ -7,13 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/mihomo_models.dart';
 import '../l10n/l10n.dart';
+import '../storage/secure_storage.dart';
 
 class MihomoController {
   MihomoController(
       {FlutterSecureStorage? secureStorage,
       Duration connectTimeout = const Duration(seconds: 4),
       Duration receiveTimeout = const Duration(seconds: 8)})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+      : _secureStorage = secureStorage ?? kagoSecureStorage,
         _connectTimeout = connectTimeout,
         _receiveTimeout = receiveTimeout;
   static const _endpointKey = 'mihomo.endpoint';

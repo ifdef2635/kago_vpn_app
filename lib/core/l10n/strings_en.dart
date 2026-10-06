@@ -57,8 +57,6 @@ const stringsEn = <String, String>{
   'Mihomo завершился при запуске. Проверьте права и логи.{v}':
       'Mihomo exited during startup. Check permissions and logs.{v}',
   'Mihomo controller готов.': 'Mihomo controller is ready.',
-  'Системный прокси Windows направлен на 127.0.0.1:7890.':
-      'Windows system proxy points to 127.0.0.1:7890.',
   'External Controller не стал доступен за 12 секунд: {lastError}{v}':
       'External Controller did not become available within 12 seconds: {lastError}{v}',
   'Не дождались завершения процесса Mihomo.':
@@ -196,18 +194,7 @@ const stringsEn = <String, String>{
   'Безлимит': 'Unlimited',
   'Оформить подписку': 'Get a subscription',
   'Перевыпустить ключ': 'Re-issue key',
-  'На этом устройстве': 'On this device',
-  'Подписка не добавлена': 'No subscription added',
-  'Войдите в аккаунт — подписка добавится автоматически. Или вставьте ссылку из личного кабинета.':
-      'Sign in and the subscription is added automatically. Or paste the link from your account.',
-  'Добавить по ссылке': 'Add by link',
   'Тарифы': 'Plans',
-  'Истекла': 'Expired',
-  'Бессрочно': 'No expiry',
-  'Истекла {date}': 'Expired {date}',
-  'Обновить данные': 'Refresh',
-  'Данные подписки обновлены.': 'Subscription data updated.',
-  'Использовано': 'Used',
   'Отключить все устройства?': 'Disconnect all devices?',
   'Все устройства потеряют доступ, пока снова не подключатся по ссылке.':
       'All devices lose access until they connect again with the link.',
@@ -284,7 +271,6 @@ const stringsEn = <String, String>{
   'Разрешение VPN отозвано': 'VPN permission revoked',
   'Не удалось запустить Android VPN': 'Could not start Android VPN',
   'Ваш сервер': 'Your server',
-  'Добавьте подписку': 'Add a subscription',
   'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.':
       'The core is not running. Press the power button below to start the VPN.',
   'Контроллер недоступен — проверьте адрес в настройках.':
@@ -295,7 +281,6 @@ const stringsEn = <String, String>{
       'Mihomo started and the controller responds.',
   'Не удалось запустить Mihomo: {error}': 'Could not start Mihomo: {error}',
   'Запрошено отключение Android VPN.': 'Android VPN disconnect requested.',
-  'Сначала добавьте YAML-подписку.': 'Add a YAML subscription first.',
   'Запуск VPN запрошен. Подтвердите системное разрешение Android.':
       'VPN start requested. Confirm the Android system permission.',
   'Android native bridge недоступен в этой сборке.':
@@ -307,20 +292,7 @@ const stringsEn = <String, String>{
   'Нативный VPN-мост ещё не подключён. REST-клиент Mihomo доступен после настройки контроллера.':
       'The native VPN bridge is not connected yet. The Mihomo REST client is available after configuring the controller.',
   'Не удалось запустить VPN.': 'Could not start the VPN.',
-  'Добавить подписку': 'Add subscription',
-  'Ссылка на конфигурацию': 'Configuration link',
-  'Буфер обмена пуст.': 'Clipboard is empty.',
-  'Вставить из буфера': 'Paste from clipboard',
-  'Профиль «{name}» сохранён. Встроенный Mihomo загрузится при первом подключении.':
-      'Profile “{name}” saved. The embedded Mihomo will be downloaded on the first connection.',
-  'Профиль «{name}» сохранён. При подключении Android использует встроенное native Mihomo ядро.':
-      'Profile “{name}” saved. On connection Android uses the embedded native Mihomo core.',
-  'Не удалось добавить профиль: {error}': 'Could not add the profile: {error}',
-  'Загрузить': 'Load',
-  'Добавьте ссылку, чтобы увидеть трафик и срок':
-      'Add a link to see traffic and expiry',
   '{used} использовано': '{used} used',
-  'Добавить': 'Add',
   'Узел не отвечает': 'Node does not respond',
   'IP через VPN': 'IP via VPN',
   'Ваш IP': 'Your IP',
@@ -384,8 +356,6 @@ const stringsEn = <String, String>{
   'Не удалось проверить upstream release: {error}':
       'Could not check the upstream release: {error}',
   'Mihomo · внешний бинарник': 'Mihomo · external binary',
-  'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.':
-      'Linux/macOS still need an external Mihomo. Built-in automatic updates support Windows x64.',
   'HTTPS или локальный HTTP. Secret создаётся автоматически.':
       'HTTPS or local HTTP. The secret is generated automatically.',
   'Адрес контроллера сохранён.': 'Controller address saved.',
@@ -432,9 +402,6 @@ const stringsEn = <String, String>{
   'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.':
       'Use HTTPS for an external subscription; HTTP is allowed only on localhost. Links with userinfo/fragment are not allowed.',
   'Язык': 'Language',
-  'Войти в аккаунт KAGO': 'Sign in to KAGO',
-  'Устройства, промокоды и продление — в приложении':
-      'Devices, promo codes and renewal — right in the app',
   'Приложения и VPN': 'Apps and VPN',
   'Раздельное туннелирование доступно только на Android.':
       'Split tunneling is only available on Android.',
@@ -499,4 +466,27 @@ const stringsEn = <String, String>{
   '{used} из {total}': '{used} of {total}',
   'до {date}': 'until {date}',
   'Версия {version} · usekago.net': 'Version {version} · usekago.net',
+  'Войдите в аккаунт': 'Sign in to your account',
+  'Сначала войдите в аккаунт KAGO во вкладке «Кабинет».':
+      'First sign in to your KAGO account on the “Account” tab.',
+  'Обновляем подписку…': 'Updating the subscription…',
+  'Подписка обновлена.': 'Subscription updated.',
+  'Не удалось обновить подписку: {error}':
+      'Could not update the subscription: {error}',
+  'Войдите в аккаунт KAGO — подписка подключится сама':
+      'Sign in to your KAGO account and the subscription is added automatically',
+  'Нет подписки': 'No subscription',
+  'Встроено в приложение: {version}. Обновляется вместе с KaGo VPN.':
+      'Built into the app: {version}. Updated together with KaGo VPN.',
+  'На Linux пока нужен внешний Mihomo. Встроенное ядро есть в версиях для Windows, macOS и Android.':
+      'Linux still needs an external Mihomo. The Windows, macOS and Android versions have a built-in core.',
+  'Не удалось получить список сетей macOS: {error}':
+      'Could not list macOS network services: {error}',
+  'Не удалось включить системный прокси macOS: {error}. Нужна учётная запись администратора.':
+      'Could not turn on the macOS system proxy: {error}. An administrator account is required.',
+  'нет активных сетей': 'no active networks',
+  'Системный прокси macOS доступен только в macOS.':
+      'The macOS system proxy is only available on macOS.',
+  'Системный прокси направлен на 127.0.0.1:7890.':
+      'The system proxy points to 127.0.0.1:7890.',
 };

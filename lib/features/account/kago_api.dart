@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/device/device_identity.dart';
 import '../../core/l10n/l10n.dart';
+import '../../core/storage/secure_storage.dart';
 
 /// usekago.net personal account API (Remnashop, `openapi.json` in the site
 /// repository). The site's reverse proxy serves it under `/api/v1/public`.
@@ -156,7 +157,7 @@ class KagoReferral {
 /// secure storage and sends them back, like a browser would.
 class KagoCookieStore {
   KagoCookieStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? kagoSecureStorage;
   static const _key = 'kago.account.cookies.v1';
   final FlutterSecureStorage _storage;
   Map<String, String>? _cache;

@@ -4,8 +4,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/l10n/l10n.dart';
+import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import 'kago_api.dart';
 
@@ -65,6 +67,19 @@ class SiteSessionScreen extends StatefulWidget {
 
 const _telegramHandler = 'kagoTelegramLogin';
 
+/// Telegram's brand blue (also used on usekago.net).
+const telegramBlue = Color(0xFF229ED9);
+
+/// Presses the site's Telegram button; `false` when the page has none.
+const _pressTelegram = '''
+(function () {
+  var button = document.querySelector('.tg-login-btn');
+  if (!button) return false;
+  button.click();
+  return true;
+})();
+''';
+
 /// Runs before the site's own scripts: the page's `fetch` to /auth/telegram
 /// goes to the app instead of the network, and the app's answer becomes the
 /// page's response (so an error shows up on the site as usual).
@@ -97,25 +112,38 @@ const _telegramHook = '''
 
 class _SiteSessionScreenState extends State<SiteSessionScreen> {
   final _cookies = web.CookieManager.instance();
+  web.InAppWebViewController? _page;
+
+  /// Telegram's login window (window.open from the page), shown full screen.
+  web.CreateWindowAction? _popup;
+  double _popupProgress = 0;
+
   double _progress = 0;
   bool _ready = false;
+  bool _pageLoaded = false;
   bool _finishing = false;
-  bool _autoClicked = false;
+  bool _autoStarted = false;
+
+  /// Login mode shows a KAGO screen instead of the site; the site itself is
+  /// shown only if its Telegram button cannot be found.
+  bool _showSite = false;
   String? _error;
 
-  String get _startUrl => widget.mode == SiteSessionMode.login
-      ? '$kagoSiteUrl/login?next=%2Fmy'
-      : '$kagoSiteUrl/my';
+  bool get _login => widget.mode == SiteSessionMode.login;
+
+  String get _startUrl =>
+      _login ? '$kagoSiteUrl/login?next=%2Fmy' : '$kagoSiteUrl/my';
 
   @override
   void initState() {
     super.initState();
+    _showSite = !_login;
     _prepare();
   }
 
   /// In cabinet mode the page must see the app's session.
   Future<void> _prepare() async {
-    if (widget.mode == SiteSessionMode.cabinet) {
+    if (!_login) {
       try {
         final current = await widget.api.cookies.all();
         for (final entry in current.entries) {
@@ -147,6 +175,14 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
     return found;
   }
 
+  void _fail(String message) {
+    _finishing = false;
+    if (mounted) setState(() => _error = message);
+  }
+
+  static String get _transferFailed => tr(
+      'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.');
+
   /// The page's `POST /auth/telegram` body, done by the app's own client.
   /// Returns what the page's `fetch` should resolve with.
   Future<Map<String, Object?>> _telegramFromPage(
@@ -156,6 +192,12 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
       return <String, Object?>{'status': 409, 'body': '{}'};
     }
     _finishing = true;
+    if (mounted) {
+      setState(() {
+        _popup = null;
+        _error = null;
+      });
+    }
     try {
       final body = jsonDecode('${data.args.isEmpty ? '' : data.args.first}');
       final token = body is Map<String, dynamic> ? body['id_token'] : null;
@@ -165,12 +207,9 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
       if (mounted) Navigator.of(context).pop(true);
       return <String, Object?>{'status': 200, 'body': '{}'};
     } catch (error) {
-      _finishing = false;
-      final message = error is KagoApiException
-          ? error.message
-          : tr(
-              'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.');
-      if (mounted) setState(() => _error = message);
+      final message =
+          error is KagoApiException ? error.message : _transferFailed;
+      _fail(message);
       return <String, Object?>{
         'status': error is KagoApiException ? (error.status ?? 400) : 400,
         'body': jsonEncode(<String, String>{'detail': message}),
@@ -184,6 +223,7 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
   Future<void> _takeOverSession() async {
     if (_finishing) return;
     _finishing = true;
+    if (mounted) setState(() => _error = null);
     for (final delay in const <int>[300, 1000, 2500]) {
       await Future<void>.delayed(Duration(milliseconds: delay));
       if (!mounted) return;
@@ -198,70 +238,93 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
         // Try again with whatever the WebView holds by then.
       }
     }
-    _finishing = false;
-    if (mounted) {
-      setState(() => _error = tr(
-          'Не удалось перенести вход в приложение. Попробуйте ещё раз или войдите по email и паролю.'));
-    }
+    _fail(_transferFailed);
   }
 
   void _onUrl(web.WebUri? url) {
     if (url == null) return;
     final onCabinet = url.host.endsWith('usekago.net') &&
         (url.path == '/my' || url.path.startsWith('/my/'));
-    if (widget.mode == SiteSessionMode.login && onCabinet) {
-      unawaited(_takeOverSession());
-    }
+    if (_login && onCabinet) unawaited(_takeOverSession());
   }
 
-  /// Saves a tap: press the site's "Войти через Telegram" once the page is up.
-  Future<void> _autoStartTelegram(
-      web.InAppWebViewController controller, web.WebUri? url) async {
-    if (widget.mode != SiteSessionMode.login || _autoClicked) return;
-    if (url == null || url.path != '/login') return;
-    _autoClicked = true;
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+  /// Opens Telegram's login window through the site's own button.
+  Future<void> _startTelegram() async {
+    final page = _page;
+    if (page == null || _finishing) return;
+    setState(() => _error = null);
     try {
-      await controller.evaluateJavascript(
-          source: "document.querySelector('.tg-login-btn')?.click();");
+      final pressed = await page.evaluateJavascript(source: _pressTelegram);
+      // The site changed: let the user use the page itself.
+      if (pressed == false && mounted) setState(() => _showSite = true);
     } catch (_) {
-      // The user can still press the button.
+      if (mounted) setState(() => _showSite = true);
     }
   }
 
-  Future<void> _showPopup(web.CreateWindowAction action) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        insetPadding: const EdgeInsets.all(12),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: 520,
-          height: 640,
-          child: Column(children: <Widget>[
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                  tooltip: tr('Закрыть'),
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  icon: const Icon(Icons.close_rounded)),
-            ),
-            Expanded(
-              child: web.InAppWebView(
-                windowId: action.windowId,
-                initialSettings: _settings,
-                onCloseWindow: (_) {
-                  if (Navigator.of(dialogContext).canPop()) {
-                    Navigator.of(dialogContext).pop();
-                  }
-                },
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
+  /// Saves a tap: opens Telegram as soon as the login page is up.
+  Future<void> _autoStart(web.WebUri? url) async {
+    if (!_login || _autoStarted) return;
+    if (url == null || url.path != '/login') return;
+    _autoStarted = true;
+    // Give the page a moment to wire up its button.
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (mounted && _popup == null) await _startTelegram();
   }
+
+  /// "Continue with Telegram" opens tg:// (or an Android intent:// link to
+  /// it); a WebView cannot, so hand those to the system.
+  Future<web.NavigationActionPolicy> _openExternal(
+      web.InAppWebViewController controller,
+      web.NavigationAction action) async {
+    final url = action.request.url;
+    final scheme = url?.scheme.toLowerCase() ?? '';
+    if (url == null ||
+        scheme.isEmpty ||
+        const <String>['http', 'https', 'about', 'data', 'blob', 'javascript']
+            .contains(scheme)) {
+      return web.NavigationActionPolicy.ALLOW;
+    }
+    final target = scheme == 'intent' ? _fromIntent(url.toString()) : url;
+    var opened = false;
+    if (target != null) {
+      try {
+        opened = await launchUrl(target, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        opened = false;
+      }
+    }
+    if (!opened && scheme == 'intent') {
+      final fallback = _intentExtra(url.toString(), 'S.browser_fallback_url');
+      if (fallback != null) {
+        await controller.loadUrl(
+            urlRequest: web.URLRequest(url: web.WebUri(fallback)));
+      }
+    }
+    return web.NavigationActionPolicy.CANCEL;
+  }
+
+  /// `intent://host/path#Intent;scheme=tg;package=…;end` → `tg://host/path`.
+  static Uri? _fromIntent(String link) {
+    final scheme = _intentExtra(link, 'scheme');
+    final hash = link.indexOf('#Intent');
+    if (scheme == null || hash < 0) return null;
+    return Uri.tryParse(
+        '$scheme://${link.substring('intent://'.length, hash)}');
+  }
+
+  static String? _intentExtra(String link, String key) {
+    final hash = link.indexOf('#Intent;');
+    if (hash < 0) return null;
+    for (final part in link.substring(hash + 8).split(';')) {
+      if (part.startsWith('$key=')) {
+        return Uri.decodeComponent(part.substring(key.length + 1));
+      }
+    }
+    return null;
+  }
+
+  void _closePopup() => setState(() => _popup = null);
 
   web.InAppWebViewSettings get _settings => web.InAppWebViewSettings(
         javaScriptEnabled: true,
@@ -269,87 +332,319 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
         supportMultipleWindows: true,
         javaScriptCanOpenWindowsAutomatically: true,
         thirdPartyCookiesEnabled: true,
+        useShouldOverrideUrlLoading: true,
         transparentBackground: false,
       );
 
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
-    final login = widget.mode == SiteSessionMode.login;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(login ? tr('Вход через Telegram') : tr('Кабинет на сайте')),
-        actions: <Widget>[
-          if (!login)
-            TextButton(
-                onPressed: () async {
-                  // Keep a session the site may have refreshed meanwhile.
-                  try {
-                    final cookies = await _readSiteCookies();
-                    if (cookies.isNotEmpty) {
-                      await widget.api.cookies.replaceAll(cookies);
-                    }
-                  } catch (_) {}
-                  if (context.mounted) Navigator.of(context).pop(true);
-                },
-                child: Text(tr('Готово'))),
-        ],
-        bottom: _progress < 1
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(2),
-                child: LinearProgressIndicator(
-                    minHeight: 2, value: _progress == 0 ? null : _progress))
-            : null,
-      ),
-      body: Column(children: <Widget>[
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          color:
-              _error == null ? p.accentSoft : p.danger.withValues(alpha: .12),
-          child: Text(
-              _error ??
-                  (login
-                      ? tr(
-                          'Нажмите «Войти через Telegram» и подтвердите вход в Telegram. Окно закроется само.')
-                      : tr(
-                          'Здесь можно привязать Telegram к аккаунту. Нажмите «Готово», когда закончите.')),
-              style: TextStyle(
-                  fontSize: 13, color: _error == null ? p.text : p.danger)),
+    final popupOpen = _popup != null;
+    final loading =
+        popupOpen ? _popupProgress < 1 : (_showSite && _progress < 1);
+    return PopScope(
+      canPop: !popupOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && popupOpen) _closePopup();
+      },
+      child: Scaffold(
+        backgroundColor: p.canvas,
+        appBar: AppBar(
+          backgroundColor: p.canvas,
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+              tooltip: popupOpen ? tr('Назад') : tr('Закрыть'),
+              onPressed: () =>
+                  popupOpen ? _closePopup() : Navigator.of(context).maybePop(),
+              icon: Icon(
+                  popupOpen ? Icons.arrow_back_rounded : Icons.close_rounded)),
+          title: Text(
+              _login ? tr('Вход через Telegram') : tr('Кабинет на сайте'),
+              style:
+                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          actions: <Widget>[
+            if (!_login && !popupOpen)
+              TextButton(
+                  onPressed: () async {
+                    // Keep a session the site may have refreshed meanwhile.
+                    try {
+                      final cookies = await _readSiteCookies();
+                      if (cookies.isNotEmpty) {
+                        await widget.api.cookies.replaceAll(cookies);
+                      }
+                    } catch (_) {}
+                    if (context.mounted) Navigator.of(context).pop(true);
+                  },
+                  child: Text(tr('Готово'))),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(2),
+            child: loading
+                ? LinearProgressIndicator(
+                    minHeight: 2,
+                    color: telegramBlue,
+                    backgroundColor: Colors.transparent,
+                    value: (popupOpen ? _popupProgress : _progress) == 0
+                        ? null
+                        : (popupOpen ? _popupProgress : _progress))
+                : const SizedBox(height: 2),
+          ),
         ),
-        Expanded(
-          child: !_ready
-              ? const Center(child: CircularProgressIndicator())
-              : web.InAppWebView(
-                  initialUrlRequest: web.URLRequest(url: web.WebUri(_startUrl)),
-                  initialSettings: _settings,
-                  initialUserScripts: login
-                      ? UnmodifiableListView<web.UserScript>(<web.UserScript>[
-                          web.UserScript(
-                              source: _telegramHook,
-                              injectionTime: web
-                                  .UserScriptInjectionTime.AT_DOCUMENT_START),
-                        ])
-                      : null,
-                  onWebViewCreated: (controller) {
-                    if (!login) return;
-                    controller.addJavaScriptHandler(
-                        handlerName: _telegramHandler,
-                        callback: _telegramFromPage);
-                  },
-                  onProgressChanged: (_, progress) =>
-                      setState(() => _progress = progress / 100),
-                  onUpdateVisitedHistory: (_, url, __) => _onUrl(url),
-                  onLoadStop: (controller, url) {
-                    _onUrl(url);
-                    unawaited(_autoStartTelegram(controller, url));
-                  },
-                  onCreateWindow: (_, action) async {
-                    unawaited(_showPopup(action));
-                    return true;
-                  },
+        body: Column(children: <Widget>[
+          if (_showSite && (_error != null || !_login))
+            _Notice(
+                text: _error ??
+                    tr('Здесь можно привязать Telegram к аккаунту. Нажмите «Готово», когда закончите.'),
+                error: _error != null),
+          Expanded(
+            child: Stack(children: <Widget>[
+              Positioned.fill(
+                child: !_ready
+                    ? const SizedBox.shrink()
+                    : web.InAppWebView(
+                        initialUrlRequest:
+                            web.URLRequest(url: web.WebUri(_startUrl)),
+                        initialSettings: _settings,
+                        initialUserScripts: _login
+                            ? UnmodifiableListView<
+                                web.UserScript>(<web.UserScript>[
+                                web.UserScript(
+                                    source: _telegramHook,
+                                    injectionTime: web.UserScriptInjectionTime
+                                        .AT_DOCUMENT_START),
+                              ])
+                            : null,
+                        onWebViewCreated: (controller) {
+                          _page = controller;
+                          if (!_login) return;
+                          controller.addJavaScriptHandler(
+                              handlerName: _telegramHandler,
+                              callback: _telegramFromPage);
+                        },
+                        shouldOverrideUrlLoading: _openExternal,
+                        onProgressChanged: (_, progress) =>
+                            setState(() => _progress = progress / 100),
+                        onUpdateVisitedHistory: (_, url, __) => _onUrl(url),
+                        onLoadStop: (_, url) {
+                          if (!_pageLoaded) setState(() => _pageLoaded = true);
+                          _onUrl(url);
+                          unawaited(_autoStart(url));
+                        },
+                        onCreateWindow: (_, action) async {
+                          setState(() {
+                            _popup = action;
+                            _popupProgress = 0;
+                          });
+                          return true;
+                        },
+                      ),
+              ),
+              if (!_showSite)
+                Positioned.fill(
+                  child: _TelegramCover(
+                    busy: _finishing || !_pageLoaded,
+                    status: _finishing
+                        ? tr('Входим в аккаунт…')
+                        : !_pageLoaded
+                            ? tr('Подключаемся к usekago.net…')
+                            : null,
+                    error: _error,
+                    onContinue:
+                        _pageLoaded && !_finishing ? _startTelegram : null,
+                  ),
                 ),
+              if (_popup case final popup?)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: p.canvas,
+                    child: web.InAppWebView(
+                      key: ValueKey<int>(popup.windowId),
+                      windowId: popup.windowId,
+                      initialSettings: _settings,
+                      shouldOverrideUrlLoading: _openExternal,
+                      onProgressChanged: (_, progress) =>
+                          setState(() => _popupProgress = progress / 100),
+                      onCloseWindow: (_) {
+                        if (mounted && _popup == popup) _closePopup();
+                      },
+                    ),
+                  ),
+                ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// A one-line strip above the site page (hint or error).
+class _Notice extends StatelessWidget {
+  const _Notice({required this.text, required this.error});
+  final String text;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.kago;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      color: error ? p.danger.withValues(alpha: .12) : p.accentSoft,
+      child: Text(text,
+          style: TextStyle(fontSize: 13, color: error ? p.danger : p.text)),
+    );
+  }
+}
+
+/// What the user sees in login mode instead of the site: the KAGO and
+/// Telegram marks, what is happening, and a "Continue with Telegram" button.
+class _TelegramCover extends StatelessWidget {
+  const _TelegramCover(
+      {required this.busy,
+      required this.status,
+      required this.error,
+      required this.onContinue});
+  final bool busy;
+  final String? status;
+  final String? error;
+  final VoidCallback? onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.kago;
+    return ColoredBox(
+      color: p.canvas,
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                const _PairedMarks(),
+                const SizedBox(height: 28),
+                Text(tr('Вход через Telegram'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 10),
+                Text(tr('Подтвердите вход в Telegram — пароль не нужен. Аккаунт KAGO и подписка подключатся автоматически.'),
+                    textAlign: TextAlign.center,
+                    style:
+                        TextStyle(fontSize: 14.5, height: 1.4, color: p.muted)),
+                const SizedBox(height: 28),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: busy
+                      ? Column(
+                          key: const ValueKey<String>('busy'),
+                          children: <Widget>[
+                              const SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2.6, color: telegramBlue)),
+                              const SizedBox(height: 14),
+                              Text(status ?? '',
+                                  style: TextStyle(
+                                      color: p.muted, fontSize: 13.5)),
+                            ])
+                      : Column(
+                          key: const ValueKey<String>('ready'),
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                              if (error != null) ...<Widget>[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                      color: p.danger.withValues(alpha: .1),
+                                      borderRadius: BorderRadius.circular(14)),
+                                  child: Text(error!,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          color: p.danger, fontSize: 13)),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                    backgroundColor: telegramBlue,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size.fromHeight(54),
+                                    shape: const StadiumBorder(),
+                                    textStyle: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700)),
+                                onPressed: onContinue,
+                                icon: const Icon(Icons.telegram, size: 24),
+                                label: Text(tr('Продолжить с Telegram')),
+                              ),
+                            ]),
+                ),
+                const SizedBox(height: 22),
+                Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                  Icon(Icons.lock_outline_rounded, size: 14, color: p.muted),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(tr('Вход через официальный сайт Telegram'),
+                        style: TextStyle(fontSize: 12, color: p.muted)),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// The Telegram and KAGO marks side by side, slightly overlapping.
+class _PairedMarks extends StatelessWidget {
+  const _PairedMarks();
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 76.0;
+    final p = context.kago;
+    // An outer ring in the page colour separates the overlapping circles.
+    Widget circle(Widget child, Color color, {Color? outline}) => Container(
+          width: size,
+          height: size,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: p.canvas, shape: BoxShape.circle),
+          child: Container(
+            decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: outline == null ? null : Border.all(color: outline)),
+            alignment: Alignment.center,
+            child: child,
+          ),
+        );
+    return SizedBox(
+      width: size * 2 - 18,
+      height: size,
+      child: Stack(children: <Widget>[
+        Positioned(
+            left: 0,
+            child: circle(
+                // Telegram's paper plane, pointing up and to the right.
+                Transform.translate(
+                    offset: const Offset(-2, 1),
+                    child: Transform.rotate(
+                        angle: -.45,
+                        child: const Icon(Icons.send_rounded,
+                            color: Colors.white, size: 38))),
+                telegramBlue)),
+        Positioned(
+            right: 0,
+            // The logo's own dark tile, so its corners blend into the circle.
+            child: circle(
+                const KagoLogo(size: size * .6), const Color(0xFF0B0E18),
+                outline: p.border)),
       ]),
     );
   }

@@ -14,6 +14,8 @@ import '../../core/network/mihomo_windows_system_proxy.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
+import '../../core/update/app_updater.dart';
+import '../update/update_flow.dart';
 import 'app_routing_screen.dart';
 import '../../core/l10n/l10n.dart';
 
@@ -164,6 +166,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ]),
           _SettingsGroup(title: tr('О приложении'), children: <Widget>[
+            if (AppUpdater.supported) _updateTile(),
             _SettingsTile(
                 icon: Icons.language_rounded,
                 title: 'KaGo VPN',
@@ -180,6 +183,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     context: context, applicationName: 'KaGo VPN')),
           ]),
         ]);
+  }
+
+  Widget _updateTile() {
+    final update = ref.watch(appUpdateProvider);
+    final release = update.valueOrNull;
+    return _SettingsTile(
+        icon: Icons.system_update_rounded,
+        title: tr('Обновления'),
+        subtitle: update.isLoading
+            ? tr('Проверка…')
+            : release != null
+                ? tr('Доступна версия {version} — нажмите, чтобы обновить',
+                    <String, Object?>{'version': release.version})
+                : update.hasError
+                    ? tr('Не удалось проверить. Нажмите, чтобы повторить.')
+                    : tr('Установлена последняя версия'),
+        trailing: release != null
+            ? Icon(Icons.download_rounded, color: context.kago.accent)
+            : null,
+        onTap: release != null
+            ? () => showUpdateDialog(context, release)
+            : () => ref.invalidate(appUpdateProvider));
   }
 
   List<Widget> _connectionTiles() => <Widget>[

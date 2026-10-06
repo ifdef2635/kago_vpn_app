@@ -151,6 +151,12 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "deviceInfo" -> result.success(deviceInfo())
+                "installUpdate" -> {
+                    val path = call.argument<String>("path")
+                    runCatching { UpdateInstaller.install(this, path.orEmpty()) }
+                        .onSuccess { result.success(it) }
+                        .onFailure { result.error("install_failed", it.message, null) }
+                }
                 "openVpnSettings" -> {
                     // "Always-on VPN" and "Block connections without VPN" (kill switch) are
                     // system settings; an app cannot turn them on itself.

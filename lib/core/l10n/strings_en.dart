@@ -503,4 +503,36 @@ const stringsEn = <String, String>{
       'For Telegram and apps that ignore the system proxy. Asks for the administrator password once.',
   'Не включено: {error}': 'Not turned on: {error}',
   'Переподключитесь, чтобы применить.': 'Reconnect to apply.',
+  'Не удалось узнать последнюю версию.':
+      'Could not find out the latest version.',
+  'В релизе нет контрольной суммы обновления.':
+      'The release has no checksum for the update.',
+  'Файл обновления повреждён (контрольная сумма не совпала). Попробуйте ещё раз.':
+      'The update file is damaged (checksum mismatch). Please try again.',
+  'Обновление не поддерживается на этой системе.':
+      'Updates are not supported on this system.',
+  'Доступна версия {version}': 'Version {version} is available',
+  'Обновление скачается и установится прямо из приложения. Настройки и вход сохранятся.':
+      'The update downloads and installs right from the app. Your settings and sign-in are kept.',
+  'Скачано {done} из {total}': '{done} of {total} downloaded',
+  'Скачивание…': 'Downloading…',
+  'Открывается установка…': 'Opening the installer…',
+  'Устанавливается. KaGo VPN перезапустится сам.':
+      'Installing. KaGo VPN will restart by itself.',
+  'Разрешите KaGo VPN устанавливать приложения (откроются настройки), вернитесь и нажмите «Установить».':
+      'Allow KaGo VPN to install apps (settings will open), then come back and tap "Install".',
+  'Открыт образ диска с новой версией: перетащите KaGo VPN в «Программы» с заменой и запустите снова.':
+      'The disk image with the new version is open: drag KaGo VPN to Applications, replace it and start it again.',
+  'Не удалось обновить: {error}': 'Could not update: {error}',
+  'Позже': 'Later',
+  'Установить': 'Install',
+  'Понятно': 'Got it',
+  'Обновления': 'Updates',
+  'Проверка…': 'Checking…',
+  'Доступна версия {version} — нажмите, чтобы обновить':
+      'Version {version} is available — tap to update',
+  'Не удалось проверить. Нажмите, чтобы повторить.':
+      'Could not check. Tap to retry.',
+  'Установлена последняя версия': 'You have the latest version',
+  'Не удалось скопировать ядро.': 'Could not copy the core.',
 };

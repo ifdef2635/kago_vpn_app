@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,6 +20,8 @@ import 'mihomo_windows_system_proxy.dart';
 abstract final class MihomoMacosCore {
   static const tunKey = 'kago.macos.tun';
   static const _pidKey = 'kago.macos.core.pid';
+  static const _authorizedHashKey = 'kago.macos.core.authorizedSha256';
+  static const _bundledHashKey = 'kago.macos.core.bundledSha256';
 
   /// `…/KaGo VPN.app/Contents/MacOS/KaGo VPN` -> `…/Contents/Resources/mihomo`.
   static File get executable {
@@ -58,25 +61,39 @@ abstract final class MihomoMacosCore {
         mode[8] != 'w';
   }
 
-  /// The root copy, if it exists and is the same build as the bundled core
-  /// (`cp -p` keeps size and modification time; a new app version brings a
-  /// new core and asks again).
+  /// SHA-256 of the bundled core, cached by size and modification time
+  /// (hashing the ~60 MB universal binary takes a moment).
+  static Future<String> _bundledHash() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stat = await executable.stat();
+    final stamp = '${stat.size}:${stat.modified.millisecondsSinceEpoch}';
+    final cached = prefs.getString(_bundledHashKey);
+    if (cached != null && cached.startsWith('$stamp=')) {
+      return cached.substring(stamp.length + 1);
+    }
+    final hash = (await sha256.bind(executable.openRead()).first).toString();
+    await prefs.setString(_bundledHashKey, '$stamp=$hash');
+    return hash;
+  }
+
+  /// The root copy, if it exists and holds the same core as the app bundle.
+  /// Compared by content, so an app update with the same core version does
+  /// not ask for the password again; a new core does. The copy is root-owned,
+  /// so only root can change it after it was hashed.
   static Future<File?> authorizedCore() async {
     if (!Platform.isMacOS) return null;
     final file = await privilegedFile();
-    final bundled = executable;
-    if (!await file.exists() || !await bundled.exists()) return null;
+    if (!await file.exists() || !await executable.exists()) return null;
     final result = await Process.run(
         '/usr/bin/stat', <String>['-f', '%Su:%Sg %Sp', file.path]);
     if (result.exitCode != 0 || !isPrivilegedStat('${result.stdout}')) {
       return null;
     }
-    final copy = await file.stat();
-    final source = await bundled.stat();
-    final sameBuild = copy.size == source.size &&
-        copy.modified.millisecondsSinceEpoch ~/ 1000 ==
-            source.modified.millisecondsSinceEpoch ~/ 1000;
-    return sameBuild ? file : null;
+    final prefs = await SharedPreferences.getInstance();
+    final authorized = prefs.getString(_authorizedHashKey);
+    return authorized != null && authorized == await _bundledHash()
+        ? file
+        : null;
   }
 
   static String shellQuote(String value) =>
@@ -101,6 +118,7 @@ abstract final class MihomoMacosCore {
     }
     final file = await privilegedFile();
     await file.parent.create(recursive: true);
+    final hash = await _bundledHash();
     final target = shellQuote(file.path);
     final command = <String>[
       'rm -f $target',
@@ -114,7 +132,14 @@ abstract final class MihomoMacosCore {
       adminScript(command,
           tr('KaGo VPN включает режим «Весь трафик через VPN». Это нужно один раз.')),
     ]);
-    if (result.exitCode == 0) return null;
+    if (result.exitCode == 0) {
+      final copied =
+          (await sha256.bind(file.openRead()).first).toString() == hash;
+      if (!copied) return tr('Не удалось скопировать ядро.');
+      await (await SharedPreferences.getInstance())
+          .setString(_authorizedHashKey, hash);
+      return null;
+    }
     final error = '${result.stderr}'.trim();
     return error.contains('-128') ? tr('Отменено.') : error;
   }

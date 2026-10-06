@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- In-app update: hand the downloaded APK to the system installer. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- PROCESS-NAME rules of the subscription: map a connection's UID to its
          package for every app, not only those with a launcher icon. -->
     <uses-permission
@@ -59,6 +61,13 @@
                 android:name="android.service.quicksettings.TOGGLEABLE_TILE"
                 android:value="true" />
         </service>
+
+        <!-- The downloaded update APK (cache/updates/) for the system installer. -->
+        <provider
+            android:name="net.usekago.app.UpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
     </application>

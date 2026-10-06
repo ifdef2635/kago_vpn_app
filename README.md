@@ -1,6 +1,6 @@
 # KaGo VPN
 
-VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) со встроенным официальным ядром Mihomo (Clash Meta) и Riverpod. Платформы — Android, Windows x64 и macOS (Apple Silicon и Intel). Текущая версия — **1.0.3**; история изменений и известные ограничения — в [RELEASE_STATUS.md](RELEASE_STATUS.md).
+VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) со встроенным официальным ядром Mihomo (Clash Meta) и Riverpod. Платформы — Android, Windows x64 и macOS (Apple Silicon и Intel). Текущая версия — **1.0.4**; история изменений и известные ограничения — в [RELEASE_STATUS.md](RELEASE_STATUS.md).
 
 ## Возможности
 
@@ -32,7 +32,7 @@ VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) �
 
 ### В GitHub Actions (рекомендуется)
 
-Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает один release APK для arm64 и выкладывает в раздел **Artifacts** `KaGoVPN-Android-<версия>.apk` и `SHA256SUMS-Android.txt`. GitHub Release `v<версия>` публикует только workflow `.github/workflows/release.yml`. Его запускает пуш тега `v<версия>`, совпадающего с версией в `pubspec.yaml`, или ручной запуск (Actions → Release → Run workflow): тег создаётся на выбранном коммите автоматически. Он собирает Android, Windows и macOS параллельно и публикует релиз, только когда готовы все три файла: `.apk`, `.exe`, `.dmg`. Если какая-то платформа упала, релиз не публикуется.
+Workflow `.github/workflows/android-release.yml` запускается при push в ветки `claude/**`, `feat/**`, `fix/**` и по тегу `v*`. Он собирает ядро из исходников (Go + NDK), выполняет `flutter analyze` и `flutter test`, собирает один release APK для arm64 и выкладывает в раздел **Artifacts** `KaGoVPN-Android-<версия>.apk` и `SHA256SUMS-Android.txt`. Приложение само проверяет последний GitHub Release и предлагает обновиться (скачивание и установка внутри приложения, проверка SHA-256; `lib/core/update/`). Поэтому имена файлов релиза менять нельзя: `KaGoVPN-Android-<v>.apk`, `KaGoVPN-Windows-x64-Setup-<v>.exe`, `KaGoVPN-macOS-<v>.dmg`, `SHA256SUMS-<платформа>.txt`. GitHub Release `v<версия>` публикует только workflow `.github/workflows/release.yml`, первый раздел RELEASE_STATUS.md становится его описанием. Его запускает пуш тега `v<версия>`, совпадающего с версией в `pubspec.yaml`, или ручной запуск (Actions → Release → Run workflow): тег создаётся на выбранном коммите автоматически. Он собирает Android, Windows и macOS параллельно и публикует релиз, только когда готовы все три файла: `.apk`, `.exe`, `.dmg`. Если какая-то платформа упала, релиз не публикуется.
 
 Подпись: если в секретах репозитория есть `KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`, APK подписывается постоянным ключом владельца, и каждая новая версия ставится поверх предыдущей как обновление. Без секретов сборка из ветки подписывается одноразовым тестовым ключом (с пометкой `debugsigned`, обновлением не ставится), а сборка по тегу завершается ошибкой.
 

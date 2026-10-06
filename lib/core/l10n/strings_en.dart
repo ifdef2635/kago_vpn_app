@@ -511,4 +511,8 @@ const stringsEn = <String, String>{
   'Системный прокси 127.0.0.1:7890': 'System proxy 127.0.0.1:7890',
   'Сервер подписки не выдал серверы: «{message}». Проверьте лимит устройств в «Кабинете» → «Устройства» и обновите подписку.':
       'The subscription server returned no servers: “{message}”. Check the device limit in “Account” → “Devices” and refresh the subscription.',
+  'Достигнут лимит устройств подписки. Удалите лишнее устройство в «Кабинете» → «Устройства» и обновите подписку.':
+      'The subscription device limit is reached. Remove a device in “Account” → “Devices” and refresh the subscription.',
+  'Сервер подписки не принял идентификатор устройства (HWID). Обновите приложение или напишите в поддержку.':
+      'The subscription server did not accept the device ID (HWID). Update the app or contact support.',
 };

@@ -172,20 +172,21 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * Subscription device headers (x-hwid etc.). ANDROID_ID is per app signing
-     * key and survives reinstalls, so the panel keeps counting one device; the
-     * Dart side only sends a hash of it.
+     * Subscription device headers (x-hwid etc.), as FlClashX sends them:
+     * ANDROID_ID is the HWID (per app signing key, survives reinstalls); the
+     * fallback is brand-device-hardware-buildId.
      */
     @SuppressLint("HardwareIds")
     private fun deviceInfo(): Map<String, String> {
         val id = runCatching {
             Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         }.getOrNull().orEmpty()
-        val model = listOf(Build.MANUFACTURER, Build.MODEL)
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
-            .joinToString(" ")
-        return mapOf("id" to id, "os" to Build.VERSION.RELEASE.orEmpty(), "model" to model)
+        return mapOf(
+            "id" to id,
+            "fallback" to "${Build.BRAND}-${Build.DEVICE}-${Build.HARDWARE}-${Build.ID}",
+            "os" to Build.VERSION.RELEASE.orEmpty(),
+            "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
+        )
     }
 
     @Suppress("DEPRECATION")

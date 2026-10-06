@@ -14,14 +14,18 @@ const kagoAppVersion = '0.1.0';
 /// Mihomo core built into the app (Android) and downloaded on Windows.
 const kagoCoreVersion = '1.19.32';
 
-/// The device headers a Remnawave subscription expects (`x-hwid` and
-/// friends, as FlClashX and Happ send them) and the app's User-Agent.
+/// The device headers a Remnawave subscription expects (`x-hwid`,
+/// `x-device-os`, `x-ver-os`, `x-device-model`) and the app's User-Agent.
 ///
+/// The HWID is built exactly as FlClashX builds it, so the panel sees the
+/// same kind of id as from FlClashX:
+/// * Android: ANDROID_ID as is (per signing key, survives reinstalls);
+///   without it `brand-device-hardware-buildId`.
+/// * Windows: the first 16 hex characters of SHA-256(MachineGuid), upper
+///   case (the same value FlClashX sends on this PC); without a MachineGuid
+///   the same hash of `computerName-deviceId-productId`.
 /// With a device limit on the subscription, the panel answers a request
-/// without `x-hwid` with a stub server named "Приложение не поддерживается!"
-/// instead of the real ones. The HWID is stable for the device: on Android
-/// it comes from ANDROID_ID, on Windows from the MachineGuid, so reinstalling
-/// the app does not take one more device slot. Only a hash leaves the device.
+/// without `x-hwid` with a stub server ("Приложение не поддерживается!").
 class DeviceIdentity {
   DeviceIdentity._();
   static final instance = DeviceIdentity._();
@@ -47,7 +51,7 @@ class DeviceIdentity {
   }
 
   Future<Map<String, String>> _build() async {
-    var source = '';
+    String? hwid;
     var os = Platform.operatingSystem;
     var osVersion = '';
     var model = '';
@@ -57,7 +61,8 @@ class DeviceIdentity {
         final info =
             await _channel.invokeMapMethod<String, String>('deviceInfo') ??
                 const <String, String>{};
-        source = info['id'] ?? '';
+        final androidId = info['id'] ?? '';
+        hwid = androidId.isNotEmpty ? androidId : info['fallback'];
         osVersion = info['os'] ?? '';
         model = info['model'] ?? '';
       } catch (_) {
@@ -65,25 +70,34 @@ class DeviceIdentity {
       }
     } else if (Platform.isWindows) {
       os = 'Windows';
-      source = _windowsMachineGuid() ?? '';
-      osVersion = _windowsVersion();
-      model = 'PC';
+      final current = _windowsCurrentVersion();
+      osVersion = current.displayVersion;
+      model = current.productName;
+      final guid =
+          _registryString(r'SOFTWARE\Microsoft\Cryptography', 'MachineGuid');
+      final source = guid != null && guid.isNotEmpty
+          ? guid
+          : '${Platform.localHostname}-'
+              '${_registryString(r'SOFTWARE\Microsoft\SQMClient', 'MachineId') ?? ''}-'
+              '${current.productId}';
+      hwid = compactHwid(source);
     }
-    final hwid = source.isNotEmpty ? _hash(source) : await _storedRandomId();
+    if (hwid == null || hwid.isEmpty) hwid = await _storedRandomId();
     return <String, String>{
       'User-Agent': userAgentFor(os, osVersion),
-      'x-hwid': hwid,
+      'x-hwid': _ascii(hwid),
       'x-device-os': os,
-      if (osVersion.isNotEmpty) 'x-ver-os': osVersion,
+      if (osVersion.isNotEmpty) 'x-ver-os': _ascii(osVersion),
       if (model.isNotEmpty) 'x-device-model': _ascii(model),
     };
   }
 
-  /// App-specific, so the id says nothing outside KaGo VPN.
-  static String _hash(String source) => sha256
-      .convert(utf8.encode('kago-vpn-hwid:$source'))
+  /// FlClashX's 16-character id: SHA-256, first 16 hex digits, upper case.
+  static String compactHwid(String source) => sha256
+      .convert(utf8.encode(source))
       .toString()
-      .substring(0, 32);
+      .substring(0, 16)
+      .toUpperCase();
 
   static Future<String> _storedRandomId() async {
     const storage = FlutterSecureStorage();
@@ -93,20 +107,20 @@ class DeviceIdentity {
     } catch (_) {}
     final random = Random.secure();
     final id = List<String>.generate(
-            16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'))
-        .join();
+            8, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'))
+        .join()
+        .toUpperCase();
     try {
       await storage.write(key: _storageKey, value: id);
     } catch (_) {}
     return id;
   }
 
-  static String? _windowsMachineGuid() {
+  static String? _registryString(String path, String name) {
     try {
-      final key = Registry.openPath(RegistryHive.localMachine,
-          path: r'SOFTWARE\Microsoft\Cryptography');
+      final key = Registry.openPath(RegistryHive.localMachine, path: path);
       try {
-        return key.getStringValue('MachineGuid');
+        return key.getStringValue(name);
       } finally {
         key.close();
       }
@@ -115,13 +129,16 @@ class DeviceIdentity {
     }
   }
 
-  /// "10.0.22631" from `"Windows 10 Pro" 10.0 (Build 22631)`.
-  static String _windowsVersion() {
-    final text = Platform.operatingSystemVersion;
-    final version = RegExp(r'(\d+\.\d+)').firstMatch(text)?.group(1);
-    final build = RegExp(r'Build (\d+)').firstMatch(text)?.group(1);
-    if (version == null) return '';
-    return build == null ? version : '$version.$build';
+  /// `DisplayVersion` ("24H2"), `ProductName` ("Windows 11 Pro") and
+  /// `ProductId`, as FlClashX reads them (device_info_plus).
+  static ({String displayVersion, String productName, String productId})
+      _windowsCurrentVersion() {
+    const path = r'SOFTWARE\Microsoft\Windows NT\CurrentVersion';
+    return (
+      displayVersion: _registryString(path, 'DisplayVersion') ?? '',
+      productName: _registryString(path, 'ProductName') ?? '',
+      productId: _registryString(path, 'ProductId') ?? '',
+    );
   }
 
   /// HTTP header values must be plain ASCII.

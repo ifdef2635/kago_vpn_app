@@ -71,6 +71,8 @@ class SubscriptionRepository {
     if (body.trim().isEmpty) {
       throw FormatException(tr('Ссылка вернула пустой профиль.'));
     }
+    final hwidProblem = hwidNotice(response.headers.map);
+    if (hwidProblem != null) throw FormatException(hwidProblem);
     final normalized = const SubscriptionContentParser().toMihomoConfig(body);
     final stub = panelStubMessage(normalized);
     if (stub != null) {
@@ -202,6 +204,43 @@ class SubscriptionRepository {
       return await DeviceIdentity.instance.headers();
     } catch (_) {
       return const <String, String>{};
+    }
+  }
+
+  /// The panel's HWID verdict from the response headers, as FlClashX reads
+  /// them: `x-hwid-max-devices-reached: true` with the panel's text in
+  /// `announce` (optionally `base64:`), or `x-hwid-not-supported: true`.
+  static String? hwidNotice(Map<String, List<String>> headers) {
+    String? value(String name) {
+      for (final entry in headers.entries) {
+        if (entry.key.toLowerCase() == name) {
+          return entry.value.join(',').trim();
+        }
+      }
+      return null;
+    }
+
+    if (value('x-hwid-max-devices-reached')?.toLowerCase() == 'true') {
+      final announce = _decodeAnnounce(value('announce'));
+      return announce.isNotEmpty
+          ? announce
+          : tr(
+              'Достигнут лимит устройств подписки. Удалите лишнее устройство в «Кабинете» → «Устройства» и обновите подписку.');
+    }
+    if (value('x-hwid-not-supported')?.toLowerCase() == 'true') {
+      return tr(
+          'Сервер подписки не принял идентификатор устройства (HWID). Обновите приложение или напишите в поддержку.');
+    }
+    return null;
+  }
+
+  static String _decodeAnnounce(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    final text = raw.startsWith('base64:') ? raw.substring(7) : raw;
+    try {
+      return utf8.decode(base64.decode(base64.normalize(text))).trim();
+    } catch (_) {
+      return raw;
     }
   }
 

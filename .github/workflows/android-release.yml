@@ -89,39 +89,51 @@ jobs:
             } >> "$GITHUB_ENV"
             echo "kind=release" >> "$GITHUB_OUTPUT"
             echo 'Подпись ключом владельца (секреты репозитория).'
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # A public release signed with a throwaway key could never be
+            # updated in place, so a tag build needs the owner's key.
+            echo '::error::Релиз по тегу требует ключ подписи: задайте секреты KAGO_ANDROID_KEYSTORE_BASE64, KAGO_ANDROID_KEYSTORE_PASSWORD, KAGO_ANDROID_KEY_ALIAS, KAGO_ANDROID_KEY_PASSWORD.'
+            exit 1
           else
             echo "KAGO_ANDROID_DEBUG_SIGNING=true" >> "$GITHUB_ENV"
             echo "kind=debugsigned" >> "$GITHUB_OUTPUT"
             echo '::warning::Секреты ключа не заданы — APK подписан debug-ключом. Только для тестов, не для публикации.'
           fi
 
+      - name: Версия и тег
+        id: version
+        run: |
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          NAME="${VERSION%%+*}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
+            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+            exit 1
+          fi
+
+      # Один APK для arm64 (почти все телефоны) с versionCode из pubspec: так
+      # каждая следующая версия ставится поверх предыдущей как обновление.
       - name: flutter build apk --release
-        run: flutter build apk --release --target-platform android-arm64,android-x64
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Проверить подпись и ABI
         run: |
           APK=build/app/outputs/flutter-apk/app-release.apk
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
           "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
-          unzip -l "$APK" | grep -E 'lib/(arm64-v8a|x86_64)/libkago_mihomo_bridge.so'
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -n 1
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/libkago_mihomo_bridge.so'
 
       - name: Подготовить артефакт
         id: dist
         run: |
-          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
-          BASE="KaGoVPN-Android-${VERSION%%+*}-${{ steps.signing.outputs.kind }}"
+          KIND="${{ steps.signing.outputs.kind }}"
+          BASE="KaGoVPN-Android-${{ steps.version.outputs.name }}"
+          [[ "$KIND" == release ]] || BASE="$BASE-$KIND"
           mkdir -p dist/android
-          # Universal APK (arm64 + x86_64) for any phone and the emulator.
           cp build/app/outputs/flutter-apk/app-release.apk "dist/android/$BASE.apk"
-          echo "name=$BASE" >> "$GITHUB_OUTPUT"
-
-      # Почти все телефоны — arm64: отдельный APK без x86_64 примерно вдвое меньше.
-      - name: flutter build apk --split-per-abi (arm64)
-        run: |
-          flutter build apk --release --split-per-abi --target-platform android-arm64
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-            "dist/android/${{ steps.dist.outputs.name }}-arm64.apk"
           cd dist/android && sha256sum *.apk > SHA256SUMS.txt && ls -lh
+          echo "name=$BASE" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -134,4 +146,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/android/*
-          prerelease: ${{ steps.signing.outputs.kind != 'release' }}
+          name: KaGo VPN ${{ steps.version.outputs.name }}
+          prerelease: false

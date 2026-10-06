@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/device/device_identity.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/network/mihomo_windows_system_proxy.dart';
@@ -161,7 +162,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _SettingsTile(
                 icon: Icons.language_rounded,
                 title: 'KaGo VPN',
-                subtitle: 'usekago.net',
+                subtitle: tr('Версия {version} · usekago.net',
+                    <String, Object?>{'version': kagoAppVersion}),
                 trailing: Icon(Icons.open_in_new_rounded,
                     size: 20, color: context.kago.muted),
                 onTap: () => launchUrl(Uri.parse('https://usekago.net'),

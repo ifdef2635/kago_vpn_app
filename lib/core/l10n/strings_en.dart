@@ -281,29 +281,15 @@ const stringsEn = <String, String>{
   'Закрыть соединение': 'Close connection',
   'Интернет без границ': 'Internet without borders',
   'Обновить': 'Refresh',
-  'Контроллер Mihomo · {value}': 'Mihomo controller · {value}',
-  'Проверка Mihomo…': 'Checking Mihomo…',
-  'Ядро не подключено': 'Core not connected',
-  'Запуск Android VPN service…': 'Starting Android VPN service…',
-  'Android VPN подключён': 'Android VPN connected',
-  'Остановка VPN…': 'Stopping VPN…',
   'Разрешение VPN отозвано': 'VPN permission revoked',
   'Не удалось запустить Android VPN': 'Could not start Android VPN',
-  'Android VPN отключён': 'Android VPN disconnected',
-  'Android VPN service недоступен': 'Android VPN service unavailable',
   'Ваш сервер': 'Your server',
   'Добавьте подписку': 'Add a subscription',
-  '{length} серверов · выбор доступен после подключения':
-      '{length} servers · selection available after connecting',
-  'Список серверов появится здесь': 'The server list will appear here',
   'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.':
       'The core is not running. Press the power button below to start the VPN.',
   'Контроллер недоступен — проверьте адрес в настройках.':
       'Controller unavailable — check the address in settings.',
   'Не подключено': 'Not connected',
-  'Нажмите, чтобы отключить VPN': 'Tap to disconnect the VPN',
-  'Нажмите, чтобы запустить VPN': 'Tap to start the VPN',
-  'Поддержка: usekago.net': 'Support: usekago.net',
   'Ядро Mihomo остановлено.': 'Mihomo core stopped.',
   'Mihomo запущен и controller отвечает.':
       'Mihomo started and the controller responds.',
@@ -333,15 +319,8 @@ const stringsEn = <String, String>{
   'Загрузить': 'Load',
   'Добавьте ссылку, чтобы увидеть трафик и срок':
       'Add a link to see traffic and expiry',
-  '{used} использовано из {total}': '{used} used of {total}',
   '{used} использовано': '{used} used',
-  'Действует до {date}': 'Valid until {date}',
   'Добавить': 'Add',
-  'Задержка появится после подключения ядра':
-      'Latency appears after the core connects',
-  'Задержка не измерена — проверьте на вкладке «Серверы»':
-      'Latency not measured — check it on the “Servers” tab',
-  'Задержка: {value} мс': 'Latency: {value} ms',
   'Узел не отвечает': 'Node does not respond',
   'IP через VPN': 'IP via VPN',
   'Ваш IP': 'Your IP',
@@ -515,4 +494,9 @@ const stringsEn = <String, String>{
       'The subscription device limit is reached. Remove a device in “Account” → “Devices” and refresh the subscription.',
   'Сервер подписки не принял идентификатор устройства (HWID). Обновите приложение или напишите в поддержку.':
       'The subscription server did not accept the device ID (HWID). Update the app or contact support.',
+  '{length} серверов': '{length} servers',
+  'Подключение…': 'Connecting…',
+  '{used} из {total}': '{used} of {total}',
+  'до {date}': 'until {date}',
+  'Версия {version} · usekago.net': 'Version {version} · usekago.net',
 };

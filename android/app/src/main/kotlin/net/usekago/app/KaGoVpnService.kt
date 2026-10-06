@@ -6,12 +6,16 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import org.json.JSONObject
 import java.io.File
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 /**
@@ -44,7 +48,9 @@ class KaGoVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_CONFIG_PATH, configPath).apply()
+                isStarting = true
                 KaGoVpnEvents.emit("starting")
+                KaGoTileService.requestUpdate(this)
                 worker.execute { startTunnel(configPath) }
                 return START_STICKY
             }
@@ -53,7 +59,10 @@ class KaGoVpnService : VpnService() {
     }
 
     private fun startTunnel(configPath: String) {
-        if (coreStarted) return
+        if (coreStarted) {
+            isStarting = false
+            return
+        }
         var descriptor: ParcelFileDescriptor? = null
         try {
             val config = File(configPath)
@@ -102,6 +111,8 @@ class KaGoVpnService : VpnService() {
             descriptor = null
             coreStarted = true
             isConnected = true
+            isStarting = false
+            KaGoTileService.requestUpdate(this)
             updateNotification(getString(R.string.vpn_connected))
             KaGoVpnEvents.emit("connected")
         } catch (error: Throwable) {
@@ -109,6 +120,7 @@ class KaGoVpnService : VpnService() {
             runCatching { MihomoNativeCore.stop() }
             coreStarted = false
             isConnected = false
+            isStarting = false
             stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopSelfAfter = true)
         }
     }
@@ -118,7 +130,9 @@ class KaGoVpnService : VpnService() {
         if (coreStarted) runCatching { MihomoNativeCore.stop() }
         coreStarted = false
         isConnected = false
+        isStarting = false
         KaGoVpnEvents.emit(state, message)
+        KaGoTileService.requestUpdate(this)
         removeForegroundNotification()
         if (stopSelfAfter) stopSelf()
     }
@@ -136,11 +150,37 @@ class KaGoVpnService : VpnService() {
         if (coreStarted) runCatching { MihomoNativeCore.stop() }
         coreStarted = false
         isConnected = false
+        isStarting = false
+        KaGoTileService.requestUpdate(this)
         worker.shutdownNow()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = super.onBind(intent)
+
+    private val packageByUid = ConcurrentHashMap<Int, String>()
+
+    /**
+     * Called by the native core (JNI) for PROCESS-NAME rules: the package that
+     * owns a connection seen on the TUN. This makes the subscription's own app
+     * routing (e.g. Russian apps -> DIRECT) work without per-app settings.
+     * Android 10+ only; older systems simply do not match such rules.
+     */
+    fun resolvePackage(protocol: Int, srcIp: String, srcPort: Int, dstIp: String, dstPort: Int): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val uid = runCatching {
+            getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
+                protocol,
+                InetSocketAddress(InetAddress.getByName(srcIp), srcPort),
+                InetSocketAddress(InetAddress.getByName(dstIp), dstPort),
+            )
+        }.getOrDefault(-1)
+        if (uid < 0) return null
+        packageByUid[uid]?.let { return it }
+        val name = runCatching { packageManager.getPackagesForUid(uid)?.firstOrNull() }.getOrNull() ?: return null
+        packageByUid[uid] = name
+        return name
+    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -188,5 +228,13 @@ class KaGoVpnService : VpnService() {
         private const val TUN_MTU = 1500
         @Volatile var isConnected: Boolean = false
             private set
+        @Volatile var isStarting: Boolean = false
+            private set
+
+        /** The app prepared a profile once, so the tile can start headless. */
+        fun hasPreparedConfig(context: Context): Boolean {
+            val path = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CONFIG_PATH, null)
+            return !path.isNullOrBlank() && File(path).isFile
+        }
     }
 }

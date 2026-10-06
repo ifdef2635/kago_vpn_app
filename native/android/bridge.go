@@ -14,6 +14,7 @@ import "C"
 
 import (
 	"errors"
+	"net/netip"
 	"strings"
 	"unsafe"
 
@@ -29,6 +30,31 @@ func kago_mihomo_set_socket_protector(protector C.kago_socket_protector) C.int {
 	}
 	setNativeProtector(func(fd int) bool {
 		return C.kago_call_socket_protector(C.int(fd)) == 1
+	})
+	return 0
+}
+
+//export kago_mihomo_set_package_resolver
+func kago_mihomo_set_package_resolver(resolver C.kago_package_resolver) C.int {
+	C.kago_store_package_resolver(resolver)
+	if resolver == nil {
+		setPackageResolver(nil)
+		return 0
+	}
+	setPackageResolver(func(protocol int, src, dst netip.AddrPort) string {
+		const size = 256
+		cSrc := C.CString(src.Addr().String())
+		defer C.free(unsafe.Pointer(cSrc))
+		cDst := C.CString(dst.Addr().String())
+		defer C.free(unsafe.Pointer(cDst))
+		buffer := (*C.char)(C.malloc(size))
+		defer C.free(unsafe.Pointer(buffer))
+		length := C.kago_call_package_resolver(C.int(protocol), cSrc, C.int(src.Port()),
+			cDst, C.int(dst.Port()), buffer, size)
+		if length <= 0 || length >= size {
+			return ""
+		}
+		return C.GoStringN(buffer, length)
 	})
 	return 0
 }

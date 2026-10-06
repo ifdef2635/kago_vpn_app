@@ -9,6 +9,12 @@ on:
   push:
     tags:
       - 'v*'
+    # Только чтобы GitHub зарегистрировал workflow на ветке (иначе ручной
+    # запуск через API отвечает 404): при таком пуше все задачи пропускаются.
+    branches:
+      - 'claude/**'
+    paths:
+      - '.github/workflows/release.yml'
 
 permissions:
   contents: write
@@ -19,18 +25,21 @@ concurrency:
 
 jobs:
   android:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/android-release.yml
     with:
       release: true
     secrets: inherit
 
   windows:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/windows-release.yml
     with:
       release: true
     secrets: inherit
 
   macos:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/macos-release.yml
     with:
       release: true
@@ -38,6 +47,7 @@ jobs:
 
   publish:
     needs: [android, windows, macos]
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

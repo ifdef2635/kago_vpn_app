@@ -71,7 +71,7 @@ func setLastError(err error) {
 func currentError() string {
 	lastErrMu.RLock()
 	defer lastErrMu.RUnlock()
-	return lastErr
+	return jniSafeText(lastErr)
 }
 
 func protectOutboundSockets(network, address string, raw syscall.RawConn) error {
@@ -192,6 +192,26 @@ func startCore(configPath, workDir string, tunFD, mtu int, stack, addressCSV str
 	cfg.Controller.ExternalControllerTLS = ""
 	cfg.Controller.ExternalControllerUnix = ""
 	cfg.Controller.ExternalControllerPipe = ""
+	// Enforced here as well as in the Dart config builder, so a config written
+	// by any code path cannot open listeners or unauthenticated endpoints.
+	cfg.Controller.ExternalUI = ""
+	cfg.Controller.ExternalUIURL = ""
+	cfg.Controller.ExternalUIName = ""
+	cfg.Controller.ExternalDohServer = ""
+	cfg.Controller.Cors.AllowOrigins = []string{"https://controller.invalid"}
+	cfg.Controller.Cors.AllowPrivateNetwork = false
+	if cfg.Controller.Secret == "" {
+		return errors.New("controller secret is missing")
+	}
+	cfg.Listeners = nil
+	cfg.Tunnels = nil
+	if cfg.NTP != nil {
+		cfg.NTP.WriteToSystem = false
+	}
+	// debug mounts /debug/pprof on the controller without the secret.
+	if cfg.General.LogLevel == log.DEBUG {
+		cfg.General.LogLevel = log.WARNING
+	}
 
 	protectMu.RLock()
 	protectorReady := protectFD != nil

@@ -330,6 +330,17 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
 
   web.InAppWebViewSettings get _settings => web.InAppWebViewSettings(
         javaScriptEnabled: true,
+        // No file:// or content:// pages, and the JavaScript bridge only for
+        // the top-level page of the site or Telegram's login.
+        allowFileAccess: false,
+        allowContentAccess: false,
+        allowFileAccessFromFileURLs: false,
+        allowUniversalAccessFromFileURLs: false,
+        javaScriptHandlersForMainFrameOnly: true,
+        javaScriptHandlersOriginAllowList: <String>{
+          r'^https://([a-z0-9-]+\.)*usekago\.net$',
+          r'^https://([a-z0-9-]+\.)*telegram\.org$',
+        },
         // Telegram's login opens oauth.telegram.org with window.open.
         supportMultipleWindows: true,
         javaScriptCanOpenWindowsAutomatically: true,
@@ -433,6 +444,17 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
                           unawaited(_autoStart(url));
                         },
                         onCreateWindow: (_, action) async {
+                          // Popups only for the site and Telegram's login;
+                          // the popup applies the same navigation rules.
+                          final target = action.request.url;
+                          if (target != null && target.toString().isNotEmpty) {
+                            final decision =
+                                SiteNavigationPolicy.decide(target);
+                            if (decision == SiteNavigation.external) {
+                              await _launch(target);
+                            }
+                            if (decision != SiteNavigation.allow) return false;
+                          }
                           setState(() {
                             _popup = action;
                             _popupProgress = 0;

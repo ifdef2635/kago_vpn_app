@@ -59,9 +59,11 @@ class KaGoVpnService : VpnService() {
             val config = File(configPath)
             if (!config.isFile) throw IllegalStateException(getString(R.string.vpn_config_not_found, configPath))
             val root = JSONObject(config.readText())
-            val tun = root.optJSONObject("tun") ?: JSONObject()
             val ipv6Enabled = root.optBoolean("ipv6", false)
-            val stack = tun.optString("stack", "mixed").ifBlank { "mixed" }
+            // The embedded core is built without gVisor (no with_gvisor tag), so
+            // "gvisor" and "mixed" from a panel template cannot start; use the
+            // system stack whatever the subscription asks for.
+            val stack = "system"
             val tunnelAddress = if (ipv6Enabled) "$IPV4_CIDR,$IPV6_CIDR" else IPV4_CIDR
             val tunnelDns = if (ipv6Enabled) "$IPV4_DNS,$IPV6_DNS" else IPV4_DNS
             // Loads before establish(): without the native core, never capture or blackhole user traffic.

@@ -9,7 +9,7 @@ import '../storage/secure_storage.dart';
 
 /// App version for the User-Agent; `test/user_agent_test.dart` keeps it in
 /// step with pubspec.yaml.
-const kagoAppVersion = '1.0.3';
+const kagoAppVersion = '1.0.4';
 
 /// Mihomo core built into the app (Android) and downloaded on Windows.
 const kagoCoreVersion = '1.19.32';

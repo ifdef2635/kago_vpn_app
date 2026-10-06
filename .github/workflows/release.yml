@@ -84,9 +84,17 @@ jobs:
             exit 1
           fi
 
+      # «Что нового» — первый раздел RELEASE_STATUS.md до «Для разработчиков»;
+      # его показывает диалог обновления в приложении.
+      - name: Описание релиза
+        run: |
+          awk '/^## /{n++; next} n==1 && /^Для разработчиков/{exit} n==1' RELEASE_STATUS.md > release-notes.md
+          test -s release-notes.md || echo "KaGo VPN ${{ steps.version.outputs.name }}" > release-notes.md
+
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           tag_name: v${{ steps.version.outputs.name }}
           target_commitish: ${{ github.sha }}
           name: KaGo VPN ${{ steps.version.outputs.name }}

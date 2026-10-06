@@ -28,6 +28,8 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - Android-релиз — один APK для arm64. Не использовать `--split-per-abi`: он меняет versionCode. Другие ABI исключены в `packaging.jniLibs`, а `.so` сжаты (`useLegacyPackaging`). Без этого APK весил 132 МБ вместо ~30.
 - Релиз — **только** workflow `release.yml`: тег `v<X.Y.Z>`, совпадающий с `pubspec.yaml`, или ручной запуск (Actions → Release; тег создаёт сам GitHub Actions — из облачной сессии Claude тег не пушится). Он собирает Android, Windows и macOS параллельно и публикует релиз, только если готовы все три файла: `.apk`, `.exe` и `.dmg` (плюс `.zip` Windows и `SHA256SUMS-*`). Платформенные workflow сами релиз не публикуют. Без ключа подписи релизная сборка падает намеренно. CI проверяет `dart format` — форматировать код перед коммитом. macOS: с секретами `KAGO_MACOS_*`/`KAGO_APPLE_*` — подпись Developer ID и нотаризация, без них — ad-hoc (Gatekeeper предупреждает).
 
+- Обновление из приложения (`lib/core/update/app_updater.dart`) берёт последний GitHub Release и ищет файлы по именам: `KaGoVPN-Android-<v>.apk`, `KaGoVPN-Windows-x64-Setup-<v>.exe`, `KaGoVPN-macOS-<v>.dmg` и `SHA256SUMS-<Android|Windows|macOS>.txt`. Имена не менять (проверяет `test/app_updater_test.dart`). Первый раздел RELEASE_STATUS.md публикуется как «Что нового» и виден пользователям в диалоге обновления.
+
 - В виджетах читать `AsyncValue` через `valueOrNull`/`when`, не `.value`: при ошибке `.value` выбрасывает её, и в релизе вместо экрана виден серый блок.
 
 ## Git-процесс

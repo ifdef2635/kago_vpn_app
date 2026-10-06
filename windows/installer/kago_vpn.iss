@@ -54,3 +54,6 @@ Name: "{userdesktop}\KaGo VPN"; Filename: "{app}\kago_vpn.exe"; Tasks: desktopic
 
 [Run]
 Filename: "{app}\kago_vpn.exe"; Description: "{cm:LaunchProgram,KaGo VPN}"; Flags: nowait postinstall skipifsilent
+; Обновление из приложения запускает установщик с /SILENT: после установки
+; KaGo VPN открывается сам.
+Filename: "{app}\kago_vpn.exe"; Flags: nowait; Check: WizardSilent

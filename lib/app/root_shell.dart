@@ -12,6 +12,7 @@ import '../features/connections/connections_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/proxies/proxies_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/update/update_flow.dart';
 import '../core/l10n/l10n.dart';
 
 class RootShell extends ConsumerWidget {
@@ -56,7 +57,9 @@ class RootShell extends ConsumerWidget {
     void select(int value) =>
         ref.read(rootTabIndexProvider.notifier).state = value;
     final wide = MediaQuery.sizeOf(context).width >= 760;
-    return _ExitGuard(child: _buildShell(context, ref, index, select, wide));
+    return _ExitGuard(
+        child: UpdatePrompt(
+            child: _buildShell(context, ref, index, select, wide)));
   }
 
   Widget _buildShell(BuildContext context, WidgetRef ref, int index,

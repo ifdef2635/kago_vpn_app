@@ -10,6 +10,7 @@ import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import 'kago_api.dart';
+import 'site_navigation_policy.dart';
 
 /// What the in-app usekago.net page is opened for.
 enum SiteSessionMode {
@@ -187,8 +188,11 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
   /// Returns what the page's `fetch` should resolve with.
   Future<Map<String, Object?>> _telegramFromPage(
       web.JavaScriptHandlerFunctionData data) async {
-    // Only the site itself may hand over a token.
-    if (!data.origin.host.endsWith('usekago.net') || _finishing) {
+    // Only the site's own top-level page may hand over a token: not another
+    // domain ending in "usekago.net", not an iframe, not plain HTTP.
+    if (!data.isMainFrame ||
+        !SiteNavigationPolicy.isKagoOrigin(data.origin) ||
+        _finishing) {
       return <String, Object?>{'status': 409, 'body': '{}'};
     }
     _finishing = true;
@@ -243,7 +247,7 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
 
   void _onUrl(web.WebUri? url) {
     if (url == null) return;
-    final onCabinet = url.host.endsWith('usekago.net') &&
+    final onCabinet = SiteNavigationPolicy.isKagoOrigin(url) &&
         (url.path == '/my' || url.path.startsWith('/my/'));
     if (_login && onCabinet) unawaited(_takeOverSession());
   }
@@ -274,54 +278,52 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
 
   /// "Continue with Telegram" opens tg:// (or an Android intent:// link to
   /// it); a WebView cannot, so hand those to the system.
+  /// Applies [SiteNavigationPolicy]: the site and Telegram's login load
+  /// here, other HTTPS pages open in the browser, Telegram links in the
+  /// Telegram app, anything else is refused.
   Future<web.NavigationActionPolicy> _openExternal(
       web.InAppWebViewController controller,
       web.NavigationAction action) async {
     final url = action.request.url;
-    final scheme = url?.scheme.toLowerCase() ?? '';
-    if (url == null ||
-        scheme.isEmpty ||
-        const <String>['http', 'https', 'about', 'data', 'blob', 'javascript']
-            .contains(scheme)) {
-      return web.NavigationActionPolicy.ALLOW;
+    if (url == null) return web.NavigationActionPolicy.CANCEL;
+    if (!action.isForMainFrame) {
+      return SiteNavigationPolicy.allowSubframe(url)
+          ? web.NavigationActionPolicy.ALLOW
+          : web.NavigationActionPolicy.CANCEL;
     }
-    final target = scheme == 'intent' ? _fromIntent(url.toString()) : url;
-    var opened = false;
-    if (target != null) {
-      try {
-        opened = await launchUrl(target, mode: LaunchMode.externalApplication);
-      } catch (_) {
-        opened = false;
+    if (url.scheme.toLowerCase() == 'intent') {
+      final link = url.toString();
+      final telegram = SiteNavigationPolicy.telegramFromIntent(link);
+      if (telegram == null || !await _launch(telegram)) {
+        final fallback = SiteNavigationPolicy.intentFallback(link);
+        if (fallback != null) {
+          if (SiteNavigationPolicy.decide(fallback) == SiteNavigation.allow) {
+            await controller.loadUrl(
+                urlRequest: web.URLRequest(url: web.WebUri.uri(fallback)));
+          } else {
+            await _launch(fallback);
+          }
+        }
       }
+      return web.NavigationActionPolicy.CANCEL;
     }
-    if (!opened && scheme == 'intent') {
-      final fallback = _intentExtra(url.toString(), 'S.browser_fallback_url');
-      if (fallback != null) {
-        await controller.loadUrl(
-            urlRequest: web.URLRequest(url: web.WebUri(fallback)));
-      }
+    switch (SiteNavigationPolicy.decide(url)) {
+      case SiteNavigation.allow:
+        return web.NavigationActionPolicy.ALLOW;
+      case SiteNavigation.external:
+        await _launch(url);
+        return web.NavigationActionPolicy.CANCEL;
+      case SiteNavigation.block:
+        return web.NavigationActionPolicy.CANCEL;
     }
-    return web.NavigationActionPolicy.CANCEL;
   }
 
-  /// `intent://host/path#Intent;scheme=tg;package=…;end` → `tg://host/path`.
-  static Uri? _fromIntent(String link) {
-    final scheme = _intentExtra(link, 'scheme');
-    final hash = link.indexOf('#Intent');
-    if (scheme == null || hash < 0) return null;
-    return Uri.tryParse(
-        '$scheme://${link.substring('intent://'.length, hash)}');
-  }
-
-  static String? _intentExtra(String link, String key) {
-    final hash = link.indexOf('#Intent;');
-    if (hash < 0) return null;
-    for (final part in link.substring(hash + 8).split(';')) {
-      if (part.startsWith('$key=')) {
-        return Uri.decodeComponent(part.substring(key.length + 1));
-      }
+  static Future<bool> _launch(Uri url) async {
+    try {
+      return await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      return false;
     }
-    return null;
   }
 
   void _closePopup() => setState(() => _popup = null);

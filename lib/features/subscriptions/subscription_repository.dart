@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:yaml/yaml.dart';
 
+import '../../core/device/device_identity.dart';
 import 'config_builder.dart';
 import 'subscription_content_parser.dart';
 import 'subscription_parser.dart';
@@ -62,6 +64,7 @@ class SubscriptionRepository {
             responseType: ResponseType.plain))
         .get<String>(uri.toString(),
             options: Options(
+                headers: await _deviceHeaders(),
                 validateStatus: (status) =>
                     status != null && status >= 200 && status < 300));
     final body = response.data ?? '';
@@ -69,6 +72,12 @@ class SubscriptionRepository {
       throw FormatException(tr('Ссылка вернула пустой профиль.'));
     }
     final normalized = const SubscriptionContentParser().toMihomoConfig(body);
+    final stub = panelStubMessage(normalized);
+    if (stub != null) {
+      throw FormatException(tr(
+          'Сервер подписки не выдал серверы: «{message}». Проверьте лимит устройств в «Кабинете» → «Устройства» и обновите подписку.',
+          <String, Object?>{'message': stub}));
+    }
     final metadata = SubscriptionMetadata.parse(
         yaml: normalized, responseHeaders: response.headers.map);
     await const MihomoConfigBuilder().writeConfig(normalized);
@@ -152,6 +161,7 @@ class SubscriptionRepository {
         final response = await client.request<String>(uri.toString(),
             options: Options(
                 method: method,
+                headers: await _deviceHeaders(),
                 validateStatus: (status) =>
                     status != null && status >= 200 && status < 300));
         fields = parseUserInfo(
@@ -185,6 +195,40 @@ class SubscriptionRepository {
       await _storage.write(key: _key, value: jsonEncode(decoded));
     }
     return latest();
+  }
+
+  static Future<Map<String, String>> _deviceHeaders() async {
+    try {
+      return await DeviceIdentity.instance.headers();
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
+  /// Remnawave answers a request it will not serve (no HWID, device limit
+  /// reached, expired or unknown client) with placeholder servers whose
+  /// names carry the reason and whose address is 0.0.0.0 or 127.0.0.1.
+  /// Returns that reason, or null for a real profile.
+  static String? panelStubMessage(String mihomoYaml) {
+    final dynamic root;
+    try {
+      root = loadYaml(mihomoYaml);
+    } catch (_) {
+      return null;
+    }
+    final proxies = root is YamlMap ? root['proxies'] : null;
+    if (proxies is! YamlList || proxies.isEmpty) return null;
+    final names = <String>[];
+    for (final proxy in proxies.whereType<YamlMap>()) {
+      final server = '${proxy['server'] ?? ''}'.trim();
+      if (!const <String>{'0.0.0.0', '127.0.0.1', '::', '::1', 'localhost'}
+          .contains(server)) {
+        return null;
+      }
+      final name = '${proxy['name'] ?? ''}'.trim();
+      if (name.isNotEmpty) names.add(name);
+    }
+    return names.isEmpty ? null : names.join(' · ');
   }
 
   /// Subscription URL -> the request method that returned the counters.

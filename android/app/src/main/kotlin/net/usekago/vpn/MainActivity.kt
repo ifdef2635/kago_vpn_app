@@ -1,5 +1,6 @@
 package net.usekago.vpn
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.net.VpnService
@@ -149,6 +150,7 @@ class MainActivity : FlutterActivity() {
                     )
                     result.success(true)
                 }
+                "deviceInfo" -> result.success(deviceInfo())
                 "openVpnSettings" -> {
                     // "Always-on VPN" and "Block connections without VPN" (kill switch) are
                     // system settings; an app cannot turn them on itself.
@@ -167,6 +169,23 @@ class MainActivity : FlutterActivity() {
             }
             override fun onCancel(arguments: Any?) { KaGoVpnEvents.attach(null) }
         })
+    }
+
+    /**
+     * Subscription device headers (x-hwid etc.). ANDROID_ID is per app signing
+     * key and survives reinstalls, so the panel keeps counting one device; the
+     * Dart side only sends a hash of it.
+     */
+    @SuppressLint("HardwareIds")
+    private fun deviceInfo(): Map<String, String> {
+        val id = runCatching {
+            Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        }.getOrNull().orEmpty()
+        val model = listOf(Build.MANUFACTURER, Build.MODEL)
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+            .joinToString(" ")
+        return mapOf("id" to id, "os" to Build.VERSION.RELEASE.orEmpty(), "model" to model)
     }
 
     @Suppress("DEPRECATION")

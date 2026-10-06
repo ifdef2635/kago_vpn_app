@@ -509,4 +509,6 @@ const stringsEn = <String, String>{
   'Яндекс, VK, банки и Госуслуги — без VPN':
       'Yandex, VK, banks and Gosuslugi bypass the VPN',
   'Системный прокси 127.0.0.1:7890': 'System proxy 127.0.0.1:7890',
+  'Сервер подписки не выдал серверы: «{message}». Проверьте лимит устройств в «Кабинете» → «Устройства» и обновите подписку.':
+      'The subscription server returned no servers: “{message}”. Check the device limit in “Account” → “Devices” and refresh the subscription.',
 };

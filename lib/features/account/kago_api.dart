@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../core/device/device_identity.dart';
 import '../../core/l10n/l10n.dart';
 
 /// usekago.net personal account API (Remnashop, `openapi.json` in the site
@@ -253,14 +254,24 @@ class KagoApi {
   Future<Response<String>> _raw(String method, String path,
       {Object? body}) async {
     final cookie = await cookies.header();
+    final userAgent = await _userAgent();
     final response = await _dio.request<String>(path,
         data: body == null ? null : jsonEncode(body),
         options: Options(method: method, headers: <String, String>{
           'Content-Type': 'application/json',
+          if (userAgent != null) 'User-Agent': userAgent,
           if (cookie != null) 'Cookie': cookie,
         }));
     await cookies.update(response.headers.map['set-cookie']);
     return response;
+  }
+
+  static Future<String?> _userAgent() async {
+    try {
+      return await DeviceIdentity.instance.userAgent();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// One shared refresh for parallel 401s (same as the site's `tryRefresh`).

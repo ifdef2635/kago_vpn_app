@@ -7,8 +7,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:win32_registry/win32_registry.dart';
 
+/// App version for the User-Agent; `test/user_agent_test.dart` keeps it in
+/// step with pubspec.yaml.
+const kagoAppVersion = '0.1.0';
+
+/// Mihomo core built into the app (Android) and downloaded on Windows.
+const kagoCoreVersion = '1.19.32';
+
 /// The device headers a Remnawave subscription expects (`x-hwid` and
-/// friends, as FlClashX and Happ send them).
+/// friends, as FlClashX and Happ send them) and the app's User-Agent.
 ///
 /// With a device limit on the subscription, the panel answers a request
 /// without `x-hwid` with a stub server named "Приложение не поддерживается!"
@@ -25,6 +32,19 @@ class DeviceIdentity {
   Future<Map<String, String>>? _headers;
 
   Future<Map<String, String>> headers() => _headers ??= _build();
+
+  /// `mihomo/1.19.32 KaGoVPN/0.1.0 (Android 14)`. Starts with the core, so
+  /// Remnawave response rules for Mihomo clients serve a full Mihomo config
+  /// (groups and rules of the panel); the device list on the site shows
+  /// KaGoVPN and the system.
+  Future<String> userAgent() async =>
+      (await headers())['User-Agent'] ??
+      userAgentFor(Platform.operatingSystem, '');
+
+  static String userAgentFor(String os, String osVersion) {
+    final system = _ascii(osVersion.isEmpty ? os : '$os $osVersion');
+    return 'mihomo/$kagoCoreVersion KaGoVPN/$kagoAppVersion ($system)';
+  }
 
   Future<Map<String, String>> _build() async {
     var source = '';
@@ -51,6 +71,7 @@ class DeviceIdentity {
     }
     final hwid = source.isNotEmpty ? _hash(source) : await _storedRandomId();
     return <String, String>{
+      'User-Agent': userAgentFor(os, osVersion),
       'x-hwid': hwid,
       'x-device-os': os,
       if (osVersion.isNotEmpty) 'x-ver-os': osVersion,

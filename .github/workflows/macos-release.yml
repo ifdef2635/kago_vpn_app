@@ -47,8 +47,13 @@ jobs:
           channel: stable
           cache: true
 
+      # Плагины собираются через CocoaPods: macos/Podfile поднимает им минимальную
+      # версию до macOS 12 (через Swift Package Manager это не настроить, а
+      # flutter_inappwebview_macos с его 10.11 не компилируется новым Xcode).
       - name: flutter pub get
-        run: flutter pub get
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter pub get
 
       - name: flutter analyze
         run: flutter analyze

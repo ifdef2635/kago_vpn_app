@@ -9,6 +9,17 @@ on:
       release:
         type: boolean
         default: false
+    secrets:
+      KAGO_MACOS_CERT_P12_BASE64:
+        required: false
+      KAGO_MACOS_CERT_PASSWORD:
+        required: false
+      KAGO_APPLE_ID:
+        required: false
+      KAGO_APPLE_TEAM_ID:
+        required: false
+      KAGO_APPLE_APP_PASSWORD:
+        required: false
   push:
     branches:
       - 'claude/**'
@@ -23,8 +34,9 @@ on:
       - 'pubspec.lock'
       - '.github/workflows/macos-release.yml'
 
+# Только чтение: сборка не публикует релиз (это делает release.yml).
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-macos-${{ github.ref }}
@@ -39,9 +51,11 @@ jobs:
       # Встроенное ядро — та же закреплённая версия, что на Windows и Android.
       MIHOMO_VERSION: 'v1.19.32'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -50,10 +64,10 @@ jobs:
       # Плагины собираются через CocoaPods: macos/Podfile поднимает им минимальную
       # версию до macOS 12 (через Swift Package Manager это не настроить, а
       # flutter_inappwebview_macos с его 10.11 не компилируется новым Xcode).
-      - name: flutter pub get
+      - name: flutter pub get --enforce-lockfile
         run: |
           flutter config --no-enable-swift-package-manager
-          flutter pub get
+          flutter pub get --enforce-lockfile
 
       - name: Формат
         run: dart format --output=none --set-exit-if-changed lib test
@@ -75,46 +89,28 @@ jobs:
             exit 1
           fi
 
-      # Ядро Mihomo для Apple Silicon и Intel из официального релиза: проверка
-      # SHA-256 из GitHub API, затем один universal-бинарник (lipo) с ad-hoc
-      # подписью (lipo снимает подпись Go-линкера, а arm64 без подписи не запустится).
+      # Ядро Mihomo для Apple Silicon и Intel из официального релиза. SHA-256
+      # закреплены здесь (а не берутся из того же релиза), затем один
+      # universal-бинарник (lipo) с ad-hoc подписью (lipo снимает подпись
+      # Go-линкера, а arm64 без подписи не запустится).
       - name: Ядро Mihomo (universal)
         env:
-          GH_TOKEN: ${{ github.token }}
+          ARM_ASSET: mihomo-darwin-arm64-v1.19.32.gz
+          ARM_SHA256: 3312a6780652c622890fd4357c6a853bbf865464fd047ac7b7f52dab8de18652
+          AMD_ASSET: mihomo-darwin-amd64-compatible-v1.19.32.gz
+          AMD_SHA256: 18b382df77bded2ad0fb3db27db5636cb15b20729d5ba995a357eeb9b46bf507
         run: |
           set -euo pipefail
           mkdir -p core && cd core
-          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/MetaCubeX/mihomo/releases/tags/$MIHOMO_VERSION" > release.json
-          pick() {
-            for name in "$@"; do
-              if jq -e --arg n "$name" '.assets[] | select(.name == $n)' release.json > /dev/null; then
-                echo "$name"; return 0
-              fi
-            done
-            return 1
-          }
           fetch() {
-            local name="$1" out="$2"
-            local url digest
-            url="$(jq -r --arg n "$name" '.assets[] | select(.name == $n) | .browser_download_url' release.json)"
-            digest="$(jq -r --arg n "$name" '.assets[] | select(.name == $n) | .digest // ""' release.json)"
-            curl -fsSL "$url" -o "$name"
-            if [[ -n "$digest" ]]; then
-              echo "${digest#sha256:}  $name" | shasum -a 256 -c -
-            else
-              echo "::warning::Для $name в релизе нет SHA-256; проверены только HTTPS-источник и запуск."
-            fi
+            local name="$1" hash="$2" out="$3"
+            curl -fsSL "https://github.com/MetaCubeX/mihomo/releases/download/$MIHOMO_VERSION/$name" -o "$name"
+            echo "$hash  $name" | shasum -a 256 -c -
             gunzip -c "$name" > "$out"
             chmod +x "$out"
           }
-          ARM="$(pick "mihomo-darwin-arm64-$MIHOMO_VERSION.gz")"
-          AMD="$(pick "mihomo-darwin-amd64-compatible-$MIHOMO_VERSION.gz" \
-                      "mihomo-darwin-amd64-v1-$MIHOMO_VERSION.gz" \
-                      "mihomo-darwin-amd64-$MIHOMO_VERSION.gz")"
-          echo "arm64: $ARM"; echo "x86_64: $AMD"
-          fetch "$ARM" mihomo-arm64
-          fetch "$AMD" mihomo-amd64
+          fetch "$ARM_ASSET" "$ARM_SHA256" mihomo-arm64
+          fetch "$AMD_ASSET" "$AMD_SHA256" mihomo-amd64
           lipo -create -output mihomo mihomo-arm64 mihomo-amd64
           lipo -info mihomo
           codesign --force --sign - mihomo
@@ -144,11 +140,11 @@ jobs:
       - name: Встроить ядро, подписать и нотаризовать приложение
         id: sign
         env:
-          CERT_P12: ${{ secrets.KAGO_MACOS_CERT_P12_BASE64 }}
-          CERT_PASSWORD: ${{ secrets.KAGO_MACOS_CERT_PASSWORD }}
-          APPLE_ID: ${{ secrets.KAGO_APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.KAGO_APPLE_TEAM_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.KAGO_APPLE_APP_PASSWORD }}
+          CERT_P12: ${{ inputs.release && secrets.KAGO_MACOS_CERT_P12_BASE64 || '' }}
+          CERT_PASSWORD: ${{ inputs.release && secrets.KAGO_MACOS_CERT_PASSWORD || '' }}
+          APPLE_ID: ${{ inputs.release && secrets.KAGO_APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ inputs.release && secrets.KAGO_APPLE_TEAM_ID || '' }}
+          APPLE_APP_PASSWORD: ${{ inputs.release && secrets.KAGO_APPLE_APP_PASSWORD || '' }}
         run: |
           set -euo pipefail
           APP="build/macos/Build/Products/Release/KaGo VPN.app"
@@ -200,9 +196,9 @@ jobs:
       - name: Собрать .dmg
         id: dist
         env:
-          APPLE_ID: ${{ secrets.KAGO_APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.KAGO_APPLE_TEAM_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.KAGO_APPLE_APP_PASSWORD }}
+          APPLE_ID: ${{ inputs.release && secrets.KAGO_APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ inputs.release && secrets.KAGO_APPLE_TEAM_ID || '' }}
+          APPLE_APP_PASSWORD: ${{ inputs.release && secrets.KAGO_APPLE_APP_PASSWORD || '' }}
         run: |
           set -euo pipefail
           NAME="KaGoVPN-macOS-${{ steps.version.outputs.name }}"
@@ -221,7 +217,7 @@ jobs:
           cd dist/macos && shasum -a 256 *.dmg > SHA256SUMS-macOS.txt && ls -lh
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ steps.dist.outputs.name }}
           path: dist/macos/*

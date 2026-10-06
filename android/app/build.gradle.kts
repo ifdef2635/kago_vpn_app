@@ -88,3 +88,15 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// The Mihomo core is built from source (tool/build_android_native.*) and not
+// kept in git: a release APK without it, or with a stale copy from elsewhere,
+// must not be produced silently.
+val mihomoCoreLib = file("src/main/jniLibs/arm64-v8a/libkago_mihomo_bridge.so")
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(mihomoCoreLib.isFile) {
+            "Нет ядра Mihomo: сначала соберите его (tool/build_android_native.sh или .ps1)."
+        }
+    }
+}

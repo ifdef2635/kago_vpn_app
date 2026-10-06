@@ -539,4 +539,8 @@ const stringsEn = <String, String>{
   'Профиль подписки слишком большой.': 'The subscription profile is too large.',
   'Контроллер — только локальное ядро: http://127.0.0.1:<порт>.':
       'The controller is the local core only: http://127.0.0.1:<port>.',
+  'Подпись обновления не прошла проверку. Обновление не установлено.':
+      'The update signature did not verify. The update was not installed.',
+  'Для Mihomo нет эталонного SHA-256 — ядро не установлено. Попробуйте позже.':
+      'There is no reference SHA-256 for Mihomo, so the core was not installed. Try again later.',
 };

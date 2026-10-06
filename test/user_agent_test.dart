@@ -22,4 +22,9 @@ void main() {
     expect(DeviceIdentity.userAgentFor('Windows', ''),
         'mihomo/$kagoCoreVersion KaGoVPN/$kagoAppVersion (Windows)');
   });
+
+  test('site API User-Agent has no mihomo prefix', () {
+    expect(DeviceIdentity.apiUserAgentFor('Android', '14'),
+        'KaGoVPN/$kagoAppVersion (Android 14)');
+  });
 }

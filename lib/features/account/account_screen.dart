@@ -35,7 +35,7 @@ class AccountScreen extends ConsumerWidget {
     final user = ref.watch(accountUserProvider);
     final p = context.kago;
     final wide = MediaQuery.sizeOf(context).width > 760;
-    final signedIn = user.value;
+    final signedIn = user.valueOrNull;
     return RefreshIndicator(
       onRefresh: () async {
         refreshAccount(ref);
@@ -84,7 +84,7 @@ class AccountScreen extends ConsumerWidget {
               ErrorPanel(message: '$error', onRetry: () => refreshAccount(ref)),
             ],
             data: (value) => value == null
-                ? ref.watch(importedSubscriptionProvider).value == null
+                ? ref.watch(importedSubscriptionProvider).valueOrNull == null
                     ? <Widget>[
                         const _LoginCard(),
                         const SizedBox(height: 16),
@@ -199,7 +199,7 @@ bool _vpnOn(WidgetRef ref) {
 
 bool _androidVpnOn(WidgetRef ref) =>
     Platform.isAndroid &&
-    ref.read(androidVpnEventProvider).value?['state'] == 'connected';
+    ref.read(androidVpnEventProvider).valueOrNull?['state'] == 'connected';
 
 // ─── Sign in / register ────────────────────────────────────────
 
@@ -609,8 +609,8 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
   @override
   Widget build(BuildContext context) {
     final subscription = ref.watch(accountSubscriptionProvider);
-    final devices = ref.watch(accountDevicesProvider).value;
-    final local = ref.watch(importedSubscriptionProvider).value;
+    final devices = ref.watch(accountDevicesProvider).valueOrNull;
+    final local = ref.watch(importedSubscriptionProvider).valueOrNull;
     final vpnOn = _vpnOn(ref);
     return _HeroFrame(
       child: subscription.when(
@@ -781,7 +781,7 @@ class _LocalSubscriptionHero extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final item = ref.watch(importedSubscriptionProvider).value;
+    final item = ref.watch(importedSubscriptionProvider).valueOrNull;
     final vpnOn = _vpnOn(ref);
     final p = context.kago;
     if (item == null) {
@@ -1140,7 +1140,7 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
   Widget build(BuildContext context) {
     final data = ref.watch(accountDevicesProvider);
     final p = context.kago;
-    final value = data.value;
+    final value = data.valueOrNull;
     return _Card(
       icon: Icons.devices_rounded,
       title: tr('Устройства'),

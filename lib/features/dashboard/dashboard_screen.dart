@@ -71,7 +71,7 @@ class DashboardScreen extends ConsumerWidget {
           ],
           const SizedBox(height: 10),
           _SubscriptionCard(
-              profile: profile.value,
+              profile: profile.valueOrNull,
               onAdd: () => showAddSubscription(context, ref)),
           const SizedBox(height: 10),
           SurfaceCard(
@@ -537,7 +537,7 @@ class _IpCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ip = ref.watch(ipInfoProvider);
     final hidden = ref.watch(ipHiddenProvider);
-    final info = ip.value;
+    final info = ip.valueOrNull;
     final loading = ip.isLoading;
     final failed = ip.hasError && info == null;
     final title = connected ? tr('IP через VPN') : tr('Ваш IP');

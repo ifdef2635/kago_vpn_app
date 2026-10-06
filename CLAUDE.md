@@ -28,6 +28,8 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - Android-релиз — один APK для arm64. Не использовать `--split-per-abi`: он меняет versionCode.
 - Релиз — тег `v<X.Y.Z>`, совпадающий с `pubspec.yaml`, или ручной запуск workflow с `release=true`: тег создаёт сам GitHub Actions. Это нужно, потому что из облачной сессии Claude тег не пушится. Порядок: сначала Android, после его завершения Windows. Без ключа подписи релизная сборка падает намеренно.
 
+- В виджетах читать `AsyncValue` через `valueOrNull`/`when`, не `.value`: при ошибке `.value` выбрасывает её, и в релизе вместо экрана виден серый блок.
+
 ## Git-процесс
 
 - Работать в отдельной ветке: `fix/<кратко>` или `feat/<кратко>`.
@@ -50,7 +52,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - Вкладка «Кабинет» повторяет usekago.net/my и работает через API сайта (Remnashop, `https://usekago.net/api/v1/public`, cookie-сессия): вход по email/паролю, подписка, устройства, промокод, аккаунт, рефералы. Вход через Telegram — страница сайта во встроенном WebView (`site_session_screen.dart`): запрос страницы `POST /auth/telegram` перехватывается, и приложение выполняет его само (запасной путь — перенос cookie WebView). Оплата — на сайте.
 
 ### Подписка
-- HWID и заголовки устройства (`x-hwid`, `x-device-os`, `x-ver-os`, `x-device-model`) формируются как во FlClashX (`lib/core/device/device_identity.dart`): на Android — ANDROID_ID, на Windows — `SHA-256(MachineGuid)[0:16]` в верхнем регистре. User-Agent: `mihomo/<ядро> KaGoVPN/<версия> (<система>)`.
+- HWID и заголовки устройства (`x-hwid`, `x-device-os`, `x-ver-os`, `x-device-model`) формируются как во FlClashX (`lib/core/device/device_identity.dart`): на Android — ANDROID_ID, на Windows — `SHA-256(MachineGuid)[0:16]` в верхнем регистре. User-Agent подписки: `mihomo/<ядро> KaGoVPN/<версия> (<система>)`; для API сайта — `KaGoVPN/<версия> (<система>)`.
 
 ### Языки
 - Интерфейс на русском и английском: все строки через `tr('Русский текст')` из `lib/core/l10n/l10n.dart`, перевод — в `strings_en.dart`. Новая строка без перевода роняет `test/l10n_test.dart`.

@@ -268,7 +268,7 @@ class KagoApi {
 
   static Future<String?> _userAgent() async {
     try {
-      return await DeviceIdentity.instance.userAgent();
+      return await DeviceIdentity.instance.apiUserAgent();
     } catch (_) {
       return null;
     }

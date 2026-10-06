@@ -535,4 +535,8 @@ const stringsEn = <String, String>{
       'Could not check. Tap to retry.',
   'Установлена последняя версия': 'You have the latest version',
   'Не удалось скопировать ядро.': 'Could not copy the core.',
+  'Слишком много перенаправлений.': 'Too many redirects.',
+  'Профиль подписки слишком большой.': 'The subscription profile is too large.',
+  'Контроллер — только локальное ядро: http://127.0.0.1:<порт>.':
+      'The controller is the local core only: http://127.0.0.1:<port>.',
 };

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -61,20 +62,18 @@ class SubscriptionRepository {
 
   Future<ImportedSubscription> import(String rawUrl) async {
     final uri = validateSubscriptionUrl(rawUrl);
-    final response = await Dio(BaseOptions(
+    final response = await fetch(
+        Dio(BaseOptions(
             connectTimeout: const Duration(seconds: 12),
-            receiveTimeout: const Duration(seconds: 20),
-            responseType: ResponseType.plain))
-        .get<String>(uri.toString(),
-            options: Options(
-                headers: await _deviceHeaders(),
-                validateStatus: (status) =>
-                    status != null && status >= 200 && status < 300));
-    final body = response.data ?? '';
+            receiveTimeout: const Duration(seconds: 20))),
+        uri,
+        method: 'GET',
+        deviceHeaders: await _deviceHeaders());
+    final body = response.body;
     if (body.trim().isEmpty) {
       throw FormatException(tr('Ссылка вернула пустой профиль.'));
     }
-    final hwidProblem = hwidNotice(response.headers.map);
+    final hwidProblem = hwidNotice(response.headers);
     if (hwidProblem != null) throw FormatException(hwidProblem);
     final normalized = const SubscriptionContentParser().toMihomoConfig(body);
     final stub = panelStubMessage(normalized);
@@ -84,7 +83,7 @@ class SubscriptionRepository {
           <String, Object?>{'message': stub}));
     }
     final metadata = SubscriptionMetadata.parse(
-        yaml: normalized, responseHeaders: response.headers.map);
+        yaml: normalized, responseHeaders: response.headers);
     final configFile =
         await const MihomoConfigBuilder().writeConfig(normalized);
     if (Platform.isAndroid) {
@@ -96,7 +95,7 @@ class SubscriptionRepository {
           secret: await controller.ensureSecret());
     }
     final fields =
-        parseUserInfo(_header(response.headers.map, 'subscription-userinfo'));
+        parseUserInfo(_header(response.headers, 'subscription-userinfo'));
     final profile = ImportedSubscription(
       name: metadata.serviceName,
       url: uri.toString(),
@@ -172,14 +171,10 @@ class SubscriptionRepository {
         : const <String>['HEAD', 'GET'];
     for (final method in order) {
       try {
-        final response = await client.request<String>(uri.toString(),
-            options: Options(
-                method: method,
-                headers: await _deviceHeaders(),
-                validateStatus: (status) =>
-                    status != null && status >= 200 && status < 300));
-        fields = parseUserInfo(
-            _header(response.headers.map, 'subscription-userinfo'));
+        final response = await fetch(client, uri,
+            method: method, deviceHeaders: await _deviceHeaders());
+        fields =
+            parseUserInfo(_header(response.headers, 'subscription-userinfo'));
         if (fields.isNotEmpty) {
           _workingMethod[uri.toString()] = method;
           break;
@@ -209,6 +204,76 @@ class SubscriptionRepository {
       await _storage.write(key: _key, value: jsonEncode(decoded));
     }
     return latest();
+  }
+
+  /// Largest subscription body accepted (a real profile is well under 1 MB).
+  static const maxBodyBytes = 10 * 1024 * 1024;
+  static const _maxRedirects = 5;
+
+  /// GET/HEAD of a subscription with redirects followed by hand: every hop
+  /// must pass [validateSubscriptionUrl] (no downgrade to plain HTTP), the
+  /// device headers (HWID, model, OS) go only to the original host — another
+  /// host gets just the User-Agent — and the body is capped at
+  /// [maxBodyBytes].
+  static Future<({Map<String, List<String>> headers, String body})> fetch(
+      Dio dio, Uri uri,
+      {required String method,
+      required Map<String, String> deviceHeaders}) async {
+    var current = uri;
+    for (var hop = 0;; hop++) {
+      final sameHost = current.scheme == uri.scheme &&
+          current.host.toLowerCase() == uri.host.toLowerCase() &&
+          current.port == uri.port;
+      final headers = sameHost
+          ? deviceHeaders
+          : <String, String>{
+              if (deviceHeaders['User-Agent'] case final agent?)
+                'User-Agent': agent,
+            };
+      final response = await dio.request<ResponseBody>(current.toString(),
+          options: Options(
+              method: method,
+              headers: headers,
+              followRedirects: false,
+              responseType: ResponseType.stream,
+              validateStatus: (status) => status != null));
+      final status = response.statusCode ?? 0;
+      final location = response.headers.value('location');
+      if (status >= 300 && status < 400 && location != null) {
+        await response.data?.stream.drain<void>().catchError((Object _) {});
+        if (hop >= _maxRedirects) {
+          throw FormatException(tr('Слишком много перенаправлений.'));
+        }
+        current = validateSubscriptionUrl(current.resolve(location).toString());
+        continue;
+      }
+      if (status < 200 || status >= 300) {
+        await response.data?.stream.drain<void>().catchError((Object _) {});
+        throw DioException.badResponse(
+            statusCode: status,
+            requestOptions: response.requestOptions,
+            response: response);
+      }
+      final length =
+          int.tryParse(response.headers.value('content-length') ?? '');
+      if (length != null && length > maxBodyBytes) {
+        throw FormatException(tr('Профиль подписки слишком большой.'));
+      }
+      final bytes = BytesBuilder(copy: false);
+      final stream = response.data?.stream;
+      if (stream != null && method != 'HEAD') {
+        await for (final chunk in stream) {
+          bytes.add(chunk);
+          if (bytes.length > maxBodyBytes) {
+            throw FormatException(tr('Профиль подписки слишком большой.'));
+          }
+        }
+      }
+      return (
+        headers: response.headers.map,
+        body: utf8.decode(bytes.takeBytes(), allowMalformed: true),
+      );
+    }
   }
 
   static Future<Map<String, String>> _deviceHeaders() async {

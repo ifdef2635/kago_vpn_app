@@ -233,14 +233,37 @@ class MihomoConfigBuilder {
     if (dns is Map<String, dynamic>) dns.remove('listen');
   }
 
-  Map<String, dynamic> _convertMap(YamlMap input) => <String, dynamic>{
-        for (final entry in input.entries)
-          if (entry.key is String) entry.key as String: _convert(entry.value),
-      };
+  /// YAML aliases are shared nodes; copying them could blow a small
+  /// "billion laughs" document up exponentially. A real profile has far
+  /// fewer nodes than this.
+  static const maxNodes = 500000;
 
-  dynamic _convert(dynamic value) {
-    if (value is YamlMap) return _convertMap(value);
-    if (value is YamlList) return value.map(_convert).toList(growable: false);
-    return value;
+  Map<String, dynamic> _convertMap(YamlMap input) =>
+      _NodeBudget(maxNodes).map(input);
+}
+
+class _NodeBudget {
+  _NodeBudget(this._left);
+  int _left;
+
+  void _spend() {
+    if (--_left < 0) {
+      throw FormatException(tr('Профиль подписки слишком большой.'));
+    }
+  }
+
+  Map<String, dynamic> map(YamlMap input) {
+    _spend();
+    return <String, dynamic>{
+      for (final entry in input.entries)
+        if (entry.key is String) entry.key as String: value(entry.value),
+    };
+  }
+
+  dynamic value(dynamic node) {
+    _spend();
+    if (node is YamlMap) return map(node);
+    if (node is YamlList) return node.map(value).toList(growable: false);
+    return node;
   }
 }

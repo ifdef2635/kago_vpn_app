@@ -338,7 +338,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _macTun = value);
     try {
       await MihomoMacosCore.setTunEnabled(value);
-      if (value && await MihomoMacosCore.authorizedCore() == null) {
+      if (value && await MihomoMacosCore.authorizedHelper() == null) {
         final error = await MihomoMacosCore.authorize();
         if (error != null) {
           await MihomoMacosCore.setTunEnabled(false);

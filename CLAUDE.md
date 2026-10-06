@@ -5,7 +5,7 @@
 ## О проекте
 
 KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядром Mihomo (Clash Meta).
-Основная платформа: **Windows x64**; также Android и macOS (.dmg, ядро встроено в приложение, системный прокси через `networksetup` и TUN через setuid-копию ядра, как во FlClashX). Ориентир по UX и функциональности — FlClashX.
+Основная платформа: **Windows x64**; также Android и macOS (.dmg, ядро встроено в приложение, системный прокси через `networksetup` и TUN через setuid-обёртку `kago-tun` в папке root — не setuid-копию самого Mihomo, которая давала бы root любой программе администратора). Ориентир по UX и функциональности — FlClashX.
 
 ## Обязательные правила
 

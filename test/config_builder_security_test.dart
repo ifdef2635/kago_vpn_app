@@ -51,7 +51,7 @@ proxy-providers:
   p: {type: http, url: "https://x.example/p", path: ../../escape.yaml}
 ''');
     expect(config.containsKey('external-doh-server'), isFalse);
-    expect((config['ntp'] as Map)['write-to-system'], isFalse);
+    expect((config['ntp'] as Map).containsKey('write-to-system'), isFalse);
     final rules = config['rule-providers'] as Map<String, dynamic>;
     expect((rules['evil'] as Map).containsKey('path'), isFalse);
     expect((rules['local'] as Map)['path'], './rules/local.yaml');

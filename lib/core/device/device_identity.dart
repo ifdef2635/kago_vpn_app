@@ -9,7 +9,7 @@ import 'package:win32_registry/win32_registry.dart';
 
 /// App version for the User-Agent; `test/user_agent_test.dart` keeps it in
 /// step with pubspec.yaml.
-const kagoAppVersion = '1.0.0';
+const kagoAppVersion = '1.0.1';
 
 /// Mihomo core built into the app (Android) and downloaded on Windows.
 const kagoCoreVersion = '1.19.32';
@@ -44,6 +44,20 @@ class DeviceIdentity {
   Future<String> userAgent() async =>
       (await headers())['User-Agent'] ??
       userAgentFor(Platform.operatingSystem, '');
+
+  /// For the usekago.net API: the app and system without the `mihomo/`
+  /// prefix, which only selects the subscription format and could look like
+  /// a proxy client to the site's protection.
+  Future<String> apiUserAgent() async {
+    final headers = await this.headers();
+    final os = headers['x-device-os'] ?? Platform.operatingSystem;
+    return apiUserAgentFor(os, headers['x-ver-os'] ?? '');
+  }
+
+  static String apiUserAgentFor(String os, String osVersion) {
+    final system = _ascii(osVersion.isEmpty ? os : '$os $osVersion');
+    return 'KaGoVPN/$kagoAppVersion ($system)';
+  }
 
   static String userAgentFor(String os, String osVersion) {
     final system = _ascii(osVersion.isEmpty ? os : '$os $osVersion');

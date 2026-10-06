@@ -30,18 +30,14 @@ android {
         applicationId = "net.usekago.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Only the ABIs the Mihomo core is built for. `flutter build apk
-        // --split-per-abi` sets its own ABI splits, which Gradle refuses to
-        // combine with ndk.abiFilters.
-        if (!project.hasProperty("split-per-abi")) {
-            ndk {
-                abiFilters += listOf("arm64-v8a", "x86_64")
-            }
+        // arm64 only (nearly every phone): one APK with one versionCode, so every
+        // new version installs over the previous one. Do not use --split-per-abi:
+        // it adds 1000*ABI to the versionCode and breaks in-place updates.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
         }
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
+        // versionCode = major*10000 + minor*100 + patch (pubspec.yaml build
+        // number, checked by test/version_test.dart).
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -59,6 +55,8 @@ android {
 
     buildTypes {
         release {
+            // KaGoVpnService.resolvePackage is called only from JNI.
+            proguardFiles("proguard-rules.pro")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("kagoRelease")
             } else if (System.getenv("KAGO_ANDROID_DEBUG_SIGNING") == "true") {

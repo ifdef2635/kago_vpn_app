@@ -16,7 +16,7 @@ else
   echo 'WARNING: no local upload key configured; release outputs will be unsigned and are not distributable.' >&2
 fi
 "$FLUTTER_BIN" build appbundle --release
-"$FLUTTER_BIN" build apk --release --target-platform android-arm64,android-x64
+"$FLUTTER_BIN" build apk --release --target-platform android-arm64
 mkdir -p dist/android
 cp build/app/outputs/bundle/release/app-release.aab dist/android/KaGoVPN-Android-release.aab
 cp build/app/outputs/flutter-apk/app-release.apk dist/android/KaGoVPN-Android-release.apk

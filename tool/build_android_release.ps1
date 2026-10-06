@@ -23,7 +23,7 @@ if (-not $hasSigning) {
 
 & flutter build appbundle --release
 if ($LASTEXITCODE -ne 0) { throw 'Android App Bundle release build failed.' }
-& flutter build apk --release --target-platform android-arm64,android-x64
+& flutter build apk --release --target-platform android-arm64
 if ($LASTEXITCODE -ne 0) { throw 'Android APK release build failed.' }
 
 $Dist = Join-Path $ProjectRoot 'dist/android'

@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:yaml/yaml.dart';
 
 import '../../core/device/device_identity.dart';
+import '../../core/network/mihomo_controller.dart';
 import 'config_builder.dart';
 import 'subscription_content_parser.dart';
 import 'subscription_parser.dart';
@@ -82,7 +84,16 @@ class SubscriptionRepository {
     }
     final metadata = SubscriptionMetadata.parse(
         yaml: normalized, responseHeaders: response.headers.map);
-    await const MihomoConfigBuilder().writeConfig(normalized);
+    final configFile =
+        await const MihomoConfigBuilder().writeConfig(normalized);
+    if (Platform.isAndroid) {
+      // The Quick Settings tile starts the VPN with the last profile without
+      // the app, so the saved profile must already be the Android one.
+      final controller = MihomoController();
+      await const MihomoConfigBuilder().prepareAndroidTunnelConfig(configFile,
+          endpoint: await controller.endpoint,
+          secret: await controller.ensureSecret());
+    }
     final fields =
         parseUserInfo(_header(response.headers.map, 'subscription-userinfo'));
     final profile = ImportedSubscription(

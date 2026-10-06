@@ -12,4 +12,6 @@
     <string name="vpn_no_tun">Android did not provide a TUN descriptor.</string>
     <string name="vpn_core_code">The native Mihomo core returned code %1$d.</string>
     <string name="vpn_core_failed">Could not start the native VPN core.</string>
+    <string name="tile_on">Connected</string>
+    <string name="tile_off">Off</string>
 </resources>

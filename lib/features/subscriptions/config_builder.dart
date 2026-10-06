@@ -157,6 +157,11 @@ class MihomoConfigBuilder {
     }
     final level = config['log-level'];
     if (level != 'error' && level != 'silent') config['log-level'] = 'warning';
+    // PROCESS-NAME rules (the subscription's routing of Russian apps) need
+    // the package lookup; `off` would silently skip them.
+    if (config['find-process-mode'] != 'always') {
+      config['find-process-mode'] = 'strict';
+    }
   }
 
   /// Subscription YAML is untrusted. It must not expose the local proxy or the

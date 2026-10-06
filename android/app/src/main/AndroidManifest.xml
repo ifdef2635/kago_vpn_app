@@ -3,6 +3,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- PROCESS-NAME rules of the subscription: map a connection's UID to its
+         package for every app, not only those with a launcher icon. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        xmlns:tools="http://schemas.android.com/tools"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name="${applicationName}"
@@ -37,6 +43,21 @@
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+        </service>
+
+        <!-- Quick Settings tile: VPN on/off from the notification shade. -->
+        <service
+            android:name="net.usekago.app.KaGoTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_kago"
+            android:label="KaGo VPN"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
         </service>
 
         <meta-data android:name="flutterEmbedding" android:value="2" />

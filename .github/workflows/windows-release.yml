@@ -1,10 +1,12 @@
 name: Windows release
 
 on:
+  # Выпуск релиза — только через release.yml (собирает все три платформы и
+  # публикует .apk, .exe и .dmg вместе); здесь — проверочная сборка.
   workflow_dispatch:
+  workflow_call:
     inputs:
       release:
-        description: 'Опубликовать GitHub Release v<версия из pubspec.yaml> (нужен ключ подписи)'
         type: boolean
         default: false
   push:
@@ -12,8 +14,6 @@ on:
       - 'claude/**'
       - 'feat/**'
       - 'fix/**'
-    tags:
-      - 'v*'
     paths:
       - 'lib/**'
       - 'windows/**'
@@ -28,7 +28,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: windows-release-${{ github.ref }}
+  group: ${{ github.workflow }}-windows-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -83,14 +83,3 @@ jobs:
           name: KaGoVPN-Windows-x64-${{ env.version }}
           path: dist/out/*
           retention-days: 30
-
-      # Тег v<версия> или ручной запуск с release=true; тот же релиз, что у Android.
-      - name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.version }}
-          target_commitish: ${{ github.sha }}
-          name: KaGo VPN ${{ env.version }}
-          files: dist/out/*
-          prerelease: false

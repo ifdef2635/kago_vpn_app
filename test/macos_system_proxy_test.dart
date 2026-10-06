@@ -24,8 +24,7 @@ USB 10/100/1000 LAN
   });
 
   test('DNS servers: addresses or empty for DHCP', () {
-    expect(
-        MihomoMacosSystemProxy.parseDnsServers('192.168.1.1\n1.1.1.1\n'),
+    expect(MihomoMacosSystemProxy.parseDnsServers('192.168.1.1\n1.1.1.1\n'),
         <String>['192.168.1.1', '1.1.1.1']);
     expect(
         MihomoMacosSystemProxy.parseDnsServers(

@@ -1,10 +1,12 @@
 name: Android release APK
 
 on:
+  # Выпуск релиза — только через release.yml (собирает все три платформы и
+  # публикует .apk, .exe и .dmg вместе); здесь — проверочная сборка.
   workflow_dispatch:
+  workflow_call:
     inputs:
       release:
-        description: 'Опубликовать GitHub Release v<версия из pubspec.yaml> (нужен ключ подписи)'
         type: boolean
         default: false
   push:
@@ -12,8 +14,6 @@ on:
       - 'claude/**'
       - 'feat/**'
       - 'fix/**'
-    tags:
-      - 'v*'
     paths:
       - 'lib/**'
       - 'android/**'
@@ -30,7 +30,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-release-${{ github.ref }}
+  group: ${{ github.workflow }}-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -68,6 +68,9 @@ jobs:
 
       - name: flutter pub get
         run: flutter pub get
+
+      - name: Формат
+        run: dart format --output=none --set-exit-if-changed lib test
 
       - name: flutter analyze
         run: flutter analyze
@@ -156,18 +159,6 @@ jobs:
       # Для расшифровки стектрейсов Dart из отчётов о сбоях (flutter symbolize).
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.dist.outputs.name }}-symbols
+          name: symbols-${{ steps.dist.outputs.name }}
           path: build/symbols/android
           retention-days: 90
-
-      # Тег v<версия> или ручной запуск с release=true: тег создаётся на этом
-      # коммите, если его ещё нет.
-      - name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.name }}
-          target_commitish: ${{ github.sha }}
-          files: dist/android/*
-          name: KaGo VPN ${{ steps.version.outputs.name }}
-          prerelease: false

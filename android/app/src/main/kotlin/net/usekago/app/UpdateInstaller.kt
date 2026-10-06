@@ -4,6 +4,7 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
@@ -43,11 +44,17 @@ object UpdateInstaller {
             return "permission"
         }
         val uri = UpdateFileProvider.uriFor(context, file.name)
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW)
-                .setDataAndType(uri, MIME)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, MIME)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Only the system package installer gets the file: an app that
+        // registered for APKs could otherwise pose as the installer.
+        @Suppress("DEPRECATION")
+        val installer = context.packageManager
+            .queryIntentActivities(intent, PackageManager.MATCH_SYSTEM_ONLY)
+            .firstOrNull()?.activityInfo?.packageName
+        if (installer != null) intent.setPackage(installer)
+        context.startActivity(intent)
         return "started"
     }
 }

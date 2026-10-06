@@ -141,6 +141,14 @@ Java_net_usekago_app_MihomoNativeCore_start(JNIEnv* env, jobject, jobject vpn_se
   if (service_ref == nullptr) return -2;
   jclass service_class = env->GetObjectClass(vpn_service);
   jmethodID protect_method = service_class == nullptr ? nullptr : env->GetMethodID(service_class, "protect", "(I)Z");
+  // No JNI call may run with an exception pending: settle the protect lookup
+  // before looking up resolvePackage.
+  if (protect_method == nullptr || env->ExceptionCheck()) {
+    env->ExceptionClear();
+    if (service_class != nullptr) env->DeleteLocalRef(service_class);
+    env->DeleteGlobalRef(service_ref);
+    return -3;
+  }
   // Optional: without it PROCESS-NAME rules simply do not match.
   jmethodID resolve_method = service_class == nullptr
                                  ? nullptr

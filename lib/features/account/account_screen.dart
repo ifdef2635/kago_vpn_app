@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -36,75 +37,88 @@ class AccountScreen extends ConsumerWidget {
     final p = context.kago;
     final wide = MediaQuery.sizeOf(context).width > 760;
     final signedIn = user.valueOrNull;
-    return RefreshIndicator(
-      onRefresh: () async {
-        refreshAccount(ref);
-        ref.invalidate(importedSubscriptionProvider);
-        await ref
-            .read(accountUserProvider.future)
-            .catchError((Object _) => null);
-      },
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(wide ? 44 : 20, 22, wide ? 44 : 20, 28),
-        children: <Widget>[
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _Pill(
-                        label: tr('Личный кабинет'),
-                        color: p.success,
-                        background: p.successSoft),
-                    const SizedBox(height: 12),
-                    Text(
-                        signedIn == null
-                            ? tr('Добро пожаловать')
-                            : signedIn.name.isEmpty
-                                ? tr('Здравствуйте!')
-                                : tr('Здравствуйте, {name}',
-                                    <String, Object?>{'name': signedIn.name}),
-                        style: Theme.of(context).textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                        tr('Управляйте подпиской, устройствами и аккаунтом в одном месте.'),
-                        style: TextStyle(color: p.muted, fontSize: 14)),
-                  ]),
+    return _AutoRefresh(
+      enabled: signedIn != null &&
+          ref.watch(rootTabIndexProvider) == 3 &&
+          ref.watch(appForegroundProvider),
+      child: RefreshIndicator(
+        onRefresh: () async {
+          refreshAccount(ref);
+          ref.invalidate(importedSubscriptionProvider);
+          await ref
+              .read(accountUserProvider.future)
+              .catchError((Object _) => null);
+        },
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(wide ? 44 : 20, 22, wide ? 44 : 20, 28),
+          children: <Widget>[
+            Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _Pill(
+                              label: tr('Личный кабинет'),
+                              color: p.success,
+                              background: p.successSoft),
+                          const SizedBox(height: 12),
+                          Text(
+                              signedIn == null
+                                  ? tr('Добро пожаловать')
+                                  : signedIn.name.isEmpty
+                                      ? tr('Здравствуйте!')
+                                      : tr(
+                                          'Здравствуйте, {name}',
+                                          <String, Object?>{
+                                              'name': signedIn.name
+                                            }),
+                              style:
+                                  Theme.of(context).textTheme.headlineMedium),
+                          const SizedBox(height: 6),
+                          Text(
+                              tr('Управляйте подпиской, устройствами и аккаунтом в одном месте.'),
+                              style: TextStyle(color: p.muted, fontSize: 14)),
+                        ]),
+                  ),
+                  if (signedIn != null)
+                    OutlinedButton.icon(
+                        onPressed: () => _logout(context, ref),
+                        icon: const Icon(Icons.logout_rounded, size: 17),
+                        label: Text(tr('Выйти'))),
+                ]),
+            const SizedBox(height: 20),
+            ...user.when(
+              skipError: true,
+              loading: () => <Widget>[const _HeroFrame(child: _HeroLoading())],
+              error: (error, _) => <Widget>[
+                ErrorPanel(
+                    message: '$error', onRetry: () => refreshAccount(ref)),
+              ],
+              // Subscriptions come only from a KAGO account: a guest signs in.
+              data: (value) => value == null
+                  ? <Widget>[const _LoginCard()]
+                  : <Widget>[
+                      const _AccountHero(),
+                      const SizedBox(height: 16),
+                      const _DevicesCard(),
+                      const SizedBox(height: 16),
+                      const _PromoCard(),
+                      const SizedBox(height: 16),
+                      _ProfileCard(user: value),
+                      const SizedBox(height: 16),
+                      _ReferralCard(user: value),
+                    ],
             ),
-            if (signedIn != null)
-              OutlinedButton.icon(
-                  onPressed: () => _logout(context, ref),
-                  icon: const Icon(Icons.logout_rounded, size: 17),
-                  label: Text(tr('Выйти'))),
-          ]),
-          const SizedBox(height: 20),
-          ...user.when(
-            loading: () => <Widget>[const _HeroFrame(child: _HeroLoading())],
-            error: (error, _) => <Widget>[
-              ErrorPanel(message: '$error', onRetry: () => refreshAccount(ref)),
-            ],
-            // Subscriptions come only from a KAGO account: a guest signs in.
-            data: (value) => value == null
-                ? <Widget>[const _LoginCard()]
-                : <Widget>[
-                    const _AccountHero(),
-                    const SizedBox(height: 16),
-                    const _DevicesCard(),
-                    const SizedBox(height: 16),
-                    const _PromoCard(),
-                    const SizedBox(height: 16),
-                    _ProfileCard(user: value),
-                    const SizedBox(height: 16),
-                    _ReferralCard(user: value),
-                  ],
-          ),
-          const SizedBox(height: 16),
-          const _HelpCard(),
-          const SizedBox(height: 20),
-          Center(
-              child: Text('© KAGO · usekago.net',
-                  style: TextStyle(color: p.muted, fontSize: 12))),
-        ],
+            const SizedBox(height: 16),
+            const _HelpCard(),
+            const SizedBox(height: 20),
+            Center(
+                child: Text('© KAGO · usekago.net',
+                    style: TextStyle(color: p.muted, fontSize: 12))),
+          ],
+        ),
       ),
     );
   }
@@ -191,6 +205,64 @@ bool _androidVpnOn(WidgetRef ref) =>
     ref.read(androidVpnEventProvider).valueOrNull?['state'] == 'connected';
 
 // ─── Sign in / register ────────────────────────────────────────
+
+/// Re-reads the account every 5 seconds while the tab is open and the app is
+/// in the foreground, the way the site page refreshes itself. Old data stays
+/// on screen during a refresh, and a failed refresh keeps it (`skipError`).
+class _AutoRefresh extends ConsumerStatefulWidget {
+  const _AutoRefresh({required this.enabled, required this.child});
+  final bool enabled;
+  final Widget child;
+
+  static const interval = Duration(seconds: 5);
+
+  @override
+  ConsumerState<_AutoRefresh> createState() => _AutoRefreshState();
+}
+
+class _AutoRefreshState extends ConsumerState<_AutoRefresh> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_AutoRefresh oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled != widget.enabled) _sync();
+  }
+
+  void _sync() {
+    if (!widget.enabled) {
+      _timer?.cancel();
+      _timer = null;
+    } else {
+      _timer ??= Timer.periodic(_AutoRefresh.interval, (_) => _tick());
+    }
+  }
+
+  void _tick() {
+    // Skip while the previous round is still loading (slow network).
+    if (!mounted ||
+        ref.read(accountUserProvider).isLoading ||
+        ref.read(accountSubscriptionProvider).isLoading) {
+      return;
+    }
+    refreshAccount(ref);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 class _LoginCard extends ConsumerStatefulWidget {
   const _LoginCard();
@@ -574,6 +646,7 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
     final vpnOn = _vpnOn(ref);
     return _HeroFrame(
       child: subscription.when(
+        skipError: true,
         loading: () => const _HeroLoading(),
         error: (error, _) => _HeroMessage(
             title: tr('Не удалось загрузить подписку'),
@@ -992,6 +1065,7 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
           ? null
           : _Chip('${value.current} / ${value.max > 0 ? value.max : '∞'}'),
       child: data.when(
+        skipError: true,
         loading: () => const LinearProgressIndicator(minHeight: 2),
         error: (error, _) =>
             Text(_errorText(error), style: TextStyle(color: p.muted)),
@@ -1346,6 +1420,7 @@ class _ReferralCard extends ConsumerWidget {
       icon: Icons.card_giftcard_rounded,
       title: tr('Реферальная программа'),
       child: data.when(
+        skipError: true,
         loading: () => const LinearProgressIndicator(minHeight: 2),
         error: (error, _) =>
             Text(_errorText(error), style: TextStyle(color: p.muted)),

@@ -66,6 +66,17 @@ android {
             }
         }
     }
+
+    packaging {
+        jniLibs {
+            // Only arm64: the Flutter plugin and plugins would otherwise add
+            // x86_64/armv7 copies (the x86_64 core alone is ~56 MB).
+            excludes += listOf("lib/x86_64/**", "lib/x86/**", "lib/armeabi-v7a/**")
+            // Compress native libraries in the APK: the Go core shrinks from
+            // ~53 MB to about half. Android extracts them once at install.
+            useLegacyPackaging = true
+        }
+    }
 }
 
 kotlin {

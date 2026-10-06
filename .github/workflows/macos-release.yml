@@ -119,7 +119,7 @@ jobs:
           grep -q "${MIHOMO_VERSION#v}" version.txt
 
       - name: flutter build macos --release
-        run: flutter build macos --release
+        run: flutter build macos --release --split-debug-info=build/symbols/macos
 
       # С сертификатом Apple Developer ID (секреты KAGO_MACOS_*/KAGO_APPLE_*) —
       # подпись Developer ID с Hardened Runtime и нотаризация: macOS открывает

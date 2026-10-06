@@ -489,4 +489,17 @@ const stringsEn = <String, String>{
       'The macOS system proxy is only available on macOS.',
   'Системный прокси направлен на 127.0.0.1:7890.':
       'The system proxy points to 127.0.0.1:7890.',
+  'Нужна учётная запись администратора macOS.':
+      'A macOS administrator account is required.',
+  'KaGo VPN включает режим «Весь трафик через VPN». Это нужно один раз.':
+      'KaGo VPN is turning on "All traffic through VPN". This is needed once.',
+  'Отменено.': 'Cancelled.',
+  'Режим «Весь трафик через VPN» выключен: {error}':
+      '"All traffic through VPN" is off: {error}',
+  'Весь трафик идёт через VPN (TUN).': 'All traffic goes through the VPN (TUN).',
+  'Весь трафик через VPN': 'All traffic through VPN',
+  'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.':
+      'For Telegram and apps that ignore the system proxy. Asks for the administrator password once.',
+  'Не включено: {error}': 'Not turned on: {error}',
+  'Переподключитесь, чтобы применить.': 'Reconnect to apply.',
 };

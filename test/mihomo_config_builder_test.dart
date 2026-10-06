@@ -111,4 +111,26 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('drops a DNS listener from the subscription', () {
+    final config = const MihomoConfigBuilder().build(
+      'proxies:\n  - name: test\n    type: socks5\n    server: 127.0.0.1\n    port: 1080\n'
+      'dns:\n  enable: true\n  listen: 0.0.0.0:53\n',
+    );
+    final dns = config['dns'] as Map<String, dynamic>;
+    expect(dns['enable'], isTrue);
+    expect(dns.containsKey('listen'), isFalse);
+  });
+
+  test('ensureDns keeps a subscription DNS and adds one when missing', () {
+    final own = <String, dynamic>{
+      'dns': <String, dynamic>{'enable': true, 'nameserver': <String>['x']}
+    };
+    MihomoConfigBuilder.ensureDns(own);
+    expect((own['dns'] as Map)['nameserver'], <String>['x']);
+    final none = <String, dynamic>{};
+    MihomoConfigBuilder.ensureDns(none);
+    expect((none['dns'] as Map)['enable'], isTrue);
+    expect((none['dns'] as Map)['enhanced-mode'], 'fake-ip');
+  });
 }

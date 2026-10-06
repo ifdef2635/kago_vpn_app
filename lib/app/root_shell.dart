@@ -170,7 +170,8 @@ class _TabTransitionState extends State<_TabTransition>
 
 /// On desktop, closing the window must not leave mihomo running with the Windows
 /// system proxy still pointing at it. Stops the core (which restores the proxy)
-/// before the app exits, with a hard time limit so closing never hangs.
+/// before the app exits, with a hard time limit so closing never hangs. Also
+/// tracks whether the app is on screen (appForegroundProvider).
 class _ExitGuard extends ConsumerStatefulWidget {
   const _ExitGuard({required this.child});
   final Widget child;
@@ -185,18 +186,31 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
   @override
   void initState() {
     super.initState();
-    if (Platform.isAndroid || Platform.isIOS) return;
-    _listener = AppLifecycleListener(onExitRequested: () async {
-      try {
-        await ref
-            .read(mihomoProcessProvider)
-            .stop()
-            .timeout(const Duration(seconds: 6));
-      } catch (_) {
-        // Exit anyway; a stale proxy is repaired at the next start.
-      }
-      return AppExitResponse.exit;
-    });
+    // Window visible (focused or not) counts as foreground; minimized or in
+    // the background pauses screen-only polling (appForegroundProvider).
+    void onState(AppLifecycleState state) {
+      ref.read(appForegroundProvider.notifier).state =
+          state == AppLifecycleState.resumed ||
+              state == AppLifecycleState.inactive;
+    }
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      _listener = AppLifecycleListener(onStateChange: onState);
+      return;
+    }
+    _listener = AppLifecycleListener(
+        onStateChange: onState,
+        onExitRequested: () async {
+          try {
+            await ref
+                .read(mihomoProcessProvider)
+                .stop()
+                .timeout(const Duration(seconds: 6));
+          } catch (_) {
+            // Exit anyway; a stale proxy is repaired at the next start.
+          }
+          return AppExitResponse.exit;
+        });
   }
 
   @override

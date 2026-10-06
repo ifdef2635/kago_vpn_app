@@ -58,14 +58,13 @@ jobs:
           go-version: '1.24.x'
           cache-dependency-path: native/android/go.sum
 
-      - name: Собрать ядро Mihomo (JNI, arm64-v8a + x86_64)
+      # Только arm64-v8a: в релизный APK идёт одна архитектура.
+      - name: Собрать ядро Mihomo (JNI, arm64-v8a)
         run: |
           export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
-          bash tool/build_android_native.sh
-          for abi in arm64-v8a x86_64; do
-            test -s "android/app/src/main/jniLibs/$abi/libkago_mihomo_bridge.so" \
-              || { echo "Нет libkago_mihomo_bridge.so для $abi" >&2; exit 1; }
-          done
+          KAGO_ANDROID_ABIS=arm64-v8a bash tool/build_android_native.sh
+          test -s android/app/src/main/jniLibs/arm64-v8a/libkago_mihomo_bridge.so \
+            || { echo "Нет libkago_mihomo_bridge.so для arm64-v8a" >&2; exit 1; }
 
       - name: flutter pub get
         run: flutter pub get
@@ -118,8 +117,9 @@ jobs:
 
       # Один APK для arm64 (почти все телефоны) с versionCode из pubspec: так
       # каждая следующая версия ставится поверх предыдущей как обновление.
+      # Отладочные символы Dart — отдельно (артефакт symbols), не в APK.
       - name: flutter build apk --release
-        run: flutter build apk --release --target-platform android-arm64
+        run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols/android
 
       - name: Проверить подпись и ABI
         run: |
@@ -128,6 +128,13 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
           "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -n 1
           unzip -l "$APK" | grep -E 'lib/arm64-v8a/libkago_mihomo_bridge.so'
+          # Только arm64 и сжатые .so: иначе APK снова вырастет до 130 МБ.
+          if unzip -l "$APK" | grep -E 'lib/(x86_64|x86|armeabi-v7a)/'; then
+            echo "::error::В APK попали лишние архитектуры." >&2; exit 1
+          fi
+          unzip -v "$APK" 'lib/arm64-v8a/libkago_mihomo_bridge.so' | grep -q Defl \
+            || { echo "::error::libkago_mihomo_bridge.so не сжат." >&2; exit 1; }
+          ls -lh "$APK"
 
       - name: Подготовить артефакт
         id: dist
@@ -145,6 +152,13 @@ jobs:
           name: ${{ steps.dist.outputs.name }}
           path: dist/android/*
           retention-days: 30
+
+      # Для расшифровки стектрейсов Dart из отчётов о сбоях (flutter symbolize).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dist.outputs.name }}-symbols
+          path: build/symbols/android
+          retention-days: 90
 
       # Тег v<версия> или ручной запуск с release=true: тег создаётся на этом
       # коммите, если его ещё нет.

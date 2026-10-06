@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,15 @@ import (
 // Upstream resolvers for "system" DNS entries. Built with the `cmfa` tag, Mihomo does not
 // read Android's DNS itself; the TUN DNS (172.19.0.2) would loop back into the tunnel.
 var fallbackSystemDNS = []string{"1.1.1.1:53", "8.8.8.8:53"}
+
+// Soft heap limit for the core inside the app process: the GC works harder
+// near it instead of letting the heap double (phones with little RAM, and
+// Android kills big background processes first). Not a hard cap.
+const coreMemoryLimit = 160 << 20
+
+func init() {
+	debug.SetMemoryLimit(coreMemoryLimit)
+}
 
 var (
 	lifecycleMu sync.Mutex
@@ -242,6 +252,8 @@ func stopCoreLocked() int {
 	coreRunning.Store(false)
 	setNativeProtector(nil)
 	setLastError(nil)
+	// Give the core's memory back to Android while the VPN is off.
+	go debug.FreeOSMemory()
 	return 0
 }
 

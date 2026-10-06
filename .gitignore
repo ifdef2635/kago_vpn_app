@@ -46,3 +46,26 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Собранное ядро Android (tool/build_android_native.*): не коммитить бинарники.
+/android/app/src/main/jniLibs/
+/native/android/build/
+
+# Артефакты сборки и временное ядро CI
+/dist/
+/core/
+/release-notes.md
+
+# Ключи, сертификаты и локальные секреты — никогда в git
+*.jks
+*.keystore
+*.p12
+*.p8
+*.pem
+*.mobileprovision
+key.properties
+.env
+.env.*
+
+# Локальные настройки Claude Code
+.claude/settings.local.json

@@ -56,10 +56,10 @@ abstract final class MihomoPinnedCore {
   static const version = 'v1.19.32';
   static const assetName = 'mihomo-windows-amd64-compatible-$version.zip';
 
-  /// SHA-256 of the pinned ZIP, 64 hex characters. When null the download is
-  /// accepted on HTTPS origin, ZIP structure and `mihomo -v` alone; set it to
-  /// enforce the digest (`certutil -hashfile <zip> SHA256`).
-  static String? get sha256Hex => null;
+  /// SHA-256 of the pinned ZIP (`certutil -hashfile <zip> SHA256`), compiled
+  /// in so the fallback download does not trust the release page alone.
+  static String? get sha256Hex =>
+      '974a4d7ad69aed27aa2e8f91d61113573c14dadb14562c63e58effabf59816f0';
 
   static final Uri url = Uri.https(
       'github.com', '/MetaCubeX/mihomo/releases/download/$version/$assetName');
@@ -342,9 +342,10 @@ class MihomoWindowsCoreUpdater {
             tr('Загруженный Mihomo ZIP имеет неверный размер.'));
       }
       final digest = sha256.convert(archiveBytes).toString();
+      // No reference hash, no install: the ZIP's mihomo.exe would be run.
       if (asset.digest.isEmpty) {
-        onLog?.call(tr(
-            'Для закреплённой версии нет эталонного SHA-256: проверены источник github.com по HTTPS, структура ZIP и запуск mihomo -v.'));
+        throw FormatException(tr(
+            'Для Mihomo нет эталонного SHA-256 — ядро не установлено. Попробуйте позже.'));
       } else if (!constantTimeEquals(
           digest, asset.digest.substring('sha256:'.length))) {
         throw FormatException(

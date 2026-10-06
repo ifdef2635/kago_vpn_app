@@ -271,8 +271,10 @@ void main() {
     test('release() carries the digest into the asset for verification', () {
       final asset = MihomoPinnedCore.release(hex).assets.single;
 
-      expect(asset.digest, 'sha256:$hex');
-      expect(MihomoPinnedCore.release().assets.single.digest, '');
+      // The compiled-in hash wins over a digest read from the page.
+      expect(asset.digest, 'sha256:${MihomoPinnedCore.sha256Hex}');
+      expect(MihomoPinnedCore.release().assets.single.digest,
+          'sha256:${MihomoPinnedCore.sha256Hex}');
     });
   });
 }

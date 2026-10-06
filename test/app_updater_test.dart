@@ -27,13 +27,11 @@ void main() {
 
   test('asset names match what release.yml publishes', () {
     expect(AppUpdater.assetsFor('android', '1.0.4'),
-        (asset: 'KaGoVPN-Android-1.0.4.apk', sums: 'SHA256SUMS-Android.txt'));
-    expect(AppUpdater.assetsFor('windows', '1.0.4'), (
-      asset: 'KaGoVPN-Windows-x64-Setup-1.0.4.exe',
-      sums: 'SHA256SUMS-Windows.txt'
-    ));
+        (asset: 'KaGoVPN-Android-1.0.4.apk', sums: 'SHA256SUMS.txt'));
+    expect(AppUpdater.assetsFor('windows', '1.0.4'),
+        (asset: 'KaGoVPN-Windows-x64-Setup-1.0.4.exe', sums: 'SHA256SUMS.txt'));
     expect(AppUpdater.assetsFor('macos', '1.0.4'),
-        (asset: 'KaGoVPN-macOS-1.0.4.dmg', sums: 'SHA256SUMS-macOS.txt'));
+        (asset: 'KaGoVPN-macOS-1.0.4.dmg', sums: 'SHA256SUMS.txt'));
     expect(AppUpdater.assetsFor('linux', '1.0.4'), isNull);
 
     final release = File('.github/workflows/release.yml').readAsStringSync();
@@ -44,6 +42,7 @@ void main() {
       'SHA256SUMS-Android.txt',
       'SHA256SUMS-Windows.txt',
       'SHA256SUMS-macOS.txt',
+      'SHA256SUMS.txt.sig',
     ]) {
       expect(release, contains(name));
     }

@@ -6,7 +6,7 @@ Set-Location $ProjectRoot
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw 'Flutter stable is not on PATH.'
 }
-& flutter pub get
+& flutter pub get --enforce-lockfile
 if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed.' }
 if (-not $SkipTests) {
     & dart format --output=none --set-exit-if-changed lib test

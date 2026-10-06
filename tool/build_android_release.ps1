@@ -8,7 +8,7 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 
 & (Join-Path $PSScriptRoot 'build_android_native.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Android native-core build failed.' }
-& flutter pub get
+& flutter pub get --enforce-lockfile
 if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed.' }
 & flutter analyze
 if ($LASTEXITCODE -ne 0) { throw 'flutter analyze failed.' }

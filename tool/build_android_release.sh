@@ -6,7 +6,7 @@ command -v "$FLUTTER_BIN" >/dev/null 2>&1 || { echo "Flutter executable not foun
 cd "$PROJECT_ROOT"
 
 ./tool/build_android_native.sh
-"$FLUTTER_BIN" pub get
+"$FLUTTER_BIN" pub get --enforce-lockfile
 "$FLUTTER_BIN" analyze
 "$FLUTTER_BIN" test
 

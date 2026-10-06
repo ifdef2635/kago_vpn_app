@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../device/device_identity.dart';
 import '../l10n/l10n.dart';
+import 'release_signature.dart';
 
 /// A newer KaGo VPN release on GitHub for this platform.
 class AppRelease {
@@ -47,8 +48,10 @@ enum UpdateInstallResult {
 /// silently and restarts the app; macOS — the app bundle is replaced from the
 /// .dmg after the app quits, and the new version starts.
 ///
-/// Every file is checked against `SHA256SUMS-<platform>.txt` of the same
-/// release before it is installed.
+/// Every file is checked against `SHA256SUMS.txt` of the same release, and
+/// that list must carry a valid signature (`SHA256SUMS.txt.sig`) by the
+/// release key built into the app (release_signature.dart): a release
+/// published without that key is not installed.
 class AppUpdater {
   AppUpdater({this.proxyPort});
 
@@ -64,22 +67,20 @@ class AppUpdater {
   static bool get supported =>
       Platform.isAndroid || Platform.isWindows || Platform.isMacOS;
 
+  /// The signed list of all files of a release and its signature.
+  static const signedSums = 'SHA256SUMS.txt';
+  static const signedSumsSignature = 'SHA256SUMS.txt.sig';
+
   /// `KaGoVPN-Android-1.0.4.apk`, `KaGoVPN-Windows-x64-Setup-1.0.4.exe`,
-  /// `KaGoVPN-macOS-1.0.4.dmg` and their checksum files (release.yml).
+  /// `KaGoVPN-macOS-1.0.4.dmg` (release.yml).
   static ({String asset, String sums})? assetsFor(String os, String version) =>
       switch (os) {
-        'android' => (
-            asset: 'KaGoVPN-Android-$version.apk',
-            sums: 'SHA256SUMS-Android.txt'
-          ),
+        'android' => (asset: 'KaGoVPN-Android-$version.apk', sums: signedSums),
         'windows' => (
             asset: 'KaGoVPN-Windows-x64-Setup-$version.exe',
-            sums: 'SHA256SUMS-Windows.txt'
+            sums: signedSums
           ),
-        'macos' => (
-            asset: 'KaGoVPN-macOS-$version.dmg',
-            sums: 'SHA256SUMS-macOS.txt'
-          ),
+        'macos' => (asset: 'KaGoVPN-macOS-$version.dmg', sums: signedSums),
         _ => null,
       };
 
@@ -194,10 +195,21 @@ class AppUpdater {
       {void Function(int received, int total)? onProgress,
       CancelToken? cancelToken}) async {
     final dio = _dio();
-    final sums = await dio.get<String>(release.sumsUrl,
-        options: Options(responseType: ResponseType.plain),
-        cancelToken: cancelToken);
-    final expected = hashFor(sums.data ?? '', release.assetName);
+    Future<List<int>> bytes(String url) async {
+      final response = await dio.get<List<int>>(url,
+          options: Options(responseType: ResponseType.bytes),
+          cancelToken: cancelToken);
+      return response.data ?? const <int>[];
+    }
+
+    final sums = await bytes(release.sumsUrl);
+    final signature = await bytes('${release.sumsUrl}.sig');
+    if (!verifyRsaSha256(sums, signature)) {
+      throw StateError(tr(
+          'Подпись обновления не прошла проверку. Обновление не установлено.'));
+    }
+    final expected =
+        hashFor(utf8.decode(sums, allowMalformed: true), release.assetName);
     if (expected == null) {
       throw StateError(tr('В релизе нет контрольной суммы обновления.'));
     }

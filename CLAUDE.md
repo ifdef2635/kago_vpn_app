@@ -17,7 +17,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 2. Перед коммитом выполнять `flutter analyze`. Новых предупреждений и ошибок быть не должно.
 3. Если есть тесты — `flutter test` должен проходить.
 4. Проверять сборку: `flutter build windows --release`.
-5. Не коммитить бинарники ядра Mihomo, секреты, токены, `build/` и временные файлы.
+5. Не коммитить бинарники ядра Mihomo (в т. ч. `android/app/src/main/jniLibs`), секреты, токены, `build/` и временные файлы.
 6. Отвечать и писать комментарии к коммитам на русском языке.
 
 ## Версии и релизы
@@ -26,7 +26,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - **Каждое некрупное обновление, которое попадает к пользователям, увеличивает версию на 0.0.1** (1.0.0 → 1.0.1, build 10000 → 10001). Крупное — 0.1.0.
 - Обновление ставится поверх старой версии, только если не меняются имя пакета `net.usekago.app` и ключ подписи (секреты `KAGO_ANDROID_*` в GitHub). Их не менять.
 - Android-релиз — один APK для arm64. Не использовать `--split-per-abi`: он меняет versionCode. Другие ABI исключены в `packaging.jniLibs`, а `.so` сжаты (`useLegacyPackaging`). Без этого APK весил 132 МБ вместо ~30.
-- Релиз — **только** workflow `release.yml`: тег `v<X.Y.Z>`, совпадающий с `pubspec.yaml`, или ручной запуск (Actions → Release; тег создаёт сам GitHub Actions — из облачной сессии Claude тег не пушится). Он собирает Android, Windows и macOS параллельно и публикует релиз, только если готовы все три файла: `.apk`, `.exe` и `.dmg` (плюс `.zip` Windows и `SHA256SUMS-*`). Платформенные workflow сами релиз не публикуют. Без ключа подписи релизная сборка падает намеренно. CI проверяет `dart format` — форматировать код перед коммитом. macOS: с секретами `KAGO_MACOS_*`/`KAGO_APPLE_*` — подпись Developer ID и нотаризация, без них — ad-hoc (Gatekeeper предупреждает).
+- Релиз — **только** workflow `release.yml`: тег `v<X.Y.Z>`, совпадающий с `pubspec.yaml`, или ручной запуск (Actions → Release; тег создаёт сам GitHub Actions — из облачной сессии Claude тег не пушится). Он собирает Android, Windows и macOS параллельно и публикует релиз, только если готовы все три файла: `.apk`, `.exe` и `.dmg` (плюс `.zip` Windows и `SHA256SUMS-*`). Платформенные workflow сами релиз не публикуют. Без ключа подписи релизная сборка падает намеренно. Сборки веток получают только debug-ключ (секреты — лишь при `inputs.release`). Опубликованный релиз не перезаписывается. `SHA256SUMS.txt` подписывается ключом Android, открытый ключ — в `lib/core/update/release_signature.dart`; ключ подписи не менять, иначе старые версии не примут обновление. CI проверяет `dart format` — форматировать код перед коммитом. Actions закреплены по SHA. macOS: с секретами `KAGO_MACOS_*`/`KAGO_APPLE_*` — подпись Developer ID и нотаризация, без них — ad-hoc (Gatekeeper предупреждает).
 
 - Обновление из приложения (`lib/core/update/app_updater.dart`) берёт последний GitHub Release и ищет файлы по именам: `KaGoVPN-Android-<v>.apk`, `KaGoVPN-Windows-x64-Setup-<v>.exe`, `KaGoVPN-macOS-<v>.dmg` и `SHA256SUMS-<Android|Windows|macOS>.txt`. Имена не менять (проверяет `test/app_updater_test.dart`). Первый раздел RELEASE_STATUS.md публикуется как «Что нового» и виден пользователям в диалоге обновления.
 

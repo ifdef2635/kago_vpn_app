@@ -2,8 +2,12 @@ name: Release
 
 # Единственный путь к GitHub Release: собирает Android, Windows и macOS
 # параллельно и публикует v<версия> только если готовы все три файла —
-# .apk, .exe и .dmg. Запуск: тег v<версия> (совпадает с pubspec.yaml) или
-# Actions → Release → Run workflow (тег создаётся на выбранном коммите).
+# .apk, .exe и .dmg. Список файлов SHA256SUMS.txt подписывается ключом
+# релиза (тем же, что подписывает APK); приложение ставит обновление только
+# с верной подписью. Опубликованный релиз не перезаписывается: каждая
+# публикация — новая версия в pubspec.yaml.
+# Запуск: тег v<версия> (совпадает с pubspec.yaml) или Actions → Release →
+# Run workflow (тег создаётся на выбранном коммите).
 on:
   workflow_dispatch:
   push:
@@ -16,8 +20,9 @@ on:
     paths:
       - '.github/workflows/release.yml'
 
+# Сборкам — только чтение; запись нужна лишь задаче publish.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -29,51 +34,80 @@ jobs:
     uses: ./.github/workflows/android-release.yml
     with:
       release: true
-    secrets: inherit
+    # Каждой платформе — только её секреты.
+    secrets:
+      KAGO_ANDROID_KEYSTORE_BASE64: ${{ secrets.KAGO_ANDROID_KEYSTORE_BASE64 }}
+      KAGO_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KAGO_ANDROID_KEYSTORE_PASSWORD }}
+      KAGO_ANDROID_KEY_ALIAS: ${{ secrets.KAGO_ANDROID_KEY_ALIAS }}
+      KAGO_ANDROID_KEY_PASSWORD: ${{ secrets.KAGO_ANDROID_KEY_PASSWORD }}
 
   windows:
     if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/windows-release.yml
     with:
       release: true
-    secrets: inherit
 
   macos:
     if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/macos-release.yml
     with:
       release: true
-    secrets: inherit
+    secrets:
+      KAGO_MACOS_CERT_P12_BASE64: ${{ secrets.KAGO_MACOS_CERT_P12_BASE64 }}
+      KAGO_MACOS_CERT_PASSWORD: ${{ secrets.KAGO_MACOS_CERT_PASSWORD }}
+      KAGO_APPLE_ID: ${{ secrets.KAGO_APPLE_ID }}
+      KAGO_APPLE_TEAM_ID: ${{ secrets.KAGO_APPLE_TEAM_ID }}
+      KAGO_APPLE_APP_PASSWORD: ${{ secrets.KAGO_APPLE_APP_PASSWORD }}
 
   publish:
     needs: [android, windows, macos]
     if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Версия
         id: version
         run: |
           VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
           NAME="${VERSION%%+*}"
+          if ! [[ "$NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Неверная версия в pubspec.yaml: $NAME" >&2; exit 1
+          fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
             echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
             exit 1
           fi
 
+      # Уже опубликованный релиз не заменяется: иначе любой запуск из ветки
+      # подменил бы файлы, которые скачивают пользователи и обновление.
+      - name: Релиз ещё не опубликован
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.version.outputs.name }}
+        run: |
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::Релиз v$V уже опубликован. Поднимите версию в pubspec.yaml." >&2
+            exit 1
+          fi
+
       # Артефакты платформ: KaGoVPN-Android-*, KaGoVPN-Windows-x64-*,
       # KaGoVPN-macOS-* (символы отладки называются symbols-* и не входят).
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: KaGoVPN-*
           path: dist
           merge-multiple: true
 
       - name: Проверить состав релиза
+        env:
+          V: ${{ steps.version.outputs.name }}
         run: |
-          V="${{ steps.version.outputs.name }}"
           ls -lh dist
           for f in "KaGoVPN-Android-$V.apk" "KaGoVPN-Windows-x64-Setup-$V.exe" "KaGoVPN-macOS-$V.dmg" \
                    SHA256SUMS-Android.txt SHA256SUMS-Windows.txt SHA256SUMS-macOS.txt; do
@@ -84,15 +118,52 @@ jobs:
             exit 1
           fi
 
+      # SHA256SUMS.txt — все файлы релиза; SHA256SUMS.txt.sig — подпись
+      # RSA-PKCS#1 v1.5/SHA-256 ключом релиза (keystore Android). Открытый
+      # ключ встроен в приложение (lib/core/update/release_signature.dart);
+      # шаг проверяет, что подписывает именно он.
+      - name: Подписать список файлов
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KAGO_ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KAGO_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KAGO_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KAGO_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          WORK="$(mktemp -d)"
+          trap 'rm -rf "$WORK"' EXIT
+          (cd dist && sha256sum KaGoVPN-* > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          echo "$KEYSTORE_BASE64" | base64 -d > "$WORK/upload.jks"
+          P12_PASSWORD="$(openssl rand -hex 24)"
+          export P12_PASSWORD
+          keytool -importkeystore -noprompt \
+            -srckeystore "$WORK/upload.jks" -srcstorepass:env KEYSTORE_PASSWORD \
+            -srcalias "$KEY_ALIAS" -srckeypass:env KEY_PASSWORD \
+            -destkeystore "$WORK/key.p12" -deststoretype PKCS12 \
+            -deststorepass:env P12_PASSWORD -destkeypass:env P12_PASSWORD > /dev/null
+          openssl pkcs12 -in "$WORK/key.p12" -nocerts -nodes -passin env:P12_PASSWORD -out "$WORK/key.pem"
+          EXPECTED="$(grep -oE "'[0-9a-f]{64}'" lib/core/update/release_signature.dart | tr -d "'\n")"
+          ACTUAL="$(openssl rsa -in "$WORK/key.pem" -noout -modulus | cut -d= -f2 | tr 'A-F' 'a-f')"
+          if [[ -z "$EXPECTED" || "$EXPECTED" != "$ACTUAL" ]]; then
+            echo "::error::Ключ релиза не совпадает с ключом, встроенным в приложение." >&2
+            exit 1
+          fi
+          openssl dgst -sha256 -sign "$WORK/key.pem" -out dist/SHA256SUMS.txt.sig dist/SHA256SUMS.txt
+          openssl rsa -in "$WORK/key.pem" -pubout -out "$WORK/pub.pem" 2> /dev/null
+          openssl dgst -sha256 -verify "$WORK/pub.pem" -signature dist/SHA256SUMS.txt.sig dist/SHA256SUMS.txt
+
       # «Что нового» — первый раздел RELEASE_STATUS.md до «Для разработчиков»;
       # его показывает диалог обновления в приложении.
       - name: Описание релиза
+        env:
+          V: ${{ steps.version.outputs.name }}
         run: |
           awk '/^## /{n++; next} n==1 && /^Для разработчиков/{exit} n==1' RELEASE_STATUS.md > release-notes.md
-          test -s release-notes.md || echo "KaGo VPN ${{ steps.version.outputs.name }}" > release-notes.md
+          test -s release-notes.md || echo "KaGo VPN $V" > release-notes.md
 
       - name: GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           body_path: release-notes.md
           tag_name: v${{ steps.version.outputs.name }}

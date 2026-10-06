@@ -121,27 +121,86 @@ jobs:
       - name: flutter build macos --release
         run: flutter build macos --release
 
-      - name: Встроить ядро и подписать приложение
+      # С сертификатом Apple Developer ID (секреты KAGO_MACOS_*/KAGO_APPLE_*) —
+      # подпись Developer ID с Hardened Runtime и нотаризация: macOS открывает
+      # приложение без предупреждения «Apple не удалось подтвердить…». Без
+      # секретов — ad-hoc подпись (открыть вручную: «Конфиденциальность и
+      # безопасность → Всё равно открыть»).
+      - name: Встроить ядро, подписать и нотаризовать приложение
+        id: sign
+        env:
+          CERT_P12: ${{ secrets.KAGO_MACOS_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.KAGO_MACOS_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.KAGO_APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.KAGO_APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.KAGO_APPLE_APP_PASSWORD }}
         run: |
           set -euo pipefail
           APP="build/macos/Build/Products/Release/KaGo VPN.app"
           cp core/mihomo "$APP/Contents/Resources/mihomo"
-          # Без сертификата Apple Developer — ad-hoc подпись всего бандла
-          # (ядро внутри должно войти в печать подписи).
-          codesign --force --deep --sign - "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
+          if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_PASSWORD" ]]; then
+            KEYCHAIN="$RUNNER_TEMP/kago-signing.keychain-db"
+            KEYCHAIN_PASSWORD="$(uuidgen)"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+            echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/kago-cert.p12"
+            security import "$RUNNER_TEMP/kago-cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+            rm -f "$RUNNER_TEMP/kago-cert.p12"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+            security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+            IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -n 1 | sed -E 's/.*"(.*)"/\1/')"
+            if [[ -z "$IDENTITY" ]]; then
+              echo "::error::В сертификате нет identity «Developer ID Application»."
+              exit 1
+            fi
+            echo "KAGO_MAC_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+            # Изнутри наружу: ядро, фреймворки, затем само приложение.
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/mihomo"
+            find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0 |
+              xargs -0 -I{} codesign --force --options runtime --timestamp --sign "$IDENTITY" "{}"
+            codesign --force --options runtime --timestamp \
+              --entitlements macos/Runner/Release.entitlements --sign "$IDENTITY" "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/kago-app.zip"
+            xcrun notarytool submit "$RUNNER_TEMP/kago-app.zip" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple "$APP"
+            spctl --assess --type execute --verbose=4 "$APP"
+            echo "kind=notarized" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$GITHUB_REF" == refs/tags/v* || "${{ inputs.release }}" == "true" ]]; then
+              echo "::warning::Нет секретов Apple Developer ID: .dmg подписан ad-hoc, macOS покажет «Apple не удалось подтвердить…»."
+            fi
+            # Ad-hoc подпись всего бандла (ядро внутри входит в печать подписи).
+            codesign --force --deep --sign - "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            echo "kind=adhoc" >> "$GITHUB_OUTPUT"
+          fi
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist"
 
       - name: Собрать .dmg
         id: dist
+        env:
+          APPLE_ID: ${{ secrets.KAGO_APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.KAGO_APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.KAGO_APPLE_APP_PASSWORD }}
         run: |
           set -euo pipefail
           NAME="KaGoVPN-macOS-${{ steps.version.outputs.name }}"
+          DMG="dist/macos/$NAME.dmg"
           mkdir -p dmgroot dist/macos
           cp -R "build/macos/Build/Products/Release/KaGo VPN.app" dmgroot/
           ln -s /Applications dmgroot/Applications
-          hdiutil create -volname "KaGo VPN" -srcfolder dmgroot -ov -format UDZO "dist/macos/$NAME.dmg"
+          hdiutil create -volname "KaGo VPN" -srcfolder dmgroot -ov -format UDZO "$DMG"
+          if [[ "${{ steps.sign.outputs.kind }}" == notarized ]]; then
+            codesign --force --timestamp --sign "$KAGO_MAC_IDENTITY" "$DMG"
+            xcrun notarytool submit "$DMG" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple "$DMG"
+            spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+          fi
           cd dist/macos && shasum -a 256 *.dmg > SHA256SUMS-macOS.txt && ls -lh
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 

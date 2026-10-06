@@ -66,7 +66,20 @@ Windows PowerShell:
 
 - Приложение `KaGo VPN.app` в `.dmg` (Apple Silicon и Intel, macOS 12+). Встроенный Mihomo `v1.19.32` — universal-бинарник в `Contents/Resources/mihomo`, обновляется вместе с приложением.
 - Подключение через системный прокси macOS (`networksetup`, все включённые сети, `127.0.0.1:7890`) с откатом при отключении и после сбоя; «Российские сайты — напрямую» работает так же, как на Windows. Нужна учётная запись администратора. Это не полноценный TUN.
-- Подпись ad-hoc, без сертификата Apple Developer и нотаризации. При первом запуске macOS блокирует приложение: «Системные настройки → Конфиденциальность и безопасность → Всё равно открыть» (или `xattr -dr com.apple.quarantine "/Applications/KaGo VPN.app"`).
+- **Подпись.** Если в секретах репозитория есть сертификат Apple Developer ID, CI подписывает приложение (Hardened Runtime), нотаризует его у Apple и прикрепляет тикет к приложению и к `.dmg`. Тогда macOS открывает KaGo VPN без предупреждений. Без сертификата — ad-hoc подпись, и при первом запуске macOS пишет «Apple не удалось подтвердить, что файл „KaGo VPN“ не содержит вредоносного ПО». Открыть такое приложение можно так: «Готово» → «Системные настройки → Конфиденциальность и безопасность» → внизу «Всё равно открыть» → пароль. Или в Терминале: `xattr -dr com.apple.quarantine "/Applications/KaGo VPN.app"`.
+
+#### Как включить подпись и нотаризацию
+
+1. Вступить в Apple Developer Program ($99 в год) на developer.apple.com.
+2. В Xcode («Settings → Accounts → Manage Certificates») или на developer.apple.com создать сертификат **Developer ID Application**, затем экспортировать его из «Связки ключей» в `.p12` с паролем.
+3. На appleid.apple.com создать пароль приложения (App-Specific Password).
+4. Добавить секреты репозитория (Settings → Secrets and variables → Actions):
+   - `KAGO_MACOS_CERT_P12_BASE64` — содержимое `.p12` в base64 (`base64 -i cert.p12 | pbcopy`);
+   - `KAGO_MACOS_CERT_PASSWORD` — пароль `.p12`;
+   - `KAGO_APPLE_ID` — Apple ID (email);
+   - `KAGO_APPLE_TEAM_ID` — Team ID (10 символов, developer.apple.com → Membership);
+   - `KAGO_APPLE_APP_PASSWORD` — пароль приложения из п. 3.
+5. Перезапустить `macos-release.yml` с `release=true`: файл `.dmg` в релизе заменится нотаризованным.
 
 ## Сборка macOS
 

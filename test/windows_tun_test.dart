@@ -75,8 +75,8 @@ void main() {
           '-NoProfile',
           '-NonInteractive',
           '-Command',
-          r'$e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($args[0], [ref]$null, [ref]$e); if ($e) { $e | ForEach-Object { $_.Message }; exit 1 }',
-          file.path,
+          // -Command has no $args: the path goes into the command itself.
+          "\$e = \$null; [void][System.Management.Automation.Language.Parser]::ParseFile('${file.path.replaceAll("'", "''")}', [ref]\$null, [ref]\$e); if (\$e) { \$e | ForEach-Object { \$_.Message }; exit 1 }",
         ]);
         expect(result.exitCode, 0,
             reason: '${entry.key}: ${result.stdout}${result.stderr}');

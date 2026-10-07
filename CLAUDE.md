@@ -38,6 +38,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - Сообщения коммитов: `fix: …`, `feat: …`, `refactor: …`, `docs: …`.
 - Одна логическая задача — один коммит (или PR).
 - Не делать force-push в `main`.
+- Автор коммитов — владелец репозитория (`kiberhack <kiberhack3@gmail.com>`): перед коммитом задать `git config user.name kiberhack` и `git config user.email kiberhack3@gmail.com`. Строки `Co-Authored-By: Claude …` и `Claude-Session: …` в сообщения коммитов **не добавлять** — иначе Claude появляется в Contributors репозитория (история переписана по запросу 2026-10-07).
 
 ## Принятые решения (не менять без запроса)
 

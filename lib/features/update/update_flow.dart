@@ -128,6 +128,12 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
         case UpdateInstallResult.started:
           if (Platform.isAndroid) {
             Navigator.of(context).pop();
+          } else if (Platform.isWindows) {
+            // Quit at once, so the installer finds no file in use. A normal
+            // exit can hang in plugin shutdown (WebView2); the core and the
+            // system proxy are already stopped above.
+            Process.killPid(pid, ProcessSignal.sigkill);
+            exit(0);
           } else {
             exit(0);
           }

@@ -35,7 +35,9 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 ; Не ставить поверх работающего приложения: оно держит ядро и системный прокси.
-CloseApplications=yes
+; force: в тихом режиме (обновление из приложения) занятый файл иначе
+; означал бы «Прервать» и откат установки.
+CloseApplications=force
 RestartApplications=no
 
 [Languages]
@@ -60,8 +62,8 @@ Filename: "{app}\kago_vpn.exe"; Description: "{cm:LaunchProgram,KaGo VPN}"; Flag
 Filename: "{app}\kago_vpn.exe"; Flags: nowait; Check: WizardSilent
 
 [CustomMessages]
-russian.FullCleanup=Удалить также все данные KaGo VPN?%n%nБудут удалены ядро Mihomo (для ядра режима TUN Windows спросит разрешение администратора), подписка, вход в аккаунт и настройки — полная очистка.%nНажмите «Нет», чтобы сохранить их для повторной установки.
-english.FullCleanup=Also remove all KaGo VPN data?%n%nThe Mihomo core (Windows asks for administrator permission for the TUN core), subscription, sign-in and settings will be deleted (full cleanup).%nChoose "No" to keep them for a reinstall.
+russian.FullCleanup=Удалить также все данные KaGo VPN?%n%nБудут удалены ядро Mihomo, подписка, вход в аккаунт и настройки — полная очистка.%nНажмите «Нет», чтобы сохранить их для повторной установки.
+english.FullCleanup=Also remove all KaGo VPN data?%n%nThe Mihomo core, subscription, sign-in and settings will be deleted (full cleanup).%nChoose "No" to keep them for a reinstall.
 
 [UninstallDelete]
 ; Данные встроенного WebView2 (вход через Telegram) лежат рядом с exe.
@@ -102,6 +104,19 @@ begin
   end;
 end;
 
+// Обновление из приложения: старая версия могла не завершиться (зависнуть при
+// выходе) и держать свои файлы — тогда тихая установка откатывалась.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM kago_vpn.exe', '', SW_HIDE,
+    ewWaitUntilTerminated, Code);
+  if Code = 0 then
+    Sleep(800);
+  Result := '';
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Code: Integer;
@@ -120,11 +135,13 @@ begin
     DelTree(ExpandConstant('{app}'), True, True, True);
     Exec(ExpandConstant('{sys}\cmdkey.exe'), '/delete:' + StorageCredential, '',
       SW_HIDE, ewWaitUntilTerminated, Code);
-    // Ядро режима TUN (MihomoWindowsTun) лежит в Program Files: удалить его
-    // можно только с правами администратора — Windows спросит разрешение.
-    if DirExists(ExpandConstant('{commonpf64}\KaGo VPN Core')) then
-      ShellExec('runas', ExpandConstant('{cmd}'),
-        '/c rmdir /s /q "' + ExpandConstant('{commonpf64}\KaGo VPN Core') + '"',
-        '', SW_HIDE, ewWaitUntilTerminated, Code);
   end;
+  // Режим TUN (MihomoWindowsTun): задача планировщика с правами
+  // администратора и ядро в Program Files. Задача запускает ядро без запроса,
+  // поэтому убирается при любом удалении; Windows спросит разрешение.
+  if (CurUninstallStep = usPostUninstall) and DirExists(ExpandConstant('{commonpf64}\KaGo VPN Core')) then
+    ShellExec('runas', ExpandConstant('{cmd}'),
+      '/c schtasks /delete /tn "\KaGo VPN\KaGo VPN TUN" /f & rmdir /s /q "' +
+      ExpandConstant('{commonpf64}\KaGo VPN Core') + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;

@@ -96,4 +96,26 @@ void main() {
     expect(android.notes, contains('android fix'));
     expect(AppUpdater.pick(releases, 'macos', '2.0.2'), isNull);
   });
+
+  test('a Windows application control block is recognised', () {
+    expect(
+        AppUpdater.blockedByPolicy(const ProcessException(
+            'setup.exe',
+            <String>[],
+            'Политика управления приложениями '
+                'заблокировала этот файл',
+            4551)),
+        true);
+    expect(
+        AppUpdater.blockedByPolicy(const ProcessException(
+            'setup.exe',
+            <String>[],
+            'An Application Control policy has blocked this file',
+            0)),
+        true);
+    expect(
+        AppUpdater.blockedByPolicy(const ProcessException(
+            'setup.exe', <String>[], 'The system cannot find the file', 2)),
+        false);
+  });
 }

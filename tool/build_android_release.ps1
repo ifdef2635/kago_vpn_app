@@ -8,7 +8,7 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 
 & (Join-Path $PSScriptRoot 'build_android_native.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Android native-core build failed.' }
-& flutter pub get
+& flutter pub get --enforce-lockfile
 if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed.' }
 & flutter analyze
 if ($LASTEXITCODE -ne 0) { throw 'flutter analyze failed.' }
@@ -23,7 +23,7 @@ if (-not $hasSigning) {
 
 & flutter build appbundle --release
 if ($LASTEXITCODE -ne 0) { throw 'Android App Bundle release build failed.' }
-& flutter build apk --release --target-platform android-arm64,android-x64
+& flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols/android
 if ($LASTEXITCODE -ne 0) { throw 'Android APK release build failed.' }
 
 $Dist = Join-Path $ProjectRoot 'dist/android'

@@ -1,0 +1,183 @@
+name: Android release APK
+
+on:
+  # Выпуск релиза — только через release.yml (собирает все три платформы и
+  # публикует .apk, .exe и .dmg вместе); здесь — проверочная сборка.
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    secrets:
+      KAGO_ANDROID_KEYSTORE_BASE64:
+        required: false
+      KAGO_ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      KAGO_ANDROID_KEY_ALIAS:
+        required: false
+      KAGO_ANDROID_KEY_PASSWORD:
+        required: false
+  push:
+    branches:
+      - 'claude/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'native/android/**'
+      - 'native/mihomo/**'
+      - 'tool/build_android_native.sh'
+      - 'assets/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/android-release.yml'
+
+# Только чтение: сборка не публикует релиз (это делает release.yml).
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FLUTTER_VERSION: '3.47.5'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: native/android/go.sum
+
+      # Только arm64-v8a: в релизный APK идёт одна архитектура.
+      - name: Собрать ядро Mihomo (JNI, arm64-v8a)
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          KAGO_ANDROID_ABIS=arm64-v8a bash tool/build_android_native.sh
+          test -s android/app/src/main/jniLibs/arm64-v8a/libkago_mihomo_bridge.so \
+            || { echo "Нет libkago_mihomo_bridge.so для arm64-v8a" >&2; exit 1; }
+
+      - name: flutter pub get --enforce-lockfile
+        run: flutter pub get --enforce-lockfile
+
+      - name: Формат
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test
+        run: flutter test
+
+      # Ключ владельца — только для релиза (вызов из release.yml). Сборки из
+      # веток подписываются одноразовым debug-ключом: публичные артефакты
+      # веток не должны быть подписаны боевым ключом, а код из ветки не
+      # должен видеть секреты.
+      - name: Ключ подписи
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ inputs.release && secrets.KAGO_ANDROID_KEYSTORE_BASE64 || '' }}
+          RELEASE: ${{ inputs.release && 'true' || 'false' }}
+        run: |
+          if [[ "$RELEASE" == "true" && -n "$KEYSTORE_BASE64" ]]; then
+            umask 077
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/kago-upload.jks"
+            echo "KAGO_ANDROID_KEYSTORE=$RUNNER_TEMP/kago-upload.jks" >> "$GITHUB_ENV"
+            echo "kind=release" >> "$GITHUB_OUTPUT"
+            echo 'Подпись ключом владельца (секреты репозитория).'
+          elif [[ "$RELEASE" == "true" ]]; then
+            # A public release signed with a throwaway key could never be
+            # updated in place, so a tag build needs the owner's key.
+            echo '::error::Релиз по тегу требует ключ подписи: задайте секреты KAGO_ANDROID_KEYSTORE_BASE64, KAGO_ANDROID_KEYSTORE_PASSWORD, KAGO_ANDROID_KEY_ALIAS, KAGO_ANDROID_KEY_PASSWORD.'
+            exit 1
+          else
+            echo "KAGO_ANDROID_DEBUG_SIGNING=true" >> "$GITHUB_ENV"
+            echo "kind=debugsigned" >> "$GITHUB_OUTPUT"
+            echo '::warning::Секреты ключа не заданы — APK подписан debug-ключом. Только для тестов, не для публикации.'
+          fi
+
+      - name: Версия и тег
+        id: version
+        run: |
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          NAME="${VERSION%%+*}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
+            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+            exit 1
+          fi
+
+      # Один APK для arm64 (почти все телефоны) с versionCode из pubspec: так
+      # каждая следующая версия ставится поверх предыдущей как обновление.
+      # Отладочные символы Dart — отдельно (артефакт symbols), не в APK.
+      # Пароли ключа — только этому шагу, не всей задаче через GITHUB_ENV.
+      - name: flutter build apk --release
+        env:
+          KAGO_ANDROID_KEYSTORE_PASSWORD: ${{ inputs.release && secrets.KAGO_ANDROID_KEYSTORE_PASSWORD || '' }}
+          KAGO_ANDROID_KEY_ALIAS: ${{ inputs.release && secrets.KAGO_ANDROID_KEY_ALIAS || '' }}
+          KAGO_ANDROID_KEY_PASSWORD: ${{ inputs.release && secrets.KAGO_ANDROID_KEY_PASSWORD || '' }}
+        run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols/android
+
+      - name: Удалить ключ с раннера
+        if: always()
+        run: rm -f "$RUNNER_TEMP/kago-upload.jks"
+
+      - name: Проверить подпись и ABI
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -n 1
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/libkago_mihomo_bridge.so'
+          # Только arm64 и сжатые .so: иначе APK снова вырастет до 130 МБ.
+          if unzip -l "$APK" | grep -E 'lib/(x86_64|x86|armeabi-v7a)/'; then
+            echo "::error::В APK попали лишние архитектуры." >&2; exit 1
+          fi
+          unzip -v "$APK" 'lib/arm64-v8a/libkago_mihomo_bridge.so' | grep -q Defl \
+            || { echo "::error::libkago_mihomo_bridge.so не сжат." >&2; exit 1; }
+          ls -lh "$APK"
+
+      - name: Подготовить артефакт
+        id: dist
+        run: |
+          KIND="${{ steps.signing.outputs.kind }}"
+          BASE="KaGoVPN-Android-${{ steps.version.outputs.name }}"
+          [[ "$KIND" == release ]] || BASE="$BASE-$KIND"
+          mkdir -p dist/android
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/android/$BASE.apk"
+          cd dist/android && sha256sum *.apk > SHA256SUMS-Android.txt && ls -lh
+          echo "name=$BASE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.dist.outputs.name }}
+          path: dist/android/*
+          retention-days: 30
+
+      # Для расшифровки стектрейсов Dart из отчётов о сбоях (flutter symbolize).
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: symbols-${{ steps.dist.outputs.name }}
+          path: build/symbols/android
+          retention-days: 90

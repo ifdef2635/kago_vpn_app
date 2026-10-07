@@ -52,7 +52,7 @@ build_abi() {
   echo "Building Mihomo $MIHOMO_VERSION for Android $abi..."
   CGO_ENABLED=1 GOOS=android GOARCH="$goarch" CC="$cc" CXX="$cxx" \
     CGO_LDFLAGS="-llog -landroid -lc++_shared" \
-    go build -mod=readonly -buildmode=c-shared \
+    go build -mod=readonly -trimpath -buildvcs=false -buildmode=c-shared -tags cmfa \
       -ldflags "-X github.com/metacubex/mihomo/constant.Version=${MIHOMO_VERSION#v} -s -w" \
       -o "$temp_output" .
   mkdir -p "$TEMP_DIR/$abi"
@@ -64,7 +64,14 @@ build_abi() {
   cp "$cxx_shared" "$PROJECT_ROOT/android/app/src/main/jniLibs/$abi/libc++_shared.so"
 }
 
-build_abi arm64-v8a arm64 aarch64-linux-android
-build_abi x86_64 amd64 x86_64-linux-android
+# KAGO_ANDROID_ABIS="arm64-v8a" builds only the release ABI (CI); x86_64 is
+# for the emulator and never goes into the release APK.
+for abi in ${KAGO_ANDROID_ABIS:-arm64-v8a x86_64}; do
+  case "$abi" in
+    arm64-v8a) build_abi arm64-v8a arm64 aarch64-linux-android ;;
+    x86_64) build_abi x86_64 amd64 x86_64-linux-android ;;
+    *) echo "Unsupported ABI: $abi" >&2; exit 2 ;;
+  esac
+done
 
 echo "Android Mihomo JNI libraries installed under android/app/src/main/jniLibs/."

@@ -6,7 +6,7 @@ command -v "$FLUTTER_BIN" >/dev/null 2>&1 || { echo "Flutter executable not foun
 cd "$PROJECT_ROOT"
 
 ./tool/build_android_native.sh
-"$FLUTTER_BIN" pub get
+"$FLUTTER_BIN" pub get --enforce-lockfile
 "$FLUTTER_BIN" analyze
 "$FLUTTER_BIN" test
 
@@ -16,7 +16,7 @@ else
   echo 'WARNING: no local upload key configured; release outputs will be unsigned and are not distributable.' >&2
 fi
 "$FLUTTER_BIN" build appbundle --release
-"$FLUTTER_BIN" build apk --release --target-platform android-arm64,android-x64
+"$FLUTTER_BIN" build apk --release --target-platform android-arm64
 mkdir -p dist/android
 cp build/app/outputs/bundle/release/app-release.aab dist/android/KaGoVPN-Android-release.aab
 cp build/app/outputs/flutter-apk/app-release.apk dist/android/KaGoVPN-Android-release.apk

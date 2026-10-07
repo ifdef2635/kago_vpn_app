@@ -9,6 +9,7 @@ import 'package:kago_vpn/core/network/mihomo_controller.dart';
 import 'package:kago_vpn/core/network/mihomo_process_manager.dart';
 import 'package:kago_vpn/core/network/mihomo_windows_core_updater.dart';
 import 'package:kago_vpn/features/subscriptions/subscription_providers.dart';
+import 'package:kago_vpn/features/update/update_flow.dart';
 
 void main() {
   testWidgets('KaGo VPN root renders brand and responsive navigation',
@@ -17,6 +18,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // The app follows the system language; this test checks the Russian UI.
+    tester.platformDispatcher.localeTestValue = const Locale('ru');
+    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
@@ -27,6 +31,8 @@ void main() {
           connectionsSnapshotProvider
               .overrideWith((ref) => const Stream<ConnectionsSnapshot>.empty()),
           importedSubscriptionProvider.overrideWith((ref) async => null),
+          // No GitHub request and no 6-hour timer in a widget test.
+          appUpdateProvider.overrideWith((ref) async => null),
           // No network and no timers in widget tests.
           ipInfoProvider
               .overrideWith((ref) async => const IpInfo(ip: '203.0.113.7')),

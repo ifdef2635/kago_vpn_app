@@ -16,7 +16,7 @@ val hasReleaseSigning = listOf(
 ).all { !it.isNullOrBlank() }
 
 android {
-    namespace = "net.usekago.vpn"
+    namespace = "net.usekago.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -27,16 +27,17 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "net.usekago.vpn"
+        applicationId = "net.usekago.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+        // arm64 only (nearly every phone): one APK with one versionCode, so every
+        // new version installs over the previous one. Do not use --split-per-abi:
+        // it adds 1000*ABI to the versionCode and breaks in-place updates.
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("arm64-v8a")
         }
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
+        // versionCode = major*10000 + minor*100 + patch (pubspec.yaml build
+        // number, checked by test/version_test.dart).
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -54,9 +55,26 @@ android {
 
     buildTypes {
         release {
+            // KaGoVpnService.resolvePackage is called only from JNI.
+            proguardFiles("proguard-rules.pro")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("kagoRelease")
+            } else if (System.getenv("KAGO_ANDROID_DEBUG_SIGNING") == "true") {
+                // Тестовая сборка (CI без ключа): подпись debug-ключом, чтобы APK можно было установить.
+                // Не для публикации: ключ одноразовый, обновление поверх такой сборки не установится.
+                signingConfig = signingConfigs.getByName("debug")
             }
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Only arm64: the Flutter plugin and plugins would otherwise add
+            // x86_64/armv7 copies (the x86_64 core alone is ~56 MB).
+            excludes += listOf("lib/x86_64/**", "lib/x86/**", "lib/armeabi-v7a/**")
+            // Compress native libraries in the APK: the Go core shrinks from
+            // ~53 MB to about half. Android extracts them once at install.
+            useLegacyPackaging = true
         }
     }
 }
@@ -69,4 +87,16 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// The Mihomo core is built from source (tool/build_android_native.*) and not
+// kept in git: a release APK without it, or with a stale copy from elsewhere,
+// must not be produced silently.
+val mihomoCoreLib = file("src/main/jniLibs/arm64-v8a/libkago_mihomo_bridge.so")
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(mihomoCoreLib.isFile) {
+            "Нет ядра Mihomo: сначала соберите его (tool/build_android_native.sh или .ps1)."
+        }
+    }
 }

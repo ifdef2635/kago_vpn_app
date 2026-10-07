@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
@@ -6,11 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/network/app_providers.dart';
+import '../core/theme/app_widgets.dart';
 import '../core/theme/kago_theme.dart';
+import '../features/account/account_screen.dart';
 import '../features/connections/connections_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/proxies/proxies_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/update/update_flow.dart';
+import '../core/l10n/l10n.dart';
 
 class RootShell extends ConsumerWidget {
   const RootShell({super.key});
@@ -20,26 +23,32 @@ class RootShell extends ConsumerWidget {
     RepaintBoundary(child: DashboardScreen()),
     RepaintBoundary(child: ProxiesScreen()),
     RepaintBoundary(child: ConnectionsScreen()),
+    RepaintBoundary(child: AccountScreen()),
     RepaintBoundary(child: SettingsScreen()),
   ];
-  static const _destinations = <NavigationDestination>[
-    NavigationDestination(
-        icon: Icon(Icons.space_dashboard_outlined),
-        selectedIcon: Icon(Icons.space_dashboard),
-        label: 'Главная'),
-    NavigationDestination(
-        icon: Icon(Icons.hub_outlined),
-        selectedIcon: Icon(Icons.hub),
-        label: 'Серверы'),
-    NavigationDestination(
-        icon: Icon(Icons.swap_horiz_rounded),
-        selectedIcon: Icon(Icons.swap_horiz_rounded),
-        label: 'Трафик'),
-    NavigationDestination(
-        icon: Icon(Icons.tune_rounded),
-        selectedIcon: Icon(Icons.tune_rounded),
-        label: 'Настройки'),
-  ];
+  static List<NavigationDestination> get _destinations =>
+      <NavigationDestination>[
+        NavigationDestination(
+            icon: const Icon(Icons.space_dashboard_outlined),
+            selectedIcon: const Icon(Icons.space_dashboard),
+            label: tr('Главная')),
+        NavigationDestination(
+            icon: const Icon(Icons.hub_outlined),
+            selectedIcon: const Icon(Icons.hub),
+            label: tr('Серверы')),
+        NavigationDestination(
+            icon: const Icon(Icons.swap_horiz_rounded),
+            selectedIcon: const Icon(Icons.swap_horiz_rounded),
+            label: tr('Трафик')),
+        NavigationDestination(
+            icon: const Icon(Icons.person_outline_rounded),
+            selectedIcon: const Icon(Icons.person_rounded),
+            label: tr('Кабинет')),
+        NavigationDestination(
+            icon: const Icon(Icons.tune_rounded),
+            selectedIcon: const Icon(Icons.tune_rounded),
+            label: tr('Настройки')),
+      ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,7 +57,9 @@ class RootShell extends ConsumerWidget {
     void select(int value) =>
         ref.read(rootTabIndexProvider.notifier).state = value;
     final wide = MediaQuery.sizeOf(context).width >= 760;
-    return _ExitGuard(child: _buildShell(context, ref, index, select, wide));
+    return _ExitGuard(
+        child: UpdatePrompt(
+            child: _buildShell(context, ref, index, select, wide)));
   }
 
   Widget _buildShell(BuildContext context, WidgetRef ref, int index,
@@ -61,30 +72,34 @@ class RootShell extends ConsumerWidget {
               selectedIndex: index,
               onDestinationSelected: select,
               labelType: NavigationRailLabelType.all,
-              backgroundColor: KaGoColors.canvas,
+              backgroundColor: context.kago.surface,
               leading: const Padding(
                   padding: EdgeInsets.only(top: 18, bottom: 34),
                   child: _BrandMark()),
-              destinations: const <NavigationRailDestination>[
+              destinations: <NavigationRailDestination>[
                 NavigationRailDestination(
-                    icon: Icon(Icons.space_dashboard_outlined),
-                    selectedIcon: Icon(Icons.space_dashboard),
-                    label: Text('Главная')),
+                    icon: const Icon(Icons.space_dashboard_outlined),
+                    selectedIcon: const Icon(Icons.space_dashboard),
+                    label: Text(tr('Главная'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.hub_outlined),
-                    selectedIcon: Icon(Icons.hub),
-                    label: Text('Серверы')),
+                    icon: const Icon(Icons.hub_outlined),
+                    selectedIcon: const Icon(Icons.hub),
+                    label: Text(tr('Серверы'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.swap_horiz_rounded),
-                    selectedIcon: Icon(Icons.swap_horiz_rounded),
-                    label: Text('Трафик')),
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    selectedIcon: const Icon(Icons.swap_horiz_rounded),
+                    label: Text(tr('Трафик'))),
                 NavigationRailDestination(
-                    icon: Icon(Icons.tune_rounded),
-                    selectedIcon: Icon(Icons.tune_rounded),
-                    label: Text('Настройки')),
+                    icon: const Icon(Icons.person_outline_rounded),
+                    selectedIcon: const Icon(Icons.person_rounded),
+                    label: Text(tr('Кабинет'))),
+                NavigationRailDestination(
+                    icon: const Icon(Icons.tune_rounded),
+                    selectedIcon: const Icon(Icons.tune_rounded),
+                    label: Text(tr('Настройки'))),
               ],
             ),
-          if (wide) const VerticalDivider(width: 1, color: KaGoColors.border),
+          if (wide) VerticalDivider(width: 1, color: context.kago.border),
           Expanded(
               child: _TabTransition(
                   index: index,
@@ -105,18 +120,7 @@ class RootShell extends ConsumerWidget {
 class _BrandMark extends StatelessWidget {
   const _BrandMark();
   @override
-  Widget build(BuildContext context) => Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-            color: KaGoColors.brand, borderRadius: BorderRadius.circular(14)),
-        child: const Center(
-            child: Text('K',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900))),
-      );
+  Widget build(BuildContext context) => const KagoLogo(size: 42);
 }
 
 /// Fades and slightly lifts the content whenever the selected tab changes. The
@@ -169,7 +173,8 @@ class _TabTransitionState extends State<_TabTransition>
 
 /// On desktop, closing the window must not leave mihomo running with the Windows
 /// system proxy still pointing at it. Stops the core (which restores the proxy)
-/// before the app exits, with a hard time limit so closing never hangs.
+/// before the app exits, with a hard time limit so closing never hangs. Also
+/// tracks whether the app is on screen (appForegroundProvider).
 class _ExitGuard extends ConsumerStatefulWidget {
   const _ExitGuard({required this.child});
   final Widget child;
@@ -184,18 +189,31 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
   @override
   void initState() {
     super.initState();
-    if (Platform.isAndroid || Platform.isIOS) return;
-    _listener = AppLifecycleListener(onExitRequested: () async {
-      try {
-        await ref
-            .read(mihomoProcessProvider)
-            .stop()
-            .timeout(const Duration(seconds: 6));
-      } catch (_) {
-        // Exit anyway; a stale proxy is repaired at the next start.
-      }
-      return AppExitResponse.exit;
-    });
+    // Window visible (focused or not) counts as foreground; minimized or in
+    // the background pauses screen-only polling (appForegroundProvider).
+    void onState(AppLifecycleState state) {
+      ref.read(appForegroundProvider.notifier).state =
+          state == AppLifecycleState.resumed ||
+              state == AppLifecycleState.inactive;
+    }
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      _listener = AppLifecycleListener(onStateChange: onState);
+      return;
+    }
+    _listener = AppLifecycleListener(
+        onStateChange: onState,
+        onExitRequested: () async {
+          try {
+            await ref
+                .read(mihomoProcessProvider)
+                .stop()
+                .timeout(const Duration(seconds: 6));
+          } catch (_) {
+            // Exit anyway; a stale proxy is repaired at the next start.
+          }
+          return AppExitResponse.exit;
+        });
   }
 
   @override

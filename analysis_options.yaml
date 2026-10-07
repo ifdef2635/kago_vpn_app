@@ -11,6 +11,7 @@ analyzer:
     - android/**
     - ios/**
     - windows/**
+    - macos/**
 linter:
   rules:
     always_declare_return_types: true

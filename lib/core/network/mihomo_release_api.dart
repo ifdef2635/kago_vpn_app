@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../l10n/l10n.dart';
 
 class MihomoReleaseAsset {
   const MihomoReleaseAsset(
@@ -41,13 +42,13 @@ class MihomoReleaseApi {
     final response = await _dio.get<Object?>(latestReleaseUri.toString());
     final data = response.data;
     if (data is! Map<String, dynamic>) {
-      throw const FormatException(
-          'GitHub вернул неверные данные о релизе Mihomo.');
+      throw FormatException(
+          tr('GitHub вернул неверные данные о релизе Mihomo.'));
     }
     final rawVersion = data['tag_name'];
     if (rawVersion is! String ||
         !RegExp(r'^v\d+\.\d+\.\d+$').hasMatch(rawVersion)) {
-      throw const FormatException('Тег Mihomo не похож на стабильную версию.');
+      throw FormatException(tr('Тег Mihomo не похож на стабильную версию.'));
     }
     final rawReleaseUrl = data['html_url'];
     final releaseUrl =
@@ -56,11 +57,11 @@ class MihomoReleaseApi {
         releaseUrl.scheme != 'https' ||
         releaseUrl.host != 'github.com' ||
         releaseUrl.path != '/MetaCubeX/mihomo/releases/tag/$rawVersion') {
-      throw const FormatException('Непроверенный URL релиза Mihomo.');
+      throw FormatException(tr('Непроверенный URL релиза Mihomo.'));
     }
     final rawAssets = data['assets'];
     if (rawAssets is! List<dynamic>) {
-      throw const FormatException('В релизе Mihomo отсутствует список assets.');
+      throw FormatException(tr('В релизе Mihomo отсутствует список assets.'));
     }
     final assets = <MihomoReleaseAsset>[];
     for (final raw in rawAssets) {
@@ -114,7 +115,7 @@ class MihomoReleaseApi {
     final leftMatch = pattern.firstMatch(left);
     final rightMatch = pattern.firstMatch(right);
     if (leftMatch == null || rightMatch == null) {
-      throw const FormatException('Неверный формат версии Mihomo.');
+      throw FormatException(tr('Неверный формат версии Mihomo.'));
     }
     for (var index = 1; index <= 3; index++) {
       final comparison = int.parse(leftMatch.group(index)!)

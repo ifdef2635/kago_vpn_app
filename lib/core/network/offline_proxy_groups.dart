@@ -57,12 +57,25 @@ List<ProxyGroup> proxyGroupsFromConfig(Map<String, dynamic> config) {
       type: groupTypes[name] ?? 'Selector',
       nodes: names
           .map((node) => ProxyNode(
-              name: node, type: groupTypes[node] ?? proxyTypes[node] ?? 'Proxy'))
+              name: node,
+              type: groupTypes[node] ?? proxyTypes[node] ?? 'Proxy'))
           .toList(growable: false),
       description: item['description'] as String?,
     ));
   }
   return groups;
+}
+
+/// A subscription's filter regex runs on the UI thread with Dart's
+/// backtracking engine: refuse long patterns and nested quantifiers such as
+/// `(a+)+`, which can freeze the app ("ReDoS"); the group then lists all
+/// servers, as with a pattern Dart cannot parse.
+RegExp? safeGroupFilter(String pattern) {
+  if (pattern.length > 256 ||
+      RegExp(r'\([^()]*[+*][^()]*\)\s*[+*{]').hasMatch(pattern)) {
+    return null;
+  }
+  return RegExp(pattern);
 }
 
 Iterable<String> _filtered(List<String> names, Map<String, dynamic> group) {
@@ -71,12 +84,14 @@ Iterable<String> _filtered(List<String> names, Map<String, dynamic> group) {
   final exclude = group['exclude-filter'];
   try {
     if (filter is String && filter.isNotEmpty) {
-      final pattern = RegExp(filter);
-      result = result.where(pattern.hasMatch);
+      final pattern = safeGroupFilter(filter);
+      if (pattern != null) result = result.where(pattern.hasMatch);
     }
     if (exclude is String && exclude.isNotEmpty) {
-      final pattern = RegExp(exclude);
-      result = result.where((name) => !pattern.hasMatch(name));
+      final pattern = safeGroupFilter(exclude);
+      if (pattern != null) {
+        result = result.where((name) => !pattern.hasMatch(name));
+      }
     }
   } on FormatException {
     // Mihomo uses Go regular expressions; keep the unfiltered list if Dart

@@ -1,91 +1,496 @@
-# KaGo VPN — release status
+# KaGo VPN — состояние релиза
 
-**Status: Android release-candidate artifacts built but unsigned; Windows native build and real VPN traffic verification remain release gates.** This is not a signed or store-ready public release.
+**Статус: релиз 1.0.4** (Android, Windows, macOS). Android — один APK для arm64 (~30 МБ), подписанный постоянным ключом владельца (секреты `KAGO_ANDROID_*`): следующие версии ставятся поверх как обновление. Windows — установщик Inno Setup с постоянным AppId, который тоже обновляет приложение поверх. Каждое некрупное обновление повышает версию на 0.0.1 (правило в CLAUDE.md).
 
-_Last updated: 2026-10-03 (third change set)._ This file is updated with every change set; the newest changes are listed under "Implemented in source, not yet verified"._
+_Обновлено: 2026-10-06 (версия 1.0.4)._ Первый раздел файла (до «Для разработчиков») публикуется как «Что нового» релиза и показывается в диалоге обновления — писать его для пользователей. Файл обновляется при каждом наборе изменений; новые изменения — сверху.
 
-## Implemented and verified in source
+## 2026-10-06 — версия 1.0.5 (1.0.5+10005): security-аудит
 
-- **Windows Mihomo updater (baseline, verified earlier; extended by the unverified changes below):** downloads the official stable Windows x64 compatible ZIP over HTTPS, verifies the GitHub release digest/size, extracts only the expected executable, probes its version, uses versioned installs, checks at most every 12 hours and falls back to the last-known-good executable.
-- **Windows connection mode:** launches the managed Mihomo process, waits for the local External Controller, then enables a reversible per-user system proxy. It restores saved settings on normal disconnect/core exit and recovers a stale KaGo-owned proxy at the next start. This is system-proxy routing, not full Wintun TUN; apps that ignore Windows proxy settings are not covered.
-- **Android core:** official Mihomo source pinned to `v1.19.32`; Go/cgo adapter parses config, attaches to a duplicate of the Android `VpnService` TUN descriptor, installs `VpnService.protect()` for outbound sockets, and exports version/error/start/stop functions through JNI. Build scripts target `arm64-v8a` and `x86_64`.
-- **Subscription import:** HTTPS URL + clipboard paste; normalizes Clash/Mihomo YAML, base64 YAML and common VLESS/VMess/Trojan/Shadowsocks/Hysteria2/TUIC share links to a selectable Mihomo profile.
-- **Dart quality gates:** `flutter analyze` has no issues; all Flutter unit/widget tests pass after the import and system-proxy changes. Go host unit tests pass for the native adapter.
-- **Android native compile:** NDK builds of the embedded Mihomo JNI shared object were completed for both declared ABIs in the Sandbox.
-- **Android release packaging:** `KaGoVPN-Android-release.aab` (122 MiB) and `KaGoVPN-Android-release.apk` (142 MiB) were built with Flutter 3.47.5; both packages contain native libraries for `arm64-v8a` and `x86_64`. `apksigner verify` confirms the APK is unsigned, as expected without the product-owner key. `flutter analyze` reports no issues and all Flutter tests pass.
+Сделано:
+- Проверка безопасности всего приложения и исправление найденных уязвимостей.
+- Обновления из приложения теперь подписаны: приложение установит только обновление, подписанное ключом KaGo VPN.
+- Повышена защита входа через Telegram во встроенной странице сайта.
+- macOS: режим «Весь трафик через VPN» переделан безопаснее. При первом подключении после обновления пароль администратора спросят ещё раз.
+- Android: данные приложения не переносятся на другой телефон, VPN надёжнее выключается.
 
-## Implemented in source, not yet verified
+Для разработчиков:
+- WebView входа (`site_session_screen.dart`, правила — `site_navigation_policy.dart`, тест `site_navigation_policy_test.dart`):
+  - JS-мост `kagoTelegramLogin` принимает токен только от верхнего фрейма `https://usekago.net` (точное совпадение домена). Раньше проходил любой домен, оканчивающийся на `usekago.net` (`evilusekago.net`), и iframe.
+  - Внутри WebView грузятся только usekago.net и *.telegram.org по HTTPS, другие HTTPS-страницы открываются в браузере. Ссылки `tg:` открываются в Telegram. Раньше страница могла запустить любую схему (`file:`, `content:`, `market:`, `sms:` …), а `intent://` — произвольную схему из `scheme=`.
+  - `intent://` превращается только в `tg://`, запасной адрес — только HTTPS.
+  - `javascript:`, `data:`, `http:` в главном фрейме и не-HTTPS iframe отклоняются.
+  - Запрещён доступ страниц к `file://`/`content://`, JS-мост работает только в главном фрейме и только для `usekago.net`/`telegram.org` (`javaScriptHandlersOriginAllowList`), всплывающие окна — только для разрешённых адресов.
+- Конфиг подписки (`config_builder.dart`, тест `config_builder_security_test.dart`):
+  - HTTP-провайдеры правил и прокси больше не задают `path`: иначе подписка могла скачать свой файл поверх `active_config.yaml` и обойти очистку конфига (открытые порты `listeners`, `tunnels`). Ядро хранит такие файлы под хешем URL.
+  - `ntp.write-to-system` всегда `false`: ядро TUN на macOS работает от root.
+  - Удаляется `external-doh-server` (DNS на порту контроллера без секрета).
+  - CORS контроллера задаётся явно (ни один сайт не читает ответы, без Private Network Access). Раньше пустой список у библиотеки означал «любой сайт».
+  - Компьютер повторно очищает конфиг, прочитанный с диска перед запуском ядра.
+- **Подпись обновлений (высокий риск).** Раньше приложение сверяло скачанный файл только с `SHA256SUMS` из того же релиза: кто мог опубликовать релиз (украденный токен, взломанный workflow или action), доставил бы свой код всем пользователям Windows и macOS. Теперь `release.yml` подписывает `SHA256SUMS.txt` (все файлы релиза) ключом релиза — тем же RSA-4096, которым подписан APK (`SHA256SUMS.txt.sig`, RSA-PKCS#1 v1.5 / SHA-256). Открытый ключ встроен в приложение (`lib/core/update/release_signature.dart`, проверка без сторонних библиотек), без верной подписи обновление не ставится. CI проверяет, что подписывает именно встроенный ключ. Файлы `SHA256SUMS-<платформа>.txt` остаются для версии 1.0.4.
+- **CI (высокий риск).**
+  - Боевые ключи подписи Android и Apple больше не попадают в сборки из веток: секреты передаются только при вызове из `release.yml` (`inputs.release`), сборки веток подписываются одноразовым debug-ключом. Раньше любая сборка ветки в публичном репозитории подписывала APK боевым ключом и выкладывала его в артефакты.
+  - Опубликованный релиз не перезаписывается: `release.yml` падает, если `v<версия>` уже есть.
+  - Права: сборки — `contents: read`, запись — только у шага публикации; `actions/checkout` без сохранения токена (`persist-credentials: false`).
+  - Сторонние и официальные actions закреплены по SHA коммита.
+  - Каждой платформе — только её секреты (без `secrets: inherit`); пароли ключа Android — только шагу сборки, а не всей задаче через `GITHUB_ENV`; keystore удаляется с раннера.
+  - `flutter pub get --enforce-lockfile`; SHA-256 ядра Mihomo для macOS закреплены в workflow, для Windows — в приложении (`MihomoPinnedCore.sha256Hex`), загрузка ядра без эталонного хеша отклоняется.
+- **Репозиторий.** Из git убраны собранные `.so` ядра (`android/app/src/main/jniLibs`, `native/android/build`, 110 МБ непроверяемых бинарников), сгенерированные файлы `ios/` (с локальным путём Windows) и устаревший `kago-core-fix.patch`. `.gitignore` закрывает ключи, сертификаты, `.env`, `dist/`. Сборка release без собранного ядра падает с понятной ошибкой.
+- **Зависимости Go** (`native/android`): `golang.org/x/net` 0.35 → 0.38, `x/crypto` 0.33 → 0.36 (исправления уязвимостей HTML-парсера и SSH).
+- **macOS, повышение прав (высокий риск).** Раньше копия Mihomo с владельцем `root:admin` и setuid-битом лежала в папке пользователя. Любая программа, запущенная от имени администратора Mac, могла запустить её с собственными `-d`/`-f` и записать любой файл от root (например, правило в `/etc/sudoers.d`) без пароля. Теперь:
+  - setuid только у маленькой обёртки `kago-tun` (`macos/helper/kago_tun.c`). Она игнорирует аргументы и окружение (`SAFE_PATHS`, `CLASH_*`, `-post-up`), запускает ядро только с фиксированной домашней папкой `/Library/Application Support/net.usekago.app/run` (владелец root, 0700) и принимает конфиг через stdin.
+  - Обёртка отклоняет конфиг с ключами, которые создают файлы или слушатели вне этой папки (`external-controller-unix/pipe/tls`, `external-ui`, `listeners`, `external-doh-server`), с `write-to-system` (системные часы), с YAML-тегами и с escape-последовательностями, которыми можно спрятать такой ключ. Файл конфига пишется с `O_NOFOLLOW`.
+  - Ядро и обёртка устанавливаются в папку, принадлежащую root. Скрипт установки копирует их туда и сверяет SHA-256 с файлами из приложения до того, как выдать владельца и права: подменённый тем временем файл отклоняется. Проверка установленных файлов идёт по их содержимому, а не по сохранённым настройкам.
+  - Старая setuid-копия в папке пользователя удаляется.
+  - Без TUN ядро работает от пользователя.
+  - Обёртка собирается в CI (universal) с самотестом, тест `macos_tun_helper_test.dart` проверяет, что конфиги приложения проходят проверку, а опасные — нет.
+  - Остановка «зависшего» ядра после сбоя проверяет не только pid, но и время запуска процесса.
+  - Остаётся: через REST API контроллера (с секретом) root-ядро может включить TUN-маршруты по другому конфигу; без Apple Developer ID нельзя проверить подпись приложения перед установкой.
+- Загрузка подписки (`SubscriptionRepository.fetch`, тест `subscription_fetch_test.dart`):
+  - Перенаправления проходят вручную: каждый адрес — только HTTPS (переход на HTTP отклоняется), не больше 5 переходов.
+  - Заголовки устройства (`x-hwid` и т. д.) уходят только на хост подписки, другому хосту — только User-Agent.
+  - Тело ограничено 10 МБ, YAML — 500 000 узлов (защита от «YAML-бомбы» из алиасов).
+  - Фильтры групп из подписки длиной больше 256 символов или с вложенными квантификаторами вроде `(a+)+` не выполняются (защита от зависания интерфейса, ReDoS).
+- Android:
+  - `dataExtractionRules` и `fullBackupContent="false"`: на Android 12+ профиль (пароли прокси, секрет контроллера), настройки и cookie сессии usekago.net не переносятся при переезде на новый телефон (`allowBackup=false` этого не запрещал).
+  - `flutter_deeplinking_enabled=false`: другие приложения не могут открыть экран приложения по маршруту.
+  - VPN-сервис: ядро останавливается всегда при уничтожении сервиса и при остановке, даже если его запускал предыдущий экземпляр. Запуск, завершившийся после `onDestroy`, сразу гасит ядро, иначе VPN оставался без сервиса и его нельзя было выключить из приложения.
+  - Кеш uid → пакет для правил PROCESS-NAME живёт 30 секунд (Android переиспользует uid удалённых приложений), общий uid нескольких пакетов не сопоставляется.
+  - Обновление передаётся только системному установщику (`setPackage`), а не любому приложению, объявившему себя установщиком APK.
+  - JNI: исключение после поиска `protect` очищается до следующих вызовов.
+- Адрес контроллера — только локальный `http://127.0.0.1:<порт>`: секрет больше нельзя отправить на удалённый хост. Старое сохранённое значение с другим хостом заменяется адресом по умолчанию.
+- Известное и не исправленное в коде:
+  - Защита репозитория на GitHub (ветка `main`, правила для тегов `v*`, Environment `release` с подтверждением) настраивается в настройках репозитория — см. README.
+  - Windows-установщик и macOS-приложение без сертификатов (Authenticode, Apple Developer ID) не подписаны; подлинность обновления из приложения проверяет подпись `SHA256SUMS.txt`.
+  - Локальный прокси `127.0.0.1:7890` на компьютере доступен любой программе пользователя — это нужно для системного прокси.
+  - Дистрибутив Gradle в `gradle-wrapper.properties` без `distributionSha256Sum` (хеш нельзя было получить из этой среды).
+  - `flutter_inappwebview` — бета 6.2.0-beta.3: перейти на стабильную 6.2.x, когда она выйдет.
+- Ядро Android (`native/android/core.go`) само запрещает `listeners`, `tunnels`, external-ui, DoH контроллера, установку времени, отладочный `pprof` без секрета и запуск без секрета — независимо от Dart. Текст ошибок для JNI очищается от неверного UTF-8 и символов вне BMP (раньше мог уронить приложение).
 
-These changes were written after the last full `flutter analyze` / `flutter test` run. The authoring sandbox has no Flutter SDK, so **none of them has been analyzed, unit-tested or run**; the patch was only checked to apply cleanly to the source archive. Run `flutter analyze` and `flutter test` first (new tests: `mihomo_core_updater_test`, `proxy_groups_test`, `connections_snapshot_test`, `ip_info_test`, `subscription_usage_test`, plus additions to the parser and widget tests), then test on a real Windows machine and an Android device.
+## 2026-10-06 — версия 1.0.4 (1.0.4+10004)
 
-### 2026-10-03 — core-off states (third change set)
+Сделано:
+- **Обновление прямо в приложении** (Android, Windows, macOS). Через несколько секунд после запуска и затем раз в 6 часов приложение проверяет последний релиз на GitHub. Если есть новая версия, появляется окно «Доступна версия …» с описанием изменений. «Обновить» скачивает файл с индикатором прогресса и устанавливает его. Проверить вручную: «Настройки → О приложении → Обновления».
+  - Android: открывается системная установка, приложение обновляется поверх. Один раз нужно разрешить KaGo VPN установку приложений.
+  - Windows: установщик работает в тихом режиме, KaGo VPN закрывается и открывается снова уже новой версии.
+  - macOS: приложение закрывается, заменяется новой версией из .dmg и запускается само. Если приложение запущено не из «Программ», открывается .dmg для ручной установки.
+  - Перед установкой проверяется контрольная сумма SHA-256 из того же релиза. Перед установкой на компьютере VPN отключается, системный прокси возвращается.
+- macOS: после обновления приложения пароль администратора для режима «Весь трафик через VPN» больше не спрашивается, если ядро не менялось.
 
-- **Servers tab with the core off:** shows the servers and groups of the saved profile (read from the active config; protocol per server, nested groups, `include-all`/`filter` groups) instead of a controller error. Which node is selected is unknown without the core, so none is highlighted; choosing a node and the latency test are disabled until connected, and the tab says so. The list switches to live controller data when the VPN turns on.
-- **Connections tab with the core off:** shows "no active connections" instead of an error and does not poll.
-- **Blue KAGO palette:** the UI moved from green to the colors of the KAGO logo (blue `#1A4780` and white). The exact logo blue is used for filled buttons, the connect button and the "K" brand mark; icons, selected states and indicators use a lighter tint of the same hue, because the logo blue itself is too dark to read on the dark surfaces. A unit test checks WCAG AA contrast (4.5:1) for all text/icon colors on all surfaces. **Not changed yet:** the Windows `app_icon.ico`, the Android launcher icons and any splash/notification colors still use the old artwork.
-- **Build fix:** the owner's first `flutter run -d windows` of this series failed with one compile error (`connections_screen.dart`: a `const` card containing a runtime value). Fixed; a scan of the other changed files found no further `const` problems. `flutter analyze` and `flutter test` are still not run.
-- **Dashboard "Ваш сервер" card with the core off:** shows the group name and server count instead of an error.
+Для разработчиков:
+- `lib/core/update/app_updater.dart` (проверка через GitHub API, запасной путь — редирект `github.com/…/releases/latest`), `lib/features/update/update_flow.dart` (диалог, `appUpdateProvider`), Android — `UpdateInstaller.kt` (`REQUEST_INSTALL_PACKAGES`, свой read-only ContentProvider вместо androidx FileProvider), Windows — запуск установщика из приложения с `/SILENT` перезапускает KaGo VPN (`Check: WizardSilent` в `kago_vpn.iss`), macOS — скрипт замены бандла с откатом при ошибке.
+- `release.yml` публикует первый раздел RELEASE_STATUS.md как описание релиза. Workflow зарегистрирован на ветке холостым запуском при изменении самого файла (ручной запуск через API без этого отвечал 404).
+- Копия ядра с правами root на macOS сверяется с ядром из приложения по SHA-256, а не по дате файла.
 
-### 2026-10-03 — audit fixes (second change set)
+Исправлено при выпуске:
+- Первая сборка 1.0.4 упала на Windows и macOS: виджет-тест главного экрана оставлял незавершённые таймеры проверки обновлений (на Linux проверка выключена, поэтому локально тест проходил). В тесте проверка обновлений подменена.
 
-Read-only audit of the Windows system proxy, process lifecycle, config generation and the core updater. Android `VpnService`/Go adapter and the share-link parsers were **not** re-audited in this pass. Fixed:
+Известные ограничения:
+- Обновление из приложения работает начиная с этой версии: 1.0.3 и старше нужно один раз обновить вручную.
+- Windows-установщик из приложения перезапускает KaGo VPN только начиная с 1.0.4 (условие в установщике новой версии).
+- Обновление на macOS не проверено на реальном Mac.
 
-- **UI stayed "connected" after the core crashed.** The proxy was already restored, so traffic went direct while the app showed protection. The process manager now emits unexpected exits and the UI switches to disconnected (`MihomoProcessManager.exits`).
-- **Closing the desktop window could leave `mihomo.exe` running** with the system proxy still set. The app now stops the core on exit (6 s limit). A core orphaned by a hard crash/kill is **not** yet detected at the next start (no stored PID): it can keep ports 7890/9090 busy and answer the controller with the old config. Open item below.
-- **Hostile subscription YAML could expose the proxy to the LAN.** The generated config now forces `allow-lan: false`, `bind-address: 127.0.0.1` and removes `listeners`, `tunnels`, `authentication`, `external-ui*`, `external-controller-tls/unix/pipe/cors`, `tls`; the same lock is re-applied at core start on desktop and Android.
-- **Update button reported plain success when GitHub was unreachable** and a core was already installed. It now says the update check failed and why.
+## 2026-10-06 — версия 1.0.3 (1.0.3+10003)
 
-### 2026-10-03
+Сделано:
+- **macOS: «Весь трафик через VPN» (TUN).** Раньше на Mac работал только системный прокси, а его используют не все приложения: Safari ходил через VPN, Telegram — нет. Теперь режим TUN включён по умолчанию, как во FlClashX.
+  - При первом подключении macOS один раз спрашивает пароль администратора.
+  - Копия встроенного ядра кладётся в `~/Library/Application Support/net.usekago.app/core/mihomo` с владельцем `root:admin` и правами `4750` (setuid). Запускать её могут только администраторы Mac.
+  - После обновления приложения с новым ядром пароль спрашивается снова.
+  - DNS включённых сетей на время подключения — `1.1.1.1`, `8.8.8.8`: запросы попадают в TUN, и на них отвечает Mihomo. При отключении DNS возвращаются прежние (или DHCP).
+  - Переключатель «Весь трафик через VPN» — в «Настройки → Подключение». Если отменить ввод пароля, режим выключается, и VPN работает через системный прокси, как раньше.
+  - Ядро, оставшееся после сбоя приложения, останавливается при следующем подключении.
+  - `dns.listen` из подписки удаляется на всех платформах: ядро с правами root не должно открывать DNS-сервер в локальную сеть.
+- **«Кабинет» обновляется сам каждые 5 секунд**, пока вкладка открыта и приложение на экране.
+  - Данные не мигают: во время обновления видны прежние.
+  - Сбой сети не заменяет страницу ошибкой.
+  - Если предыдущий запрос ещё идёт, следующий пропускается.
+- **В каждом релизе — `.apk`, `.exe` и `.dmg`.** Новый workflow `release.yml` собирает три платформы параллельно и публикует релиз, только когда готовы все три файла. Раньше платформы выкладывались по отдельности, и релиз мог остаться без одной из них. Платформенные workflow больше не публикуют релиз сами, проверку форматирования (`dart format`) теперь делают все.
+- **APK уменьшен со 132 до ~30 МБ.**
+  - В APK попадали ядро и библиотеки для x86_64 и armv7 (только ядро x86_64 — 56 МБ). Теперь их исключает `packaging.jniLibs.excludes`.
+  - Нативные библиотеки в APK сжаты (`useLegacyPackaging`): ядро — 53 → 18 МБ, Flutter — 12 → 5,5 МБ.
+  - Отладочные символы Dart вынесены из сборки (`--split-debug-info`, в CI — артефакт `…-symbols`).
+  - Убрана неиспользуемая зависимость `cupertino_icons`.
+  - CI собирает ядро только для arm64. Проверка в CI падает, если в APK снова попадут лишние архитектуры или несжатое ядро.
+- **Оптимизация работы.**
+  - Когда приложение свёрнуто или в фоне, не опрашиваются скорость (раз в секунду) и счётчики подписки. При возвращении они обновляются сразу, счётчики — не чаще раза в 30 секунд.
+  - Ядро на Android работает с мягким лимитом памяти 160 МБ: сборщик мусора не даёт куче разрастаться.
+  - После отключения VPN ядро на Android отдаёт память системе.
+  - Отладочные символы вынесены и в сборках Windows и macOS.
 
-- **IP status (dashboard):** new card showing the public IP, country/city and provider, with hide/show and refresh. Lookup order: `ipwho.is` → `api.ip.sb` → `api.ipify.org`. While the Windows/desktop core runs, the request goes through the local proxy (`127.0.0.1:7890`) so the VPN address is shown, not the real one; on Android the VPN already covers the app. Re-checked on VPN on/off, after switching the node and every 3 minutes. These third-party services see the request: **disclose in the privacy policy**.
-- **Subscription usage auto-refresh:** used/total traffic and expiry are re-read from the `subscription-userinfo` header (HEAD, then GET) at start, on VPN on/off, every minute while connected and every 5 minutes otherwise. Only the counters are stored; the saved profile config is not rewritten. Previously the numbers changed only on re-import. The panel itself may lag behind real usage.
-- **Settings redesign (FlClashX style):** grouped cards with icon rows (appearance, connection, core, diagnostics, about). Controller address and the Linux/macOS core path are edited in dialogs. Logs are available in a dialog at any time (also after a failed start) and can be copied.
-- **Windows core: SHA-256 verification extended.** The fallback download now reads the asset digest from the release page on github.com (best effort; the parser is tested only on hand-written samples, not on the live page). `MihomoPinnedCore.sha256Hex` can hold a compiled-in digest. The SHA-256 of the installed `mihomo.exe` is recorded and re-checked before use; a modified or corrupted file is re-downloaded. Installs from older builds are recorded on first use.
-- **Windows core: old versions are cleaned up.** After each check/install only the active version folder is kept; stale `.staging-*` folders are removed. A folder in use cannot be deleted on Windows and is retried on the next run.
-- **Display refresh rate / smoothness:** Android requests the highest refresh rate at the current resolution; Windows follows the monitor (Flutter default). Tab switches fade in, selection changes animate, the dashboard no longer rebuilds every second and the connections poll runs only while its tab is visible. Settings shows the detected refresh rate.
+Исправлено:
+- Windows-сборка 1.0.3 падала на проверке `dart format`: четыре файла не были отформатированы.
 
-### Earlier in this change series
+Известные ограничения:
+- APK больше места занимает после установки: Android один раз распаковывает сжатые библиотеки (~70 МБ).
+- TUN на macOS не проверен на реальном Mac: проверить Telegram, обычные сайты и восстановление DNS после отключения.
 
-- **Windows core location and fallback:** the core is installed to `%APPDATA%\KaGo\core\<version>\mihomo.exe` (created on demand) and fetched automatically at app start. If `api.github.com` is unreachable and no core is installed, the pinned `v1.19.32` `mihomo-windows-amd64-compatible` ZIP is downloaded directly from `github.com`. The manual core path was removed from Windows settings (a path saved by older builds is dropped); it remains only on Linux/macOS.
-- **Clear errors instead of raw `DioException`:** `MihomoCoreNetworkException` explains that GitHub is unreachable and no core is installed; missing-binary errors name their cause; a failed start now includes the last core log lines; the dashboard no longer shows a stale "controller unavailable" after the core starts.
-- **Servers tab (FlClashX style):** group tabs in config order (GLOBAL last), node cards with protocol and latency, group-wide delay test, sorting; the dashboard "Ваш сервер" card opens this tab and prefers the main group over GLOBAL.
-- **Share-link names** are percent-decoded (flags, Cyrillic). Subscriptions imported earlier keep the encoded names until re-imported.
-- **Live traffic:** upload/download speed and totals on the dashboard from `/connections`; the connections list refreshes automatically.
-- **Controller secret** is generated automatically and stored in secure storage; the Secret field was removed. A custom secret for a remote controller can no longer be entered.
+## 2026-10-06 — подпись Developer ID и нотаризация macOS в CI (версия 1.0.2)
 
-## Still required before a public release
+Сделано:
+- `macos-release.yml` умеет подписывать приложение сертификатом Apple Developer ID. Подпись идёт изнутри наружу: ядро, фреймворки, приложение, с Hardened Runtime и timestamp. Затем приложение и `.dmg` отправляются на нотаризацию (`notarytool`) и получают прикреплённый тикет (`stapler`). Проверка — `spctl`. Секреты: `KAGO_MACOS_CERT_P12_BASE64`, `KAGO_MACOS_CERT_PASSWORD`, `KAGO_APPLE_ID`, `KAGO_APPLE_TEAM_ID`, `KAGO_APPLE_APP_PASSWORD`. Инструкция — в README.
+- Без этих секретов сборка остаётся с ad-hoc подписью. При публикации релиза в журнале CI появляется предупреждение.
 
-00. **Orphaned core detection (Windows):** store the core PID at start and, at the next start, stop a leftover `mihomo.exe` from a crashed session (verify the image name first). Also redact subscription URLs/tokens from core logs before the "copy logs" action.
+Известные проблемы:
+- В релизе 1.0.2 `.dmg` подписан ad-hoc. macOS при первом запуске пишет «Apple не удалось подтвердить…». Открыть: «Конфиденциальность и безопасность → Всё равно открыть» или `xattr -dr com.apple.quarantine "/Applications/KaGo VPN.app"`. Нужен аккаунт Apple Developer Program ($99 в год). После добавления секретов достаточно перезапустить `release.yml`.
 
-0. **Verify the unverified changes above:** run `flutter analyze` and `flutter test`; on Windows check core auto-install into `%APPDATA%\KaGo\core` (also with `api.github.com` blocked), old-version cleanup, the IP card showing the VPN address while connected, usage refresh and the settings screens; on Android check the 90/120 Hz request and that the IP card shows the VPN address.
+## 2026-10-06 — версия 1.0.2 (1.0.2+10002)
 
-1. **Sign Android for installation/distribution.** The built AAB/APK are unsigned and therefore not installable/publishable as production artifacts. No product-owner upload key is present in this workspace. Sign locally with the owner's existing upload key, or generate a new one on the owner's machine and set `KAGO_ANDROID_KEYSTORE`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, and `KAGO_ANDROID_KEY_PASSWORD` only in that local environment. Do not use an agent-generated key for a long-lived app identity.
-2. **Run Android device tests:** VPN consent/revoke/reconnect, TUN attach, `protect()` callback, protocol traffic, DNS/IPv6, disconnect cleanup, and traffic-leak tests. Linux compilation and Go unit tests do not validate an Android device's VPN behavior.
-3. **Run the Windows release build on Windows/MSVC.** This Sandbox is Linux and cannot emit a native Flutter Windows release binary. Run `tool/build_windows_release.ps1` on Windows with Flutter and Visual Studio 2022 Desktop C++ workload. Test system proxy restoration after disconnect, core crash, app exit and reboot. A signing certificate/installer is not included.
-4. **Decide whether system-proxy mode satisfies the product.** Current Windows mode only routes programs honoring Windows Internet Settings. Full-device VPN requires additional Wintun integration, privilege/service lifecycle, and route/DNS/leak testing.
-5. **Choose the Android app update channel.** Mihomo `.so` is intentionally shipped in the signed APK/AAB. A newer upstream core is surfaced in Settings and must be bundled into a new app release through Play or another trusted store/update channel; no private store listing or publishing credentials are configured here.
-6. **Complete compliance and product setup:** Mihomo is GPL-3.0; review redistribution and corresponding-source notices against the app licensing model, and prepare privacy policy (including the public-IP lookups and subscription polling above), terms, support URL, Play listing, release keystore backup and Windows signing certificate.
-7. **Protocol and integration coverage:** the importer currently supports Clash/Mihomo YAML, base64 YAML and VLESS/VMess/Trojan/SS/Hysteria2/TUIC URI schemes. SSR and proprietary encrypted provider formats remain unsupported. Add regression tests/real provider samples before public rollout.
+Сделано:
+- **Подписка только через аккаунт KAGO.** Добавить подписку по ссылке больше нельзя: на главной убраны диалог ввода ссылки и кнопка «Добавить», в «Кабинете» гость видит только форму входа (вход через Telegram или email). Без подписки кнопка на главной — «Войти» (ведёт в «Кабинет»), с подпиской — «Обновить» (перезагружает сохранённую подписку). Подписка аккаунта подключается после входа, как раньше.
+- **macOS (.dmg).** Новый проект `macos/`: «KaGo VPN», `net.usekago.app`, иконка KAGO по сетке macOS, без App Sandbox, окно 1180×760.
+  - Ядро Mihomo `v1.19.32` встроено в бандл (`Contents/Resources/mihomo`, universal arm64 + x86_64) и обновляется вместе с приложением.
+  - Системный прокси macOS включается через `networksetup` на всех включённых сетях и выключается при отключении, закрытии и после сбоя (`MihomoMacosSystemProxy`). «Российские сайты — напрямую» доступно и на macOS.
+  - Защищённое хранилище на macOS работает через login keychain (`useDataProtectionKeyChain: false`): data-protection keychain требует Apple Developer team.
+  - CI `macos-release.yml`: проверка SHA-256 ядра, `lipo`, ad-hoc подпись, `.dmg`, публикация в общий релиз.
 
-## Reproducible build commands
+Известные ограничения:
+- macOS-сборка не подписана сертификатом Apple Developer и не нотаризована: при первом запуске нужно «Всё равно открыть» в настройках конфиденциальности. Для системного прокси нужна учётная запись администратора.
+- После обновления ad-hoc подписанного приложения macOS может один раз спросить доступ к связке ключей — выберите «Всегда разрешать».
 
-Windows PowerShell (Windows host only):
+Осталось:
+- Проверить на Mac: запуск, вход, подключение (IP меняется в браузере), отключение возвращает прокси.
+
+## 2026-10-06 — версия 1.0.1 (1.0.1+10001)
+
+Исправлено:
+- **Серый экран во вкладке «Кабинет».** Если запрос к usekago.net (`/auth/me`) завершался ошибкой, `AsyncValue.value` в Riverpod 2 выбрасывал её прямо при построении экрана, и релизная сборка показывала серый блок вместо вкладки. Теперь экраны читают `valueOrNull`: при ошибке сайта видна панель с текстом ошибки и кнопкой повтора. То же исправлено на главной: при неудачной проверке IP она тоже стала бы серой. Добавлен тест `test/account_screen_error_test.dart`.
+- Запросы к API сайта идут с User-Agent `KaGoVPN/<версия> (<система>)`, без префикса `mihomo/`. Он нужен только для формата подписки, а защита сайта могла отклонять такие запросы.
+
+Осталось:
+- Проверить установку 1.0.1 поверх 1.0.0 без удаления. Это первая проверка обновления поверх.
+
+## 2026-10-06 — релиз 1.0.0 (версия 1.0.0+10000)
+
+Сделано:
+- **Плитка в шторке Android «KaGo VPN»**, как во FlClashX (`KaGoTileService`): включает и выключает VPN без открытия приложения. Пока VPN подключается или подключён, плитка активна, подпись — «Подключено»/«Отключено». Без разрешения VPN или подготовленного профиля плитка открывает приложение. Профиль для Android теперь готовится сразу при загрузке подписки, поэтому плитка всегда запускает актуальный конфиг.
+- **Маршрутизация по приложениям из подписки (Android).** Правила `PROCESS-NAME` из конфига KAGO (российские приложения → DIRECT и т. п.) теперь работают. Ядро с тегом `cmfa` спрашивает приложение-владельца соединения через новый JNI-колбэк, а `KaGoVpnService.resolvePackage` отвечает через `ConnectivityManager.getConnectionOwnerUid` (Android 10+). Остальное: `find-process-mode` не ниже `strict`, разрешение `QUERY_ALL_PACKAGES` и правило R8 для метода. Ручной список «Приложения без VPN» нужен только для исключений.
+- **Главная компактнее и помещается без прокрутки.** Убраны «Контроллер Mihomo · версия», статус обновления ядра и строки состояния Android VPN (показывается только ошибка), подвал «Поддержка». Сервер и задержка — в одной карточке. Кнопка питания меньше, во время подключения на ней индикатор. Подписка, IP и трафик — плотнее.
+- **Версия 1.0.0+10000** и правило versionCode = X·10000 + Y·100 + Z (`test/version_test.dart`). Версия показана в «Настройки → О приложении».
+- **Публикация релиза:** тегом `v1.0.0` или ручным запуском workflow с `release=true` (тег создаёт GitHub Actions). Контрольные суммы — в `SHA256SUMS-Android.txt` и `SHA256SUMS-Windows.txt`, чтобы файлы платформ не затирали друг друга в одном релизе. Windows-релиз больше не помечается как пре-релиз.
+- **Обновление поверх старой версии.** Android-релиз — один APK для arm64 без `--split-per-abi`, где versionCode разный у разных APK. Подпись — постоянным ключом из секретов. Сборка по тегу `v*` без ключа завершается ошибкой, а тег должен совпадать с версией. Windows-установщик обновляет поверх (постоянный AppId).
+
+Важно:
+- Переход на 1.0.0 — последний раз, когда нужно удалить старую версию: все прежние сборки были подписаны одноразовыми ключами. Начиная с 1.0.0 обновления ставятся поверх.
+
+Осталось:
+- Проверить на телефоне плитку, правила для российских приложений (Яндекс Музыка, VK, банки идут напрямую) и установку следующей версии (1.0.1) поверх 1.0.0.
+
+## 2026-10-06 — исправлен запуск TUN на Android с полным конфигом панели (версия 0.1.0+1)
+
+Исправлено:
+- После перехода на User-Agent `mihomo/…` панель отдаёт свой шаблон Mihomo, где у TUN стек `gvisor` или `mixed`. Встроенное ядро собрано без gVisor (нет тега `with_gvisor`), поэтому подключение падало с ошибкой «Mihomo could not attach to the Android TUN descriptor: Start TUN listening error: gVisor is not included in this build». Теперь на Android всегда используется стек `system`: он задаётся в конфиге (`prepareAndroidTunnelConfig`) и в `KaGoVpnService`, а прежнее значение по умолчанию `mixed` убрано.
+
+Осталось:
+- Если шаблон панели использует правила GEOSITE/GEOIP, ядро при первом запуске скачивает гео-базы. Проверить, что подключение проходит.
+
+## 2026-10-06 — HWID как во FlClashX (версия 0.1.0+1)
+
+Сделано (по образцу `lib/utils/device_info_service.dart` и `lib/models/profile.dart` FlClashX):
+- **Android:** `x-hwid` — ANDROID_ID без изменений. Запасной вариант — `brand-device-hardware-buildId`. `x-device-model` — «производитель модель», `x-ver-os` — версия Android.
+- **Windows:** `x-hwid` — первые 16 hex-символов SHA-256 от MachineGuid в верхнем регистре, то же значение, что отправляет FlClashX на этом ПК. Запасной вариант — тот же хэш от `имяПК-SQMClient\MachineId-ProductId`. `x-ver-os` — `DisplayVersion` (например, 24H2), `x-device-model` — `ProductName`.
+- Заголовки ответа панели: при `x-hwid-max-devices-reached: true` показывается текст из `announce` (поддерживается `base64:`), при `x-hwid-not-supported: true` — сообщение. Подписка в этих случаях не сохраняется.
+
+Важно:
+- HWID изменился по сравнению с предыдущей сборкой (там был хэш с солью). У тех, кто уже загружал подписку из прошлой сборки, в «Кабинете» → «Устройства» может остаться старое устройство: его можно удалить. На Windows HWID теперь совпадает с HWID FlClashX, поэтому при переходе с FlClashX новое место в лимите не занимается.
+
+## 2026-10-06 — свой User-Agent (версия 0.1.0+1)
+
+Сделано:
+- Подписка (загрузка и обновление счётчика трафика) и API сайта запрашиваются с User-Agent `mihomo/1.19.32 KaGoVPN/0.1.0 (Android 14)` (на Windows — `(Windows 10.0.<сборка>)`) вместо `Dart/3.13 (dart:io)`. UA начинается с `mihomo`, поэтому правила Remnawave для клиентов Mihomo отдают полный конфиг панели с группами и правилами. В «Устройствах» на сайте клиент отображается как KaGoVPN с версией системы.
+- Версии в UA заданы константами `kagoAppVersion` и `kagoCoreVersion` (`lib/core/device/device_identity.dart`). `test/user_agent_test.dart` следит, чтобы они совпадали с `pubspec.yaml` и закреплённым ядром Windows.
+
+Осталось:
+- Проверить, что после обновления подписки список серверов и групп правильный. Если шаблон Mihomo в панели отличается от прежнего формата, список может измениться.
+
+## 2026-10-06 — имя пакета Android net.usekago.app (версия 0.1.0+1)
+
+Сделано:
+- Новое имя пакета Android `net.usekago.app` вместо `net.usekago.vpn`. Изменены `applicationId`, `namespace`, пакет Kotlin (`android/app/src/main/kotlin/net/usekago/app`), манифест, JNI-функции ядра (`Java_net_usekago_app_MihomoNativeCore_*`), имена каналов Flutter и `tool/bootstrap_android.ps1`.
+
+Важно:
+- Для Android это новое приложение: обновлением поверх старой версии `net.usekago.vpn` оно не встанет. Старую версию удалить вручную. Подписку и вход в «Кабинет» после установки нужно добавить заново.
+- HWID для подписки не меняется: ANDROID_ID зависит от ключа подписи, а не от имени пакета, поэтому новое место в лимите устройств не занимается.
+
+## 2026-10-06 — идентификатор устройства (HWID) для подписки (версия 0.1.0+1)
+
+Исправлено:
+- У части пользователей вместо серверов в подписке был один сервер «Приложение не поддерживается!». Панель Remnawave при включённом лимите устройств требует заголовок `x-hwid`, а приложение его не отправляло. Теперь при загрузке и обновлении подписки отправляются `x-hwid`, `x-device-os`, `x-ver-os` и `x-device-model`, как во FlClashX и Happ. HWID постоянный для устройства и не меняется при переустановке приложения, поэтому новое место в лимите не занимается. Его источник — ANDROID_ID на Android и MachineGuid на Windows; наружу уходит только хэш SHA-256 с солью приложения.
+- Если панель всё равно возвращает только серверы-заглушки (адрес 0.0.0.0 или 127.0.0.1: лимит устройств, неподдерживаемый клиент), профиль не сохраняется. Пользователь видит причину из ответа панели и подсказку проверить «Кабинет» → «Устройства».
+
+Осталось:
+- Пользователям со старой заглушкой обновить подписку. Если лимит устройств исчерпан, удалить лишнее устройство в «Кабинете».
+
+## 2026-10-06 — красивый вход через Telegram, простые настройки, 120 Гц (версия 0.1.0+1)
+
+Сделано:
+- **Вход через Telegram.** Вместо страницы сайта с баннером теперь экран KAGO: значки Telegram и KAGO, короткое пояснение, кнопка «Продолжить с Telegram» и статус «Подключаемся…» / «Входим в аккаунт…». Окно Telegram открывается на весь экран вместо диалога поверх сайта; «Назад» закрывает его. Кнопка «Продолжить с Telegram» на странице Telegram теперь открывает приложение Telegram (ссылки `tg://` и `intent://` передаются системе), поэтому номер телефона вводить не нужно. Сайт показывается, только если на нём не нашлась кнопка Telegram.
+- В карточке входа кнопка «Войти через Telegram» стоит первой, под ней — «или по email» и форма.
+- **Настройки упрощены.** Убраны «Частота экрана» и справочные строки: Secret, «Защита от утечек», «Локальный доступ», «Папка ядра», «Проверка и обновление» и т. п. Остались тема, язык, «Приложения без VPN» и «Блокировать интернет без VPN» (Android), «Российские сайты — напрямую» (Windows). Ядро, логи и адрес контроллера свёрнуты в «Дополнительно → Для опытных пользователей».
+
+Исправлено:
+- **Android: 60 Гц на экранах 120 Гц.** Режим экрана 120 Гц выбирался, но на адаптивных экранах (LTPO/VRR) система задаёт частоту по запросу каждой поверхности, а Flutter рисует в SurfaceView без такого запроса, поэтому получал 60 Гц. Теперь поверхность Flutter запрашивает максимальную частоту экрана (`Surface.setFrameRate`, Android 11+), а в окне задаётся `preferredRefreshRate` для оболочек MIUI/HyperOS и ColorOS.
+
+Осталось:
+- Проверить на телефоне частоту (например, «Показывать частоту обновления» в параметрах разработчика) и новый экран входа на Android и Windows.
+- Если в системе включён энергосберегающий режим, она может ограничивать частоту до 60 Гц: это настройка системы.
+
+## 2026-10-05 — исправлен перенос входа через Telegram (версия 0.1.0+1)
+
+Исправлено:
+- После подтверждения в Telegram сайт во встроенном окне открывал кабинет, но приложение писало «Не удалось перенести вход в приложение» (проверено на Android). Теперь приложение не копирует cookie WebView, а получает сессию само. До загрузки скриптов сайта в страницу встраивается перехватчик: запрос страницы `POST /auth/telegram` с `id_token` передаётся в приложение (JavaScript-обработчик, принимается только от usekago.net). Приложение выполняет этот запрос своим клиентом, как вход по паролю, проверяет его через `/auth/me` и закрывает окно. Ошибка сервера показывается и на странице, и в приложении.
+- Копирование cookie осталось запасным путём, если перехват не сработал. Теперь он делает три попытки с паузой, потому что WebView может сохранить cookie с задержкой.
+
+Осталось:
+- Проверить на Android и Windows.
+
+## 2026-10-05 — вход через Telegram в приложении (версия 0.1.0+1)
+
+Сделано:
+- **«Войти через Telegram»** в «Кабинете» (Android и Windows). Вход на сайте идёт через Telegram OIDC (`telegram-login.js` открывает `oauth.telegram.org` во всплывающем окне, сайт меняет `id_token` на httpOnly-cookie). Приложение открывает страницу входа usekago.net во встроенном WebView (`flutter_inappwebview`: Android WebView, Windows WebView2) с поддержкой всплывающих окон, само нажимает кнопку Telegram и, когда сайт переходит в `/my`, переносит cookie сессии в защищённое хранилище приложения и проверяет их запросом `/auth/me`. После входа подписка добавляется на устройство, как и при входе по паролю.
+- **«Привязать Telegram»** в карточке «Аккаунт», если Telegram не привязан: страница кабинета сайта открывается уже с сессией приложения.
+- При выходе из аккаунта сессия стирается и во встроенном WebView.
+
+Исправлено (сборка):
+- Android: `flutter_inappwebview` 6.1.x не собирался с AGP 9 (`proguard-android.txt` запрещён) — переход на `6.2.0-beta.3`, где это исправлено.
+- Windows: MSVC 14.51 превращает `<experimental/coroutine>` (C++/WinRT в плагине WebView2) в ошибку — в `windows/CMakeLists.txt` задан `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`.
+- Плагин WebView — бета-версия; при выходе стабильной 6.2 обновиться.
+
+Осталось:
+- Проверить на устройствах: окно Telegram, подтверждение входа, перенос сессии. На Windows нужен WebView2 Runtime (есть в Windows 10/11).
+- Если сайт ограничит cookie по пути или сменит класс кнопки `.tg-login-btn`, автонажатие перестанет срабатывать — кнопку можно нажать вручную.
+
+## 2026-10-05 — иконка KAGO (версия 0.1.0+1)
+
+Сделано:
+- Иконка приложения — логотип KAGO с usekago.net (глаз, `public/icon.svg` сайта), отрендерена из вектора во все размеры.
+- **Android:** `ic_launcher` (mdpi–xxxhdpi), адаптивная иконка (`mipmap-anydpi-v26`: фон `#0B0E18` + передний слой в безопасной зоне), монохромный слой для тематических значков Android 13+, значок уведомления VPN (вектор вместо системного замка), тёмный экран запуска с логотипом.
+- **Windows:** `app_icon.ico` (16–256 px) — окно, панель задач, ярлыки и установщик.
+- В интерфейсе буква «K» на главной и в боковой панели заменена логотипом (`assets/branding/kago_icon.png`).
+
+## 2026-10-05 — сборка и обновления для Windows (версия 0.1.0+1)
+
+Сделано:
+- **Сборка Windows в GitHub Actions** (`.github/workflows/windows-release.yml`, `windows-latest`, Flutter 3.47.5): `tool/build_windows_release.ps1` (формат, analyze, тесты, `flutter build windows --release`, ZIP) → установщик Inno Setup → артефакт `KaGoVPN-Windows-x64-Setup-<версия>.exe`, `KaGoVPN-Windows-x64-<версия>.zip`, `SHA256SUMS.txt`; по тегу `v*` — GitHub Release.
+- **Установщик** `windows/installer/kago_vpn.iss`: для текущего пользователя без прав администратора, русский и английский мастер, ярлыки в меню «Пуск» и (по желанию) на рабочем столе, деинсталлятор; перед установкой закрывает запущенное приложение.
+- **«Российские сайты — напрямую»** (Windows, Настройки → Подключение): в `ProxyOverride` добавляются `*.ru`, `*.su`, `*.рф`, домены Яндекса и VK вне `.ru`. Применяется сразу, если прокси KaGo активен. Аналог «Российские сервисы — мимо VPN» на Android.
+- Весь код отформатирован `dart format` — иначе проверка формата в `build_windows_release.ps1` падала.
+- На Windows работают все изменения этой серии: личный кабинет, языки, оформление сайта, оптимизации, защита конфига (входящие серверы из подписки запрещены).
+
+Проверено: `flutter analyze` — без замечаний, `flutter test` — 80 тестов. Сборка Windows проверяется в CI.
+
+Осталось:
+- Не проверено на реальной Windows: автоустановка ядра, системный прокси, кабинет, установщик.
+- Режим системного прокси: приложения, которые его не используют, идут мимо VPN (нужен TUN/Wintun). Иконка `app_icon.ico` — старая.
+- Установщик и `kago_vpn.exe` не подписаны: SmartScreen предупредит при первом запуске.
+
+## 2026-10-05 — раздельное туннелирование, падения, баннер входа (версия 0.1.0+1)
+
+Исправлено:
+- **Случайные падения приложения на Android.** Go-адаптер закрывал TUN-дескриптор второй раз после того, как его уже закрыл Mihomo (`listener.Cleanup`), а при неудачном запуске — дескриптор, который уже принадлежал sing-tun. Повторный `close` попадал в файл, получивший тот же номер (сокет, epoll Go-рантайма), и процесс падал позже в случайный момент. Теперь после передачи в Mihomo дескриптор закрывает только Mihomo; при ошибке запуска он закрывается, лишь если всё ещё указывает на наш TUN (сверка устройства и inode). Частично запущенное ядро при ошибке теперь полностью останавливается.
+- **Баннер «Вход» при подписке по ссылке.** Если подписка добавлена по ссылке и вход не выполнен, сначала показывается подписка, а форма входа свёрнута в одну строку «Войти в аккаунт KAGO» (раскрывается по нажатию).
+
+Сделано:
+- **Раздельное туннелирование (Android):** «Настройки → Подключение → Приложения и VPN». Режимы: все приложения через VPN / кроме выбранных / только выбранные; поиск; кнопка «Российские сервисы — мимо VPN» отмечает установленные Яндекс (Музыка, Поиск, Карты, Такси, Диск, Почта, Кинопоиск, Банк), VK (ВКонтакте, VK Видео, VK Мессенджер), Одноклассники, Mail.ru, Rutube, банки (Сбер, ВТБ, Т-Банк, Альфа, Райффайзен), Госуслуги, Ozon, Wildberries, Авито, операторов. Применяется через `addDisallowedApplication` / `addAllowedApplication` при следующем подключении. Список приложений — только с иконкой в лаунчере (через `<queries>`, без разрешения `QUERY_ALL_PACKAGES`).
+
+Осталось:
+- Проверить на устройстве, что падения прекратились; если нет — нужен logcat (`adb logcat -b crash`).
+- Изменения списка приложений применяются после переподключения VPN.
+
+## 2026-10-05 — документация на русском (версия 0.1.0+1)
+
+Сделано:
+- `README.md`, `RELEASE_STATUS.md`, `native/android/README.md`, `native/CORE_PIN.md` переведены на русский и обновлены под текущее состояние (кабинет, многоязычность, сборка в CI, безопасность). `CLAUDE.md` уже был на русском.
+- Файлы `.md` в `native/mihomo/` не переводились: это исходники Mihomo (upstream), их лучше держать без изменений.
+
+## 2026-10-05 — оптимизация (версия 0.1.0+1)
+
+Сделано:
+- **Контроллер:** secret Mihomo читается из защищённого хранилища один раз, а не при каждом запросе (опрос соединений раз в секунду делал два чтения DPAPI/Keystore в секунду).
+- **Проверка задержки:** 8 параллельных потоков вместо пачек по 6. Медленный узел (таймаут 5 с) больше не задерживает остальные, результат появляется сразу по готовности.
+- **Счётчики подписки:** запоминается метод (HEAD/GET), которым сервер отдаёт `subscription-userinfo`. Панель, отвечающая только на GET, не получает лишний HEAD каждую минуту; если сработавший метод перестал отдавать счётчики, пробуется второй.
+- **Ядро:** по умолчанию (если подписка не задала) `tcp-concurrent: true` — параллельное подключение ко всем IP хоста, и `unified-delay: true` — задержка без учёта рукопожатия, как во FlClash.
+- **Размер APK:** CI дополнительно собирает APK только для arm64 (почти все телефоны) — примерно вдвое меньше универсального; к артефакту приложен `SHA256SUMS.txt`. Нативное ядро собирается с `-trimpath -buildvcs=false`.
+
+Проверено: `flutter analyze` — без замечаний, `flutter test` — 78 тестов.
+
+Исправлено: первая сборка APK для arm64 падала — Gradle не допускает `ndk.abiFilters` вместе с `--split-per-abi`; теперь фильтр ABI задаётся только для универсальной сборки. У APK для arm64 код версии больше (Flutter добавляет 1000 × ABI), поэтому поверх него универсальный APK той же версии не установится — выберите один вариант.
+
+## 2026-10-05 — многоязычность: русский и английский (версия 0.1.0+1)
+
+Сделано:
+- Весь интерфейс, сообщения об ошибках и логи ядра переводятся через `tr()` (`lib/core/l10n`). Ключ — русский текст, английский перевод — `strings_en.dart` (370 строк); строки с подстановками используют `{имя}`.
+- Выбор языка в «Настройки → Внешний вид»: Авто / Русский / English, сохраняется. «Авто» берёт язык системы; для украинского, белорусского, казахского, киргизского и узбекского — русский, для остальных — английский.
+- Системные элементы Flutter (диалоги, страница лицензий) локализуются через `flutter_localizations`. Даты — «15 ноября 2099 г.» / «November 15, 2099».
+- Android: уведомления VPN-сервиса и ошибки запуска вынесены в ресурсы (`values` — английский, `values-ru` — русский); язык следует системе.
+- Тест `l10n_test`: у каждой строки интерфейса есть английский перевод с теми же подстановками.
+
+Осталось:
+- Ошибки, которые возвращает сервер usekago.net, приходят на русском и не переводятся.
+- Kotlin-часть в этой среде не компилировалась (нет Android SDK) — проверяется сборкой в CI.
+
+## 2026-10-05 — полноценный личный кабинет (версия 0.1.0+1)
+
+Сделано (по исходникам сайта и его `openapi.json`, API Remnashop `https://usekago.net/api/v1/public`):
+- **Вход и регистрация** по email и паролю; сессия — httpOnly-cookie сайта, хранится в защищённом хранилище; при 401 один раз вызывается `/auth/refresh` (как на сайте), при неудаче — выход. «Забыли пароль?» повторяет подсказки сайта.
+- **Подписка из аккаунта**: тариф, статус, «Активна до», пробный период, «Осталось» (∞ для 2099), «Устройств N / M», трафик с полосой лимита, предупреждение за 7 дней до конца.
+- **«Подключить это устройство»**: ссылка подписки из аккаунта импортируется в приложение и VPN запускается; после входа на новом устройстве подписка добавляется автоматически.
+- **Перевыпуск ключа** с подтверждением; если устройство использовало старую ссылку, новая импортируется сама.
+- **Устройства**: список, отключение одного и всех. **Промокод**. **Аккаунт**: статус email/Telegram, смена пароля, смена email с кодом, подтверждение email. **Реферальная программа**: счётчики, ссылка `usekago.net/ref/<код>` (после подтверждения почты).
+- Неактивная подписка: «Продлить» / «Выбрать тариф» открывают сайт (оплата идёт через платёжные шлюзы сайта).
+- Цвета взяты точно из `globals.css` сайта (светлая и тёмная темы); где цвет сайта ниже WCAG AA для текста, он немного затемнён.
+- Тесты клиента API на поддельном сервере: cookie, обновление сессии, выход при мёртвой сессии, ошибки FastAPI.
+
+Осталось:
+- Вход через Telegram (OIDC-виджет Telegram работает только в браузере) — в приложении нет; нужен вход по email/паролю.
+- Оплата/продление внутри приложения — открывается сайт.
+- Работа с реальным сервером не проверена из среды сборки (usekago.net недоступен): проверить вход на устройстве. Если сервер отвергает запросы не из браузера (проверка Origin/CSRF), понадобится правка на стороне бэкенда.
+
+## 2026-10-05 — оформление usekago.net и личный кабинет (версия 0.1.0+1)
+
+Сделано:
+- **Палитра сайта usekago.net** (`KaGoPalette`, `ThemeExtension`): светлая тема — фон `#EEF2F9`, белые карточки с тонкой рамкой и мягкой тенью, кнопки/ссылки `#2D5BD0`, тёмно-синяя карточка подписки с бирюзовым свечением; тёмная тема в тех же оттенках и вариант «чисто чёрный». Цвета взяты со скриншотов сайта (сам сайт из среды сборки недоступен), возможны небольшие расхождения оттенков.
+- **Переключатель темы** «Авто / Светлая / Тёмная» в настройках, выбор и OLED-режим сохраняются между запусками (раньше «чёрный фон» сбрасывался).
+- **Вкладка «Кабинет»** по образцу usekago.net/my: «Здравствуйте!», карточка подписки (статус Активна/Подключено/Истекла, срок «Активна до 15 ноября 2099 г.», плитки «Осталось» (∞ для бессрочных), «Использовано», «Трафик»/«Безлимит»), кнопки «Подключиться/Отключиться», «Скопировать ссылку», «Обновить данные», «Перевыпустить ключ». Карточки «Устройства и промокоды» и «Аккаунт» открывают сайт и Telegram-бота @KaGoVPNbot.
+- Тест контраста (WCAG AA) переписан на обе палитры; тесты срока и русской даты для кабинета. `flutter analyze` — без замечаний, `flutter test` — 69 тестов. Экраны проверены рендером в тестовом окружении (светлая/тёмная, 390×844).
+
+Осталось:
+- **Настоящий вход в аккаунт** (email/пароль, Telegram), список устройств, промокоды, рефералы и перевыпуск ключа внутри приложения требуют API usekago.net — его описания нет. Сейчас эти функции открывают сайт.
+- Иконки приложения (Windows `.ico`, Android launcher) по-прежнему старые.
+
+## 2026-10-05 — безопасность и анонимность (версия 0.1.0+1)
+
+Сделано:
+- **Android: закрыты локальные прокси-порты.** Весь трафик идёт через TUN, поэтому `mixed-port`/`port`/`socks-port`/`redir-port`/`tproxy-port` отключаются (в Dart-конфиге и повторно в Go-адаптере). Открытый порт на 127.0.0.1 — это прокси без пароля для любого приложения на телефоне: по нему можно обнаружить VPN и узнать адрес выхода.
+- **Входящие серверы из подписки запрещены** (Android и Windows): `tuic-server`, `ss-config`, `vmess-config` удаляются из конфига, в Go-адаптере дополнительно выключаются.
+- **Android: логи без истории посещений** — уровень `warning` (уровень `info` пишет каждый домен).
+- **Kill switch (Android):** в «Настройки → Безопасность» кнопка открывает системные настройки VPN, где включаются «Постоянная VPN» и «Блокировать соединения без VPN». Сам приложение их включить не может (ограничение Android).
+- Описание действующей защиты в настройках: DNS только через ядро (DoH, fake-ip), IPv6 мимо туннеля блокируется системой (IPv6-маршрут не задан), обход VPN приложениями не разрешён (`allowBypass` не вызывается).
+
+Проверено: `flutter analyze` — без замечаний; `flutter test` — 62 теста; `go test` и `go vet` (android, cmfa) адаптера проходят. На устройстве не проверено.
+
+Осталось:
+- Контроллер Mihomo на Android слушает `127.0.0.1:9090` (с secret). Порт виден другим приложениям; можно перенести на случайный порт.
+- Windows: режим системного прокси — приложения, не использующие прокси, и их DNS идут мимо VPN (нужен TUN/Wintun).
+
+## 2026-10-05 — Android: VPN подключён, но трафик не работает (версия 0.1.0+1)
+
+Исправлено:
+- **Ядро запускалось, но ничего не открывалось.** Если в подписке нет `dns.enable: true`, встроенный DNS Mihomo выключен. На Android это ломает всё: DNS-запросы из TUN получают SERVFAIL, а сам Mihomo не может разрешить имена серверов прокси (на Android нет `/etc/resolv.conf`). Теперь `prepareAndroidTunnelConfig` включает DNS, если подписка его не включает: `fake-ip` (198.18.0.1/16), DoH `1.1.1.1` / `8.8.8.8`, bootstrap `1.1.1.1`, `8.8.8.8`, IPv6 выкл. DNS, включённый в подписке, не трогается. Так же делают FlClash/CMFA.
+- Тесты: `mihomo_config_builder_test` — DNS добавляется и не перезаписывается. `flutter analyze` — без замечаний, `flutter test` — 61 тест проходит.
+
+Осталось:
+- Проверить на устройстве: открываются ли сайты, какой IP показывает карточка, вкладка «Трафик» (через какой прокси идут соединения).
+
+## 2026-10-05 — Android: ядро не подключалось к TUN (версия 0.1.0+1)
+
+Исправлено:
+- **«Mihomo could not attach to the Android TUN descriptor».** Ядро собиралось без build-тега `cmfa` (режим Mihomo для встраивания в Android-приложения). Без него при создании TUN Mihomo читает список пакетов `/data/system/packages.list`, недоступный обычному приложению, и TUN не создаётся. Скрипты `tool/build_android_native.sh` / `.ps1` теперь собирают с `-tags cmfa`. Тег также отключает поиск процесса по соединению и loopback-детектор и включает embed-режим контроллера (запрещены PUT/PATCH `/configs`, `/rules`, restart/upgrade — приложение их не использует).
+- В режиме `cmfa` Mihomo не знает системный DNS Android. DNS-серверы `system` в конфиге теперь идут на `1.1.1.1` и `8.8.8.8` (сокеты защищены `VpnService.protect`, мимо туннеля).
+- Если TUN всё же не поднимется, в ошибке теперь будет настоящая причина из лога ядра вместо «see core logs».
+- `kago_socket_protector_android.c`: добавлен `#include <stddef.h>` (NULL).
+
+Проверено: `go test` адаптера проходит; `go vet` для `GOOS=android` с тегом `cmfa` проходит (на заглушках заголовков, без NDK). Сборка с NDK — в CI, на устройстве ещё не проверено.
+
+## 2026-10-05 — Android: ядро не запускалось (версия 0.1.0+1)
+
+Исправлено:
+- **На Android ядро падало при старте** с ошибкой `initialize Mihomo home: can't create file config.yaml: open config.yaml: read-only file system`. Mihomo искал `config.yaml` по относительному пути в текущей папке процесса (`/`, только чтение). Теперь адаптер (`native/android/core.go`) передаёт абсолютный путь конфига (`SetConfig`) вместе с рабочей папкой.
+- Удалён устаревший дубликат `native/android/kago_mihomo_jni.cpp` (старая версия `kago_mihomo_jni_android.cpp` без `lastError`). Он ломал Go-тесты на хосте («C++ source files not allowed») и при сборке под Android давал бы дублирующиеся JNI-символы. Go-тесты адаптера теперь проходят.
+
+Сделано:
+- CI запускается и при изменениях в `native/android`, `native/mihomo` и `tool/build_android_native.sh` (раньше коммит только с нативным кодом сборку не запускал).
+- CI (`android-release.yml`) теперь пересобирает `libkago_mihomo_bridge.so` из исходников (Go 1.24 + NDK раннера) перед сборкой APK, вместо закоммиченных бинарников.
+
+Осталось:
+- Закоммиченные `android/app/src/main/jniLibs/*/libkago_mihomo_bridge.so` ещё старые (с ошибкой): здесь нет NDK. Локальная сборка без `tool/build_android_native.sh` даст APK со старым ядром; APK из CI — с новым.
+- Проверить на устройстве: старт ядра, трафик через VPN.
+
+## 2026-10-05 — сборка Android release APK (версия 0.1.0+1)
+
+Сделано:
+- Новый workflow `.github/workflows/android-release.yml` (GitHub Actions, Flutter 3.47.5, Java 17): `pub get` → `analyze` → `test` → `flutter build apk --release` (arm64-v8a, x86_64) → проверка подписи (`apksigner`) и наличия `libkago_mihomo_bridge.so` → артефакт `KaGoVPN-Android-<версия>-<release|debugsigned>.apk` + `.sha256`. Запуск: вручную (workflow_dispatch, после попадания файла в `main`), push в `claude/**`, `feat/**`, `fix/**`, тег `v*` (тег дополнительно создаёт GitHub Release).
+- Подпись: если заданы секреты `KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD` — ключом владельца. Иначе — одноразовым debug-ключом (`KAGO_ANDROID_DEBUG_SIGNING=true` в `android/app/build.gradle.kts`): APK устанавливается для тестов, но **не для публикации**, и следующая такая сборка не встанет поверх как обновление. Локальные сборки без этой переменной не изменились.
+- Нативное ядро в CI не пересобирается: используются закоммиченные `jniLibs` (Mihomo v1.19.32).
+
+Исправлено:
+- Предупреждение `flutter analyze` (неиспользуемый `dart:async` в `lib/app/root_shell.dart`), из-за которого CI падал бы.
+- Проверено в этой сессии (Linux, Flutter 3.47.5): `flutter analyze` — без замечаний; `flutter test` — все 59 тестов проходят. Это закрывает пункт «not analyzed / not tested» для изменений от 2026-10-03.
+
+Осталось:
+- Сам APK в этой сессии не собран: сетевая политика окружения блокирует `dl.google.com` (Android SDK). Сборка выполняется в GitHub Actions; результат первого запуска workflow ещё не проверен.
+- Добавить секреты ключа подписи в репозиторий для настоящего релиза; тесты на устройстве (см. ниже) по-прежнему нужны.
+
+## Реализовано и проверено ранее
+
+- **Обновление ядра Mihomo на Windows:** скачивается официальный стабильный ZIP Windows x64 compatible по HTTPS, проверяются digest/размер из релиза GitHub, распаковывается только ожидаемый исполняемый файл, проверяется его версия; установки по версиям, проверка не чаще раза в 12 часов, откат на последнюю рабочую версию.
+- **Режим подключения Windows:** запускается Mihomo, приложение ждёт локальный External Controller и включает обратимый системный прокси пользователя. Настройки восстанавливаются при отключении/выходе ядра; «зависший» прокси KaGo исправляется при следующем запуске. Это системный прокси, не полноценный TUN (Wintun): приложения, игнорирующие прокси Windows, не покрываются.
+- **Ядро Android:** исходники Mihomo закреплены на `v1.19.32`; Go/cgo-адаптер разбирает конфиг, подключается к копии TUN-дескриптора `VpnService`, ставит `VpnService.protect()` для исходящих сокетов и экспортирует функции через JNI. Сборка для `arm64-v8a` и `x86_64`, с тегом `cmfa`.
+- **Импорт подписки:** HTTPS-ссылка или буфер обмена; Clash/Mihomo YAML, YAML в base64 и ссылки VLESS/VMess/Trojan/Shadowsocks/Hysteria2/TUIC приводятся к профилю Mihomo.
+- **Качество:** `flutter analyze` без замечаний, все тесты Flutter проходят (78 на 2026-10-05), Go-тесты адаптера проходят.
+
+## 2026-10-03 — изменения, проверенные 2026-10-05
+
+Написаны без Flutter SDK; 2026-10-05 прошли `flutter analyze` и `flutter test` (Linux, Flutter 3.47.5). На реальных Windows и Android их ещё нужно проверить.
+
+### Состояния при выключенном ядре
+- **Вкладка «Серверы»** показывает серверы и группы сохранённого профиля (протокол, вложенные группы, `include-all`/`filter`) вместо ошибки контроллера. Выбранный узел без ядра неизвестен, поэтому не подсвечивается; выбор узла и проверка задержки доступны после подключения.
+- **Вкладка «Соединения»** показывает «нет активных соединений» и не опрашивает контроллер.
+- **Карточка «Ваш сервер»** показывает группу и число серверов вместо ошибки.
+- **Исправление сборки:** `const`-карточка с runtime-значением в `connections_screen.dart`.
+
+### Исправления по аудиту
+- **Интерфейс оставался «подключён» после падения ядра** — теперь менеджер процесса сообщает о неожиданном выходе, и интерфейс переключается в «отключено».
+- **Закрытие окна могло оставить `mihomo.exe` запущенным** с включённым прокси — теперь ядро останавливается при выходе (лимит 6 с). Ядро, «осиротевшее» после жёсткого падения, при следующем запуске ещё не обнаруживается (см. ниже).
+- **Враждебный YAML подписки мог открыть прокси в локальную сеть** — конфиг принудительно получает `allow-lan: false`, `bind-address: 127.0.0.1`, из него удаляются `listeners`, `tunnels`, `authentication`, `external-ui*`, `external-controller-tls/unix/pipe/cors`, `tls` (и, с 2026-10-05, `tuic-server`, `ss-config`, `vmess-config`).
+- **Кнопка обновления сообщала об успехе при недоступном GitHub** — теперь говорит, что проверка не удалась и почему.
+
+### Новые функции
+- **Карточка IP на главной:** публичный IP, страна/город, провайдер, скрыть/показать, обновить. Сервисы: `ipwho.is` → `api.ip.sb` → `api.ipify.org`. На Windows при работающем ядре запрос идёт через локальный прокси, чтобы показать адрес VPN. Обновляется при включении/выключении VPN, смене узла и раз в 3 минуты. Эти сервисы видят запрос — **указать в политике конфиденциальности**.
+- **Автообновление счётчиков подписки** из заголовка `subscription-userinfo`: при запуске, при включении/выключении VPN, раз в минуту при подключении и раз в 5 минут без него.
+- **Настройки в стиле FlClashX:** сгруппированные карточки; адрес контроллера и путь к ядру (Linux/macOS) — в диалогах; логи в диалоге с копированием.
+- **Windows: проверка SHA-256 расширена** — digest берётся со страницы релиза (если API недоступен), SHA-256 установленного `mihomo.exe` перепроверяется перед запуском; изменённый файл скачивается заново. Старые версии ядра удаляются.
+- **Плавность:** Android запрашивает максимальную частоту экрана; переключение вкладок анимировано; главная не перерисовывается каждую секунду; опрос соединений идёт только на видимой вкладке.
+
+### Ранее в этой серии
+- **Ядро Windows** ставится в `%APPDATA%\KaGo\core\<версия>\mihomo.exe` и скачивается автоматически при запуске. Если `api.github.com` недоступен и ядра нет, закреплённый ZIP `v1.19.32` скачивается напрямую с `github.com`. Поле «Путь к Mihomo» на Windows убрано.
+- **Понятные ошибки вместо `DioException`:** `MihomoCoreNetworkException` объясняет недоступность GitHub; при неудачном запуске показываются последние строки лога ядра.
+- **Вкладка «Серверы» в стиле FlClashX:** группы в порядке конфига (GLOBAL последней), карточки узлов с протоколом и задержкой, проверка задержки группы, сортировка; карточка «Ваш сервер» ведёт на эту вкладку.
+- **Имена из ссылок** декодируются из `%`-кодировки (флаги, кириллица).
+- **Живой трафик** на главной из `/connections`; список соединений обновляется сам.
+- **Secret контроллера** создаётся автоматически и хранится в защищённом хранилище; поле Secret убрано.
+
+## Обязательно до публичного релиза
+
+1. **Подпись Android.** Добавить в секреты репозитория ключ владельца (`KAGO_ANDROID_KEYSTORE_BASE64`, `KAGO_ANDROID_KEYSTORE_PASSWORD`, `KAGO_ANDROID_KEY_ALIAS`, `KAGO_ANDROID_KEY_PASSWORD`) или подписывать локально. Ключ, созданный агентом, для постоянной подписи приложения не использовать.
+2. **Тесты Android на устройстве:** разрешение/отзыв VPN, переподключение, TUN, `protect()`, трафик по протоколам, DNS/IPv6, очистка при отключении, утечки; вход в кабинет на реальном сервере usekago.net.
+3. **Сборка и проверка Windows** на Windows/MSVC: `tool/build_windows_release.ps1`, Visual Studio 2022 с «Desktop development with C++». Проверить автоустановку ядра в `%APPDATA%\KaGo\core` (в том числе при заблокированном `api.github.com`), восстановление прокси после отключения, падения ядра, выхода и перезагрузки. Сертификата подписи и установщика нет.
+4. **Обнаружение «осиротевшего» ядра (Windows):** сохранять PID ядра и при следующем запуске останавливать оставшийся `mihomo.exe` (сверив имя образа). Скрывать ссылки/токены подписки в логах перед копированием.
+5. **Решить, достаточно ли режима системного прокси на Windows.** Полный VPN требует Wintun, повышенных прав/службы и тестов маршрутов/DNS/утечек.
+6. **Канал обновлений Android.** Ядро `.so` поставляется внутри подписанного APK/AAB; новое ядро выходит только с новой версией приложения через Play или другой доверенный канал.
+7. **Юридическое и продуктовое:** Mihomo — GPL-3.0; проверить совместимость с лицензией приложения и уведомления об исходном коде; политика конфиденциальности (запросы IP, опрос подписки, API кабинета), условия, поддержка, страница в магазине, резервная копия ключа, сертификат подписи Windows.
+8. **Протоколы:** поддерживаются Clash/Mihomo YAML, YAML в base64 и VLESS/VMess/Trojan/SS/Hysteria2/TUIC. SSR и закрытые форматы провайдеров — нет. Перед выпуском добавить тесты на реальных подписках.
+
+## Команды сборки
+
+Android в GitHub Actions: push в ветку `claude/**`, `feat/**`, `fix/**` или тег `v*` — артефакты в разделе **Artifacts** запуска (универсальный APK, APK для arm64, `SHA256SUMS.txt`).
+
+Windows (PowerShell, только на Windows):
 
 ```powershell
 .\tool\build_windows_release.ps1
 ```
 
-Android PowerShell (Windows host with Android SDK/NDK + Go):
+Android (PowerShell на Windows с Android SDK/NDK и Go):
 
 ```powershell
 .\tool\build_android_release.ps1
 ```
 
-Android Linux/macOS/WSL:
+Android (Linux/macOS/WSL):
 
 ```bash
 export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
 ./tool/build_android_release.sh
 ```
 
-A build without local signing variables is unsigned. Do not distribute it as a production release. See [README.md](README.md) and [native/android/README.md](native/android/README.md).
+Сборка без локальных переменных подписи не подписана — не распространяйте её как релиз. Подробнее: [README.md](README.md) и [native/android/README.md](native/android/README.md).

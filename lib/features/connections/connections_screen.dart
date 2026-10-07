@@ -5,6 +5,7 @@ import '../../core/models/mihomo_models.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
+import '../../core/l10n/l10n.dart';
 
 class ConnectionsScreen extends ConsumerWidget {
   const ConnectionsScreen({super.key});
@@ -25,15 +26,15 @@ class ConnectionsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
           children: <Widget>[
             Row(children: <Widget>[
-              const Expanded(child: SectionTitle('Соединения')),
+              Expanded(child: SectionTitle(tr('Соединения'))),
               IconButton(
                   onPressed: () => ref.invalidate(connectionsSnapshotProvider),
                   icon: const Icon(Icons.refresh_rounded))
             ]),
             const SizedBox(height: 5),
-            const Text(
-                'Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.',
-                style: TextStyle(color: KaGoColors.muted, fontSize: 13)),
+            Text(
+                tr('Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.'),
+                style: TextStyle(color: context.kago.muted, fontSize: 13)),
             const SizedBox(height: 18),
             // With the core off there is nothing to ask: show "no connections"
             // instead of a controller error, and do not poll.
@@ -42,64 +43,71 @@ class ConnectionsScreen extends ConsumerWidget {
                     : const AsyncValue<ConnectionsSnapshot>.data(
                         ConnectionsSnapshot(connections: <ActiveConnection>[])))
                 .when(
-                  loading: () => const LoadingPanel(),
-                  error: (error, _) => ErrorPanel(
-                      message: 'Контроллер недоступен: $error',
-                      onRetry: () => ref.invalidate(connectionsSnapshotProvider)),
-                  data: (snapshot) => snapshot.connections.isEmpty
-                      ? SurfaceCard(
-                          child: Row(children: <Widget>[
-                          const Icon(Icons.check_circle_outline,
-                              color: KaGoColors.accent),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: Text(
-                                  online
-                                      ? 'Активных соединений нет.'
-                                      : 'Ядро выключено — активных соединений нет.',
-                                  style:
-                                      const TextStyle(color: KaGoColors.muted)))
-                        ]))
-                      : Column(children: <Widget>[
-                          Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                  onPressed: () async {
-                                    try {
-                                      await ref
-                                          .read(mihomoControllerProvider)
-                                          .closeAllConnections();
-                                    } catch (error) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(SnackBar(
-                                                content:
-                                                    Text('Ошибка: $error')));
-                                      }
-                                    }
-                                  },
-                                  icon: const Icon(Icons.close_rounded),
-                                  label: const Text('Закрыть все'))),
-                          ...snapshot.connections.map((item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _ConnectionTile(
-                                  item: item,
-                                  onClose: () async {
-                                    try {
-                                      await ref
-                                          .read(mihomoControllerProvider)
-                                          .closeConnection(item.id);
-                                    } catch (error) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(SnackBar(
-                                                content:
-                                                    Text('Ошибка: $error')));
-                                      }
-                                    }
-                                  }))),
-                        ]),
-                ),
+              loading: () => const LoadingPanel(),
+              error: (error, _) => ErrorPanel(
+                  message: tr('Контроллер недоступен: {error}',
+                      <String, Object?>{'error': error}),
+                  onRetry: () => ref.invalidate(connectionsSnapshotProvider)),
+              data: (snapshot) => snapshot.connections.isEmpty
+                  ? SurfaceCard(
+                      child: Row(children: <Widget>[
+                      Icon(Icons.check_circle_outline,
+                          color: context.kago.accent),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Text(
+                              online
+                                  ? tr('Активных соединений нет.')
+                                  : tr(
+                                      'Ядро выключено — активных соединений нет.'),
+                              style: TextStyle(color: context.kago.muted)))
+                    ]))
+                  : Column(children: <Widget>[
+                      Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                              onPressed: () async {
+                                try {
+                                  await ref
+                                      .read(mihomoControllerProvider)
+                                      .closeAllConnections();
+                                } catch (error) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(tr(
+                                                'Ошибка: {error}',
+                                                <String, Object?>{
+                                          'error': error
+                                        }))));
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.close_rounded),
+                              label: Text(tr('Закрыть все')))),
+                      ...snapshot.connections.map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _ConnectionTile(
+                              item: item,
+                              onClose: () async {
+                                try {
+                                  await ref
+                                      .read(mihomoControllerProvider)
+                                      .closeConnection(item.id);
+                                } catch (error) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(tr(
+                                                'Ошибка: {error}',
+                                                <String, Object?>{
+                                          'error': error
+                                        }))));
+                                  }
+                                }
+                              }))),
+                    ]),
+            ),
           ]);
 }
 
@@ -112,7 +120,7 @@ class _ConnectionTile extends StatelessWidget {
           child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-            const Icon(Icons.language_rounded, color: KaGoColors.accent),
+            Icon(Icons.language_rounded, color: context.kago.accent),
             const SizedBox(width: 12),
             Expanded(
                 child: Column(
@@ -122,22 +130,22 @@ class _ConnectionTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text('${item.destination} · ${item.network} · ${item.rule}',
-                      style: const TextStyle(
-                          fontSize: 11, color: KaGoColors.muted)),
+                      style:
+                          TextStyle(fontSize: 11, color: context.kago.muted)),
                   if (item.chain.isNotEmpty)
                     Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Text(item.chain,
-                            style: const TextStyle(
-                                fontSize: 11, color: KaGoColors.accentSoft))),
+                            style: TextStyle(
+                                fontSize: 11, color: context.kago.accent))),
                   const SizedBox(height: 7),
                   Text(
                       '↓ ${formatBytes(item.download)}    ↑ ${formatBytes(item.upload)}',
-                      style: const TextStyle(
-                          fontSize: 11, color: KaGoColors.muted)),
+                      style:
+                          TextStyle(fontSize: 11, color: context.kago.muted)),
                 ])),
             IconButton(
-                tooltip: 'Закрыть соединение',
+                tooltip: tr('Закрыть соединение'),
                 onPressed: onClose,
                 icon: const Icon(Icons.close, size: 18)),
           ]));

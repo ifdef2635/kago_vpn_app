@@ -3,50 +3,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/device/device_identity.dart';
 import '../../core/network/app_providers.dart';
+import '../../core/network/mihomo_macos.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
+import '../../core/network/mihomo_windows_system_proxy.dart';
 import '../../core/theme/app_widgets.dart';
+import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
-
-/// Refresh rate Flutter currently renders at ("144 Гц"). Updates when the window
-/// moves to another monitor or the display mode changes.
-class _RefreshRateLabel extends StatefulWidget {
-  const _RefreshRateLabel();
-
-  @override
-  State<_RefreshRateLabel> createState() => _RefreshRateLabelState();
-}
-
-class _RefreshRateLabelState extends State<_RefreshRateLabel>
-    with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeMetrics() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hz = View.of(context).display.refreshRate;
-    return Text(
-        hz > 0
-            ? '${hz.round()} Гц · анимации и прокрутка на полной частоте'
-            : 'Частота экрана не определена',
-        style: const TextStyle(fontSize: 12, color: KaGoColors.muted));
-  }
-}
+import '../../core/update/app_updater.dart';
+import '../update/update_flow.dart';
+import 'app_routing_screen.dart';
+import '../../core/l10n/l10n.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -58,11 +29,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _endpoint = 'http://127.0.0.1:9090';
   String _binary = '';
   bool _coreUpdating = false;
-  String _windowsCoreStatus = 'Проверяется…';
+  String _windowsCoreStatus = tr('Проверяется…');
+  bool _bypassRussian = false;
+  bool _macTun = true;
+
+  /// Technical rows (core, logs, controller) stay folded away by default.
+  bool _advanced = false;
 
   @override
   void initState() {
     super.initState();
+    if (Platform.isWindows || Platform.isMacOS) {
+      SharedPreferences.getInstance().then((prefs) {
+        if (!mounted) return;
+        setState(() {
+          _bypassRussian =
+              prefs.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ?? false;
+          _macTun = prefs.getBool(MihomoMacosCore.tunKey) ?? true;
+        });
+      }).catchError((Object _) {});
+    }
     final manager = ref.read(mihomoProcessProvider);
     ref.read(mihomoControllerProvider).endpoint.then((value) async {
       final binary = await manager.executable;
@@ -72,8 +58,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _endpoint = value;
         _binary = binary ?? '';
         _windowsCoreStatus = core == null
-            ? 'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.'
-            : 'Установлен Mihomo ${core.version}.';
+            ? tr(
+                'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.')
+            : tr('Установлен Mihomo {version}.',
+                <String, Object?>{'version': core.version});
       });
     }).catchError((Object _) {});
   }
@@ -81,80 +69,198 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final coreRunning = ref.watch(desktopCoreRunningProvider);
-    final pureBlack = ref.watch(pureBlackProvider);
+    final appearance = ref.watch(appearanceProvider);
     final androidUpdate =
         Platform.isAndroid ? ref.watch(androidCoreUpdateStatusProvider) : null;
     return ListView(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
         children: <Widget>[
-          const SectionTitle('Настройки'),
+          SectionTitle(tr('Настройки')),
           const SizedBox(height: 18),
-          _SettingsGroup(title: 'Внешний вид', children: <Widget>[
+          _SettingsGroup(title: tr('Внешний вид'), children: <Widget>[
             _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Чисто чёрный фон',
-                subtitle: 'Для OLED-дисплеев',
-                trailing: Switch(
-                    value: pureBlack,
-                    activeThumbColor: KaGoColors.accent,
-                    onChanged: (value) =>
-                        ref.read(pureBlackProvider.notifier).state = value),
-                onTap: () =>
-                    ref.read(pureBlackProvider.notifier).state = !pureBlack),
-            const _SettingsTile(
-                icon: Icons.speed_rounded,
-                title: 'Частота экрана',
-                subtitleWidget: _RefreshRateLabel()),
-          ]),
-          _SettingsGroup(title: 'Подключение', children: <Widget>[
+                icon: Icons.contrast_rounded,
+                title: tr('Тема'),
+                subtitleWidget: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SegmentedButton<ThemeMode>(
+                    showSelectedIcon: false,
+                    segments: <ButtonSegment<ThemeMode>>[
+                      ButtonSegment(
+                          value: ThemeMode.system, label: Text(tr('Авто'))),
+                      ButtonSegment(
+                          value: ThemeMode.light, label: Text(tr('Светлая'))),
+                      ButtonSegment(
+                          value: ThemeMode.dark, label: Text(tr('Тёмная'))),
+                    ],
+                    selected: <ThemeMode>{appearance.mode},
+                    onSelectionChanged: (value) => ref
+                        .read(appearanceProvider.notifier)
+                        .setMode(value.first),
+                  ),
+                )),
             _SettingsTile(
-                icon: Icons.hub_outlined,
-                title: 'Адрес контроллера',
-                subtitle: _endpoint,
-                onTap: _editEndpoint),
-            const _SettingsTile(
-                icon: Icons.vpn_key_outlined,
-                title: 'Secret контроллера',
-                subtitle:
-                    'Создаётся автоматически и хранится в защищённом хранилище'),
-            if (Platform.isWindows)
-              const _SettingsTile(
-                  icon: Icons.lan_outlined,
-                  title: 'Режим подключения',
-                  subtitle:
-                      'Системный прокси Windows (127.0.0.1:7890). Работают приложения, которые используют его; это не полноценный TUN.'),
-            if (!Platform.isAndroid && !Platform.isWindows)
+                icon: Icons.translate_rounded,
+                title: tr('Язык'),
+                subtitleWidget: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    segments: <ButtonSegment<String>>[
+                      ButtonSegment(value: 'system', label: Text(tr('Авто'))),
+                      const ButtonSegment(value: 'ru', label: Text('Русский')),
+                      const ButtonSegment(value: 'en', label: Text('English')),
+                    ],
+                    selected: <String>{appearance.language},
+                    onSelectionChanged: (value) => ref
+                        .read(appearanceProvider.notifier)
+                        .setLanguage(value.first),
+                  ),
+                )),
+            if (appearance.mode != ThemeMode.light)
               _SettingsTile(
-                  icon: Icons.terminal_rounded,
-                  title: 'Путь к Mihomo',
-                  subtitle: _binary.isEmpty
-                      ? 'Не задан. Укажите путь к бинарнику Mihomo.'
-                      : _binary,
-                  onTap: _editBinary),
+                  icon: Icons.dark_mode_outlined,
+                  title: tr('Чисто чёрный фон'),
+                  subtitle: tr('Тёмная тема для OLED-дисплеев'),
+                  trailing: Switch(
+                      value: appearance.pureBlack,
+                      onChanged: (value) => ref
+                          .read(appearanceProvider.notifier)
+                          .setPureBlack(value)),
+                  onTap: () => ref
+                      .read(appearanceProvider.notifier)
+                      .setPureBlack(!appearance.pureBlack)),
           ]),
           _SettingsGroup(
-              title: 'Ядро Mihomo',
-              children: _coreTiles(coreRunning, androidUpdate)),
-          _SettingsGroup(title: 'Диагностика', children: <Widget>[
+              title: tr('Подключение'), children: _connectionTiles()),
+          _SettingsGroup(title: tr('Дополнительно'), children: <Widget>[
             _SettingsTile(
-                icon: Icons.receipt_long_outlined,
-                title: 'Логи Mihomo',
-                subtitle: 'Последние строки лога ядра и загрузки',
-                onTap: _showLogs),
+                icon: Icons.build_outlined,
+                title: tr('Для опытных пользователей'),
+                subtitle: tr('Ядро, логи и адрес контроллера'),
+                trailing: AnimatedRotation(
+                    turns: _advanced ? .5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.expand_more_rounded,
+                        color: context.kago.muted)),
+                onTap: () => setState(() => _advanced = !_advanced)),
+            if (_advanced) ...<Widget>[
+              ..._coreTiles(coreRunning, androidUpdate),
+              _SettingsTile(
+                  icon: Icons.receipt_long_outlined,
+                  title: tr('Логи Mihomo'),
+                  onTap: _showLogs),
+              _SettingsTile(
+                  icon: Icons.hub_outlined,
+                  title: tr('Адрес контроллера'),
+                  subtitle: _endpoint,
+                  onTap: _editEndpoint),
+              if (Platform.isLinux)
+                _SettingsTile(
+                    icon: Icons.terminal_rounded,
+                    title: tr('Путь к Mihomo'),
+                    subtitle: _binary.isEmpty
+                        ? tr('Не задан. Укажите путь к бинарнику Mihomo.')
+                        : _binary,
+                    onTap: _editBinary),
+            ],
           ]),
-          _SettingsGroup(title: 'О приложении', children: <Widget>[
-            const _SettingsTile(
-                icon: Icons.info_outline_rounded,
-                title: 'Версия и сайт',
-                subtitle: 'KaGo VPN · usekago.net · клиент на ядре Mihomo'),
+          _SettingsGroup(title: tr('О приложении'), children: <Widget>[
+            if (AppUpdater.supported) _updateTile(),
+            _SettingsTile(
+                icon: Icons.language_rounded,
+                title: 'KaGo VPN',
+                subtitle: tr('Версия {version} · usekago.net',
+                    <String, Object?>{'version': kagoAppVersion}),
+                trailing: Icon(Icons.open_in_new_rounded,
+                    size: 20, color: context.kago.muted),
+                onTap: () => launchUrl(Uri.parse('https://usekago.net'),
+                    mode: LaunchMode.externalApplication)),
             _SettingsTile(
                 icon: Icons.description_outlined,
-                title: 'Лицензии',
-                subtitle: 'Mihomo распространяется под GPL-3.0',
+                title: tr('Лицензии'),
                 onTap: () => showLicensePage(
                     context: context, applicationName: 'KaGo VPN')),
           ]),
         ]);
+  }
+
+  Widget _updateTile() {
+    final update = ref.watch(appUpdateProvider);
+    final release = update.valueOrNull;
+    return _SettingsTile(
+        icon: Icons.system_update_rounded,
+        title: tr('Обновления'),
+        subtitle: update.isLoading
+            ? tr('Проверка…')
+            : release != null
+                ? tr('Доступна версия {version} — нажмите, чтобы обновить',
+                    <String, Object?>{'version': release.version})
+                : update.hasError
+                    ? tr('Не удалось проверить. Нажмите, чтобы повторить.')
+                    : tr('Установлена последняя версия'),
+        trailing: release != null
+            ? Icon(Icons.download_rounded, color: context.kago.accent)
+            : null,
+        onTap: release != null
+            ? () => showUpdateDialog(context, release)
+            : () => ref.invalidate(appUpdateProvider));
+  }
+
+  List<Widget> _connectionTiles() => <Widget>[
+        if (Platform.isAndroid) ...<Widget>[
+          _SettingsTile(
+              icon: Icons.apps_rounded,
+              title: tr('Приложения без VPN'),
+              subtitle: tr('Например, Яндекс Музыка, VK и банки'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const AppRoutingScreen()))),
+          _SettingsTile(
+              icon: Icons.shield_outlined,
+              title: tr('Блокировать интернет без VPN'),
+              subtitle: tr('Включается в системных настройках VPN'),
+              trailing: Icon(Icons.open_in_new_rounded,
+                  size: 20, color: context.kago.muted),
+              onTap: _openVpnSettings),
+        ],
+        if (Platform.isMacOS)
+          _SettingsTile(
+              icon: Icons.vpn_lock_rounded,
+              title: tr('Весь трафик через VPN'),
+              subtitle: tr(
+                  'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.'),
+              trailing: Switch(value: _macTun, onChanged: _setMacTun),
+              onTap: () => _setMacTun(!_macTun)),
+        if (Platform.isWindows || Platform.isMacOS)
+          _SettingsTile(
+              icon: Icons.alt_route_rounded,
+              title: tr('Российские сайты — напрямую'),
+              subtitle: tr('Яндекс, VK, банки и Госуслуги — без VPN'),
+              trailing:
+                  Switch(value: _bypassRussian, onChanged: _setBypassRussian),
+              onTap: () => _setBypassRussian(!_bypassRussian)),
+        if (Platform.isLinux)
+          _SettingsTile(
+              icon: Icons.lan_outlined,
+              title: tr('Режим подключения'),
+              subtitle: tr('Системный прокси 127.0.0.1:7890')),
+      ];
+
+  Future<void> _openVpnSettings() async {
+    var opened = false;
+    try {
+      opened = await const MethodChannel('net.usekago.app/service')
+              .invokeMethod<bool>('openVpnSettings') ??
+          false;
+    } on MissingPluginException {
+      opened = false;
+    } on PlatformException {
+      opened = false;
+    }
+    if (!opened) {
+      _snack(tr(
+          'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».'));
+    }
   }
 
   List<Widget> _coreTiles(bool coreRunning, AsyncValue<String>? androidUpdate) {
@@ -164,7 +270,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             icon: Icons.memory_rounded,
             title: 'Mihomo · Windows x64',
             subtitle: coreRunning
-                ? '$_windowsCoreStatus Остановите ядро, чтобы обновить.'
+                ? tr('{windowsCoreStatus} Остановите ядро, чтобы обновить.',
+                    <String, Object?>{'windowsCoreStatus': _windowsCoreStatus})
                 : _windowsCoreStatus,
             trailing: _coreUpdating
                 ? const SizedBox(
@@ -172,53 +279,81 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : Icon(Icons.system_update_alt_rounded,
-                    color: coreRunning ? KaGoColors.muted : KaGoColors.accent),
+                    color:
+                        coreRunning ? context.kago.muted : context.kago.accent),
             onTap: _coreUpdating || coreRunning ? null : _checkWindowsCore),
-        _SettingsTile(
-            icon: Icons.folder_outlined,
-            title: 'Папка ядра',
-            subtitle: r'%APPDATA%\KaGo\core · нажмите, чтобы скопировать путь',
-            onTap: () async {
-              await Clipboard.setData(
-                  const ClipboardData(text: r'%APPDATA%\KaGo\core'));
-              _snack('Путь скопирован.');
-            }),
-        const _SettingsTile(
-            icon: Icons.verified_user_outlined,
-            title: 'Проверка и обновление',
-            subtitle:
-                'Автозагрузка с GitHub, проверка SHA-256 при установке и перед запуском, старые версии удаляются автоматически.'),
       ];
     }
     if (Platform.isAndroid) {
       final status = androidUpdate?.when(
               data: (value) => value,
-              loading: () => 'Проверка версии встроенного Mihomo…',
-              error: (error, _) =>
-                  'Не удалось проверить upstream release: $error') ??
+              loading: () => tr('Проверка версии встроенного Mihomo…'),
+              error: (error, _) => tr(
+                  'Не удалось проверить upstream release: {error}',
+                  <String, Object?>{'error': error})) ??
           '';
       return <Widget>[
         _SettingsTile(
             icon: Icons.memory_rounded,
             title: 'Mihomo · Android',
             subtitle: status,
-            trailing:
-                const Icon(Icons.refresh_rounded, color: KaGoColors.accent),
+            trailing: Icon(Icons.refresh_rounded, color: context.kago.accent),
             onTap: () => ref.invalidate(androidCoreUpdateStatusProvider)),
-        const _SettingsTile(
-            icon: Icons.verified_user_outlined,
-            title: 'Обновление ядра',
-            subtitle:
-                'Ядро поставляется внутри подписанного APK/AAB и обновляется вместе с приложением; удалённая подмена .so отключена.'),
       ];
     }
-    return const <Widget>[
+    if (Platform.isMacOS) {
+      return <Widget>[
+        _SettingsTile(
+            icon: Icons.memory_rounded,
+            title: 'Mihomo · macOS',
+            subtitle: tr(
+                'Встроено в приложение: {version}. Обновляется вместе с KaGo VPN.',
+                <String, Object?>{'version': MihomoPinnedCore.version})),
+      ];
+    }
+    return <Widget>[
       _SettingsTile(
           icon: Icons.memory_rounded,
-          title: 'Mihomo · внешний бинарник',
-          subtitle:
-              'На Linux/macOS пока нужен внешний Mihomo. Встроенное автообновление поддерживает Windows x64.'),
+          title: tr('Mihomo · внешний бинарник'),
+          subtitle: tr(
+              'На Linux пока нужен внешний Mihomo. Встроенное ядро есть в версиях для Windows, macOS и Android.')),
     ];
+  }
+
+  Future<void> _setBypassRussian(bool value) async {
+    setState(() => _bypassRussian = value);
+    try {
+      if (Platform.isMacOS) {
+        await MihomoMacosSystemProxy().setBypassRussian(value);
+      } else {
+        await MihomoWindowsSystemProxy().setBypassRussian(value);
+      }
+    } catch (error) {
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+    }
+  }
+
+  Future<void> _setMacTun(bool value) async {
+    setState(() => _macTun = value);
+    try {
+      await MihomoMacosCore.setTunEnabled(value);
+      if (value && await MihomoMacosCore.authorizedHelper() == null) {
+        final error = await MihomoMacosCore.authorize();
+        if (error != null) {
+          await MihomoMacosCore.setTunEnabled(false);
+          if (mounted) setState(() => _macTun = false);
+          _snack(tr('Не включено: {error}', <String, Object?>{'error': error}));
+          return;
+        }
+      }
+      if (ref.read(desktopCoreRunningProvider)) {
+        _snack(tr('Переподключитесь, чтобы применить.'));
+      }
+    } catch (error) {
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+    }
   }
 
   void _snack(String text) {
@@ -230,11 +365,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final value = await showDialog<String>(
         context: context,
         builder: (_) => _TextPromptDialog(
-            title: 'Адрес контроллера',
+            title: tr('Адрес контроллера'),
             initial: _endpoint,
             hint: 'http://127.0.0.1:9090',
-            helper:
-                'HTTPS или локальный HTTP. Secret создаётся автоматически.'));
+            helper: tr(
+                'HTTPS или локальный HTTP. Secret создаётся автоматически.')));
     if (value == null) return;
     try {
       final controller = ref.read(mihomoControllerProvider);
@@ -244,9 +379,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(proxyGroupsProvider);
       ref.invalidate(connectionsSnapshotProvider);
       if (mounted) setState(() => _endpoint = saved);
-      _snack('Адрес контроллера сохранён.');
+      _snack(tr('Адрес контроллера сохранён.'));
     } catch (error) {
-      _snack('Не удалось сохранить: $error');
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
     }
   }
 
@@ -254,17 +390,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final value = await showDialog<String>(
         context: context,
         builder: (_) => _TextPromptDialog(
-            title: 'Путь к Mihomo',
+            title: tr('Путь к Mihomo'),
             initial: _binary,
             hint: '/usr/local/bin/mihomo',
-            helper: 'Полный путь к исполняемому файлу Mihomo.'));
+            helper: tr('Полный путь к исполняемому файлу Mihomo.')));
     if (value == null) return;
     try {
       await ref.read(mihomoProcessProvider).saveExecutable(value);
       if (mounted) setState(() => _binary = value.trim());
-      _snack('Путь к Mihomo сохранён.');
+      _snack(tr('Путь к Mihomo сохранён.'));
     } catch (error) {
-      _snack('Не удалось сохранить: $error');
+      _snack(tr(
+          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
     }
   }
 
@@ -273,7 +410,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-              title: const Text('Логи Mihomo'),
+              title: Text(tr('Логи Mihomo')),
               content: SizedBox(
                   width: 560,
                   height: 320,
@@ -283,20 +420,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           reverse: true,
                           child: SelectableText(
                               manager.recentLogs.isEmpty
-                                  ? 'Логов пока нет. Они появятся при запуске или загрузке ядра.'
+                                  ? tr(
+                                      'Логов пока нет. Они появятся при запуске или загрузке ядра.')
                                   : manager.recentLogs.join('\n'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 11,
-                                  color: KaGoColors.muted))))),
+                                  color: context.kago.muted))))),
               actions: <Widget>[
                 TextButton(
                     onPressed: () => Clipboard.setData(
                         ClipboardData(text: manager.recentLogs.join('\n'))),
-                    child: const Text('Копировать')),
+                    child: Text(tr('Копировать'))),
                 FilledButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Закрыть')),
+                    child: Text(tr('Закрыть'))),
               ],
             ));
   }
@@ -304,20 +442,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _checkWindowsCore() async {
     setState(() {
       _coreUpdating = true;
-      _windowsCoreStatus = 'Проверяются и загружаются данные релиза Mihomo…';
+      _windowsCoreStatus =
+          tr('Проверяются и загружаются данные релиза Mihomo…');
     });
     try {
       final install = await ref.read(mihomoProcessProvider).updateCore();
       if (mounted) {
         setState(() => _windowsCoreStatus = install.note == null
-            ? 'Установлен Mihomo ${install.version}.'
-            : 'Установлен Mihomo ${install.version}. Проверить обновление не удалось (${install.note}).');
+            ? tr('Установлен Mihomo {version}.',
+                <String, Object?>{'version': install.version})
+            : tr(
+                'Установлен Mihomo {version}. Проверить обновление не удалось ({note}).',
+                <String, Object?>{
+                    'version': install.version,
+                    'note': install.note
+                  }));
       }
     } catch (error) {
       if (mounted) {
         setState(() => _windowsCoreStatus = error is MihomoCoreNetworkException
             ? error.message
-            : 'Обновление не выполнено: $error');
+            : tr('Обновление не выполнено: {error}',
+                <String, Object?>{'error': error}));
       }
     } finally {
       if (mounted) setState(() => _coreUpdating = false);
@@ -340,23 +486,25 @@ class _SettingsGroup extends StatelessWidget {
             Padding(
                 padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
                 child: Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         letterSpacing: .3,
-                        color: KaGoColors.accent))),
+                        color: context.kago.accent))),
             Material(
-                color: KaGoColors.surface,
-                borderRadius: BorderRadius.circular(22),
+                color: context.kago.surface,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: context.kago.border)),
                 clipBehavior: Clip.antiAlias,
                 child: Column(children: <Widget>[
                   for (var i = 0; i < children.length; i++) ...<Widget>[
                     if (i > 0)
-                      const Divider(
+                      Divider(
                           height: 1,
                           indent: 68,
                           endIndent: 16,
-                          color: KaGoColors.border),
+                          color: context.kago.border),
                     children[i],
                   ],
                 ])),
@@ -384,7 +532,7 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final end = trailing ??
         (onTap != null
-            ? const Icon(Icons.chevron_right_rounded, color: KaGoColors.muted)
+            ? Icon(Icons.chevron_right_rounded, color: context.kago.muted)
             : null);
     return InkWell(
         onTap: onTap,
@@ -395,9 +543,9 @@ class _SettingsTile extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                      color: KaGoColors.accent.withValues(alpha: .12),
+                      color: context.kago.accentSoft,
                       borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, size: 20, color: KaGoColors.accent)),
+                  child: Icon(icon, size: 20, color: context.kago.accent)),
               const SizedBox(width: 14),
               Expanded(
                   child: Column(
@@ -413,8 +561,9 @@ class _SettingsTile extends StatelessWidget {
                               Text(subtitle!,
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 12, color: KaGoColors.muted))),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.kago.muted))),
                   ])),
               if (end != null)
                 Padding(padding: const EdgeInsets.only(left: 8), child: end),
@@ -464,10 +613,10 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
         actions: <Widget>[
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена')),
+              child: Text(tr('Отмена'))),
           FilledButton(
               onPressed: () => Navigator.pop(context, _controller.text),
-              child: const Text('Сохранить')),
+              child: Text(tr('Сохранить'))),
         ],
       );
 }

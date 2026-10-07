@@ -14,9 +14,11 @@ import 'mihomo_process_manager.dart';
 import 'mihomo_release_api.dart';
 import 'offline_proxy_groups.dart';
 import 'mihomo_windows_core_updater.dart';
+import '../l10n/l10n.dart';
 
 final mihomoControllerProvider =
     Provider<MihomoController>((ref) => MihomoController());
+
 /// Groups and servers. With the core running they come from the controller (with
 /// protocol and latency); otherwise from the saved profile, so the servers tab
 /// is not an error just because the core is off.
@@ -25,10 +27,17 @@ final proxyGroupsProvider = FutureProvider<List<ProxyGroup>>((ref) async {
   return ref.watch(mihomoControllerProvider).proxies();
 });
 
+/// False while the app is hidden (minimized, in the background, screen off):
+/// polls and timers that only feed the screen pause and resume on return.
+final appForegroundProvider = StateProvider<bool>((ref) => true);
+
 /// Polls `/connections` once per second while something watches it, and derives
 /// the current download/upload speed from the cumulative counters.
 final connectionsSnapshotProvider =
     StreamProvider.autoDispose<ConnectionsSnapshot>((ref) {
+  if (!ref.watch(appForegroundProvider)) {
+    return const Stream<ConnectionsSnapshot>.empty();
+  }
   final controller = ref.watch(mihomoControllerProvider);
   final output = StreamController<ConnectionsSnapshot>();
   DateTime? previousAt;
@@ -92,8 +101,8 @@ final selectedProxyGroupProvider = StateProvider<String?>((ref) => null);
 final proxySortProvider = StateProvider<ProxySort>((ref) => ProxySort.config);
 
 /// Latency measured from this app, node name -> ms (-1: test failed).
-final proxyDelaysProvider = StateProvider<Map<String, int>>(
-    (ref) => const <String, int>{});
+final proxyDelaysProvider =
+    StateProvider<Map<String, int>>((ref) => const <String, int>{});
 
 /// Node names whose latency test is currently running.
 final proxyDelayTestingProvider =
@@ -115,7 +124,7 @@ final latestMihomoReleaseProvider = FutureProvider<MihomoReleaseInfo>(
 final androidNativeCoreVersionProvider = FutureProvider<String?>((ref) async {
   if (!Platform.isAndroid) return null;
   try {
-    return await const MethodChannel('net.usekago.vpn/service')
+    return await const MethodChannel('net.usekago.app/service')
         .invokeMethod<String>('coreVersion');
   } on MissingPluginException {
     return null;
@@ -125,34 +134,38 @@ final androidNativeCoreVersionProvider = FutureProvider<String?>((ref) async {
 });
 final androidCoreUpdateStatusProvider = FutureProvider<String>((ref) async {
   if (!Platform.isAndroid) {
-    return 'Проверка Android core доступна только на Android.';
+    return tr('Проверка Android core доступна только на Android.');
   }
   final latest = await ref.watch(latestMihomoReleaseProvider.future);
   final installed = await ref.watch(androidNativeCoreVersionProvider.future);
   if (installed == null || installed.trim().isEmpty) {
-    return 'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.';
+    return tr(
+        'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.');
   }
   final match = RegExp(r'v?\d+\.\d+\.\d+').firstMatch(installed);
   if (match == null) {
-    return 'Версия встроенного Mihomo не распознана: $installed';
+    return tr('Версия встроенного Mihomo не распознана: {installed}',
+        <String, Object?>{'installed': installed});
   }
   if (MihomoReleaseApi.compareStableVersions(latest.version, match.group(0)!) >
       0) {
-    return 'Доступен Mihomo ${latest.version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.';
+    return tr(
+        'Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.',
+        <String, Object?>{'version': latest.version});
   }
-  return 'Встроенный Mihomo $installed актуален.';
+  return tr('Встроенный Mihomo {installed} актуален.',
+      <String, Object?>{'installed': installed});
 });
-final pureBlackProvider = StateProvider<bool>((ref) => false);
 final mihomoWindowsCoreUpdaterProvider = Provider<MihomoWindowsCoreUpdater>(
     (ref) => MihomoWindowsCoreUpdater(
         releases: ref.watch(mihomoReleaseApiProvider)));
 final mihomoProcessProvider = Provider<MihomoProcessManager>((ref) {
   final manager = MihomoProcessManager(
       coreUpdater: ref.watch(mihomoWindowsCoreUpdaterProvider));
-  if (Platform.isWindows) {
+  if (Platform.isWindows || Platform.isMacOS) {
     unawaited(manager.recoverStaleSystemProxy());
-    unawaited(manager.prepareCore());
   }
+  if (Platform.isWindows) unawaited(manager.prepareCore());
   // If the core dies by itself the system proxy is already restored; make the
   // UI say "disconnected" instead of staying on "connected".
   final exitSubscription = manager.exits.listen((_) {
@@ -200,15 +213,19 @@ final ipInfoProvider = FutureProvider.autoDispose<IpInfo>((ref) async {
 /// Keeps the traffic counters of the saved subscription fresh. Without this
 /// they changed only when the subscription was re-imported. Runs at start and
 /// whenever the VPN turns on or off, then every minute while connected and
-/// every five minutes otherwise. Only the counters are re-read; the saved
-/// profile config is untouched.
+/// every five minutes otherwise; paused in the background, where nothing
+/// shows them. Only the counters are re-read; the saved profile config is
+/// untouched.
+DateTime? _lastUsageRefresh;
 final subscriptionUsageRefresherProvider = Provider<void>((ref) {
   final active = ref.watch(vpnActiveProvider);
+  if (!ref.watch(appForegroundProvider)) return;
   var busy = false;
 
   Future<void> refresh() async {
     if (busy) return;
     busy = true;
+    _lastUsageRefresh = DateTime.now();
     try {
       final updated = await SubscriptionRepository().refreshUsage();
       if (updated != null) ref.invalidate(importedSubscriptionProvider);
@@ -223,9 +240,14 @@ final subscriptionUsageRefresherProvider = Provider<void>((ref) {
       active ? const Duration(minutes: 1) : const Duration(minutes: 5),
       (_) => unawaited(refresh()));
   ref.onDispose(timer.cancel);
-  unawaited(refresh());
+  // Returning to the app refreshes at once, but not more than every 30 s.
+  final last = _lastUsageRefresh;
+  if (last == null ||
+      DateTime.now().difference(last) > const Duration(seconds: 30)) {
+    unawaited(refresh());
+  }
 });
 
 /// Index of the selected root tab (0 = home, 1 = servers, 2 = traffic,
-/// 3 = settings), so any screen can jump to another tab.
+/// 3 = account, 4 = settings), so any screen can jump to another tab.
 final rootTabIndexProvider = StateProvider<int>((ref) => 0);

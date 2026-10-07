@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок уведомления VPN: глаз KAGO, одним цветом (Android сам окрашивает). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:pathData="M3,32 C18,8 46,8 61,32 C46,56 18,56 3,32 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M32,21 A11,11 0 1,1 31.99,21 Z" />
+    <path
+        android:pathData="M49,5 L15,59"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+</vector>

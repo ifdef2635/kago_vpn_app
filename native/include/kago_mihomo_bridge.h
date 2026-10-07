@@ -11,6 +11,13 @@ int kago_mihomo_start(char *config_path, char *work_dir);
 typedef int (*kago_socket_protector)(int socket_fd);
 int kago_mihomo_set_socket_protector(kago_socket_protector protector);
 int kago_mihomo_protect_socket(int socket_fd);
+/* Android JNI wrapper resolves which app owns a connection (CMFA-style
+ * PROCESS-NAME rules). Writes the package name into out (NUL-terminated) and
+ * returns its length, or 0 when unknown. protocol is 6 (TCP) or 17 (UDP). */
+typedef int (*kago_package_resolver)(int protocol, const char *src_ip, int src_port,
+                                     const char *dst_ip, int dst_port, char *out,
+                                     int out_len);
+int kago_mihomo_set_package_resolver(kago_package_resolver resolver);
 /* The Go bridge duplicates tun_fd before success; Android owns routing and MTU. */
 int kago_mihomo_start_with_tun_fd(char *config_path, char *work_dir, int tun_fd,
                                   int mtu, char *stack, char *tunnel_address,

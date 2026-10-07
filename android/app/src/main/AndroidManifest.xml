@@ -3,15 +3,25 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- In-app update: hand the downloaded APK to the system installer. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- PROCESS-NAME rules of the subscription: map a connection's UID to its
+         package for every app, not only those with a launcher icon. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        xmlns:tools="http://schemas.android.com/tools"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name="${applicationName}"
         android:label="KaGo VPN"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
-            android:name="net.usekago.vpn.MainActivity"
+            android:name="net.usekago.app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -22,6 +32,10 @@
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
+            <!-- The app has no deep links: other apps must not push routes. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -29,7 +43,7 @@
         </activity>
 
         <service
-            android:name="net.usekago.vpn.KaGoVpnService"
+            android:name="net.usekago.app.KaGoVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="true"
             android:foregroundServiceType="systemExempted"
@@ -39,10 +53,42 @@
             </intent-filter>
         </service>
 
+        <!-- Quick Settings tile: VPN on/off from the notification shade. -->
+        <service
+            android:name="net.usekago.app.KaGoTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_kago"
+            android:label="KaGo VPN"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <!-- The downloaded update APK (cache/updates/) for the system installer. -->
+        <provider
+            android:name="net.usekago.app.UpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <meta-data android:name="flutterEmbedding" android:value="2" />
     </application>
 
     <queries>
+        <!-- Split tunneling: the list of apps that have a launcher icon. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- url_launcher: open usekago.net and the Telegram bot from the account tab. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />

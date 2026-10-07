@@ -1,0 +1,224 @@
+name: macOS release
+
+on:
+  # Выпуск релиза — только через release.yml (собирает все три платформы и
+  # публикует .apk, .exe и .dmg вместе); здесь — проверочная сборка.
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    secrets:
+      KAGO_MACOS_CERT_P12_BASE64:
+        required: false
+      KAGO_MACOS_CERT_PASSWORD:
+        required: false
+      KAGO_APPLE_ID:
+        required: false
+      KAGO_APPLE_TEAM_ID:
+        required: false
+      KAGO_APPLE_APP_PASSWORD:
+        required: false
+  push:
+    branches:
+      - 'claude/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'lib/**'
+      - 'macos/**'
+      - 'assets/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/macos-release.yml'
+
+# Только чтение: сборка не публикует релиз (это делает release.yml).
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      FLUTTER_VERSION: '3.47.5'
+      # Встроенное ядро — та же закреплённая версия, что на Windows и Android.
+      MIHOMO_VERSION: 'v1.19.32'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Плагины собираются через CocoaPods: macos/Podfile поднимает им минимальную
+      # версию до macOS 12 (через Swift Package Manager это не настроить, а
+      # flutter_inappwebview_macos с его 10.11 не компилируется новым Xcode).
+      - name: flutter pub get --enforce-lockfile
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter pub get --enforce-lockfile
+
+      - name: Формат
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test
+        run: flutter test
+
+      - name: Версия
+        id: version
+        run: |
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          NAME="${VERSION%%+*}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
+            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+            exit 1
+          fi
+
+      # Ядро Mihomo для Apple Silicon и Intel из официального релиза. SHA-256
+      # закреплены здесь (а не берутся из того же релиза), затем один
+      # universal-бинарник (lipo) с ad-hoc подписью (lipo снимает подпись
+      # Go-линкера, а arm64 без подписи не запустится).
+      - name: Ядро Mihomo (universal)
+        env:
+          ARM_ASSET: mihomo-darwin-arm64-v1.19.32.gz
+          ARM_SHA256: 3312a6780652c622890fd4357c6a853bbf865464fd047ac7b7f52dab8de18652
+          AMD_ASSET: mihomo-darwin-amd64-compatible-v1.19.32.gz
+          AMD_SHA256: 18b382df77bded2ad0fb3db27db5636cb15b20729d5ba995a357eeb9b46bf507
+        run: |
+          set -euo pipefail
+          mkdir -p core && cd core
+          fetch() {
+            local name="$1" hash="$2" out="$3"
+            curl -fsSL "https://github.com/MetaCubeX/mihomo/releases/download/$MIHOMO_VERSION/$name" -o "$name"
+            echo "$hash  $name" | shasum -a 256 -c -
+            gunzip -c "$name" > "$out"
+            chmod +x "$out"
+          }
+          fetch "$ARM_ASSET" "$ARM_SHA256" mihomo-arm64
+          fetch "$AMD_ASSET" "$AMD_SHA256" mihomo-amd64
+          lipo -create -output mihomo mihomo-arm64 mihomo-amd64
+          lipo -info mihomo
+          codesign --force --sign - mihomo
+          ./mihomo -v | tee version.txt
+          grep -q "${MIHOMO_VERSION#v}" version.txt
+
+      # Единственная set-uid программа (режим TUN): запускает root-ядро с
+      # фиксированными аргументами и проверяет конфиг (macos/helper/kago_tun.c).
+      - name: Обёртка TUN (kago-tun, universal)
+        run: |
+          set -euo pipefail
+          cc -Wall -Wextra -Werror -DKAGO_TUN_SELF_TEST -o core/kago-tun-test macos/helper/kago_tun.c
+          ./core/kago-tun-test
+          clang -O2 -Wall -Wextra -Werror -arch arm64 -arch x86_64 -mmacosx-version-min=12.0 \
+            -o core/kago-tun macos/helper/kago_tun.c
+          lipo -info core/kago-tun
+          codesign --force --sign - core/kago-tun
+
+      - name: flutter build macos --release
+        run: flutter build macos --release --split-debug-info=build/symbols/macos
+
+      # С сертификатом Apple Developer ID (секреты KAGO_MACOS_*/KAGO_APPLE_*) —
+      # подпись Developer ID с Hardened Runtime и нотаризация: macOS открывает
+      # приложение без предупреждения «Apple не удалось подтвердить…». Без
+      # секретов — ad-hoc подпись (открыть вручную: «Конфиденциальность и
+      # безопасность → Всё равно открыть»).
+      - name: Встроить ядро, подписать и нотаризовать приложение
+        id: sign
+        env:
+          CERT_P12: ${{ inputs.release && secrets.KAGO_MACOS_CERT_P12_BASE64 || '' }}
+          CERT_PASSWORD: ${{ inputs.release && secrets.KAGO_MACOS_CERT_PASSWORD || '' }}
+          APPLE_ID: ${{ inputs.release && secrets.KAGO_APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ inputs.release && secrets.KAGO_APPLE_TEAM_ID || '' }}
+          APPLE_APP_PASSWORD: ${{ inputs.release && secrets.KAGO_APPLE_APP_PASSWORD || '' }}
+        run: |
+          set -euo pipefail
+          APP="build/macos/Build/Products/Release/KaGo VPN.app"
+          cp core/mihomo "$APP/Contents/Resources/mihomo"
+          cp core/kago-tun "$APP/Contents/Resources/kago-tun"
+          if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_PASSWORD" ]]; then
+            KEYCHAIN="$RUNNER_TEMP/kago-signing.keychain-db"
+            KEYCHAIN_PASSWORD="$(uuidgen)"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+            echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/kago-cert.p12"
+            security import "$RUNNER_TEMP/kago-cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+            rm -f "$RUNNER_TEMP/kago-cert.p12"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+            security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+            IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -n 1 | sed -E 's/.*"(.*)"/\1/')"
+            if [[ -z "$IDENTITY" ]]; then
+              echo "::error::В сертификате нет identity «Developer ID Application»."
+              exit 1
+            fi
+            echo "KAGO_MAC_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+            # Изнутри наружу: ядро, фреймворки, затем само приложение.
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/mihomo"
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/kago-tun"
+            find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0 |
+              xargs -0 -I{} codesign --force --options runtime --timestamp --sign "$IDENTITY" "{}"
+            codesign --force --options runtime --timestamp \
+              --entitlements macos/Runner/Release.entitlements --sign "$IDENTITY" "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/kago-app.zip"
+            xcrun notarytool submit "$RUNNER_TEMP/kago-app.zip" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple "$APP"
+            spctl --assess --type execute --verbose=4 "$APP"
+            echo "kind=notarized" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$GITHUB_REF" == refs/tags/v* || "${{ inputs.release }}" == "true" ]]; then
+              echo "::warning::Нет секретов Apple Developer ID: .dmg подписан ad-hoc, macOS покажет «Apple не удалось подтвердить…»."
+            fi
+            # Ad-hoc подпись всего бандла (ядро внутри входит в печать подписи).
+            codesign --force --deep --sign - "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            echo "kind=adhoc" >> "$GITHUB_OUTPUT"
+          fi
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist"
+
+      - name: Собрать .dmg
+        id: dist
+        env:
+          APPLE_ID: ${{ inputs.release && secrets.KAGO_APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ inputs.release && secrets.KAGO_APPLE_TEAM_ID || '' }}
+          APPLE_APP_PASSWORD: ${{ inputs.release && secrets.KAGO_APPLE_APP_PASSWORD || '' }}
+        run: |
+          set -euo pipefail
+          NAME="KaGoVPN-macOS-${{ steps.version.outputs.name }}"
+          DMG="dist/macos/$NAME.dmg"
+          mkdir -p dmgroot dist/macos
+          cp -R "build/macos/Build/Products/Release/KaGo VPN.app" dmgroot/
+          ln -s /Applications dmgroot/Applications
+          hdiutil create -volname "KaGo VPN" -srcfolder dmgroot -ov -format UDZO "$DMG"
+          if [[ "${{ steps.sign.outputs.kind }}" == notarized ]]; then
+            codesign --force --timestamp --sign "$KAGO_MAC_IDENTITY" "$DMG"
+            xcrun notarytool submit "$DMG" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple "$DMG"
+            spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+          fi
+          cd dist/macos && shasum -a 256 *.dmg > SHA256SUMS-macOS.txt && ls -lh
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.dist.outputs.name }}
+          path: dist/macos/*
+          retention-days: 30

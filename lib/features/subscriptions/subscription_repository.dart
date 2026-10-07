@@ -1,11 +1,18 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:yaml/yaml.dart';
 
+import '../../core/device/device_identity.dart';
+import '../../core/network/mihomo_controller.dart';
 import 'config_builder.dart';
 import 'subscription_content_parser.dart';
 import 'subscription_parser.dart';
+import '../../core/l10n/l10n.dart';
+import '../../core/storage/secure_storage.dart';
 
 class ImportedSubscription {
   const ImportedSubscription(
@@ -25,7 +32,7 @@ class ImportedSubscription {
 
 class SubscriptionRepository {
   SubscriptionRepository({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? kagoSecureStorage;
   static const _key = 'kago.profiles.v1';
   final FlutterSecureStorage _storage;
 
@@ -55,24 +62,40 @@ class SubscriptionRepository {
 
   Future<ImportedSubscription> import(String rawUrl) async {
     final uri = validateSubscriptionUrl(rawUrl);
-    final response = await Dio(BaseOptions(
+    final response = await fetch(
+        Dio(BaseOptions(
             connectTimeout: const Duration(seconds: 12),
-            receiveTimeout: const Duration(seconds: 20),
-            responseType: ResponseType.plain))
-        .get<String>(uri.toString(),
-            options: Options(
-                validateStatus: (status) =>
-                    status != null && status >= 200 && status < 300));
-    final body = response.data ?? '';
+            receiveTimeout: const Duration(seconds: 20))),
+        uri,
+        method: 'GET',
+        deviceHeaders: await _deviceHeaders());
+    final body = response.body;
     if (body.trim().isEmpty) {
-      throw const FormatException('Ссылка вернула пустой профиль.');
+      throw FormatException(tr('Ссылка вернула пустой профиль.'));
     }
+    final hwidProblem = hwidNotice(response.headers);
+    if (hwidProblem != null) throw FormatException(hwidProblem);
     final normalized = const SubscriptionContentParser().toMihomoConfig(body);
+    final stub = panelStubMessage(normalized);
+    if (stub != null) {
+      throw FormatException(tr(
+          'Сервер подписки не выдал серверы: «{message}». Проверьте лимит устройств в «Кабинете» → «Устройства» и обновите подписку.',
+          <String, Object?>{'message': stub}));
+    }
     final metadata = SubscriptionMetadata.parse(
-        yaml: normalized, responseHeaders: response.headers.map);
-    await const MihomoConfigBuilder().writeConfig(normalized);
-    final fields = parseUserInfo(
-        _header(response.headers.map, 'subscription-userinfo'));
+        yaml: normalized, responseHeaders: response.headers);
+    final configFile =
+        await const MihomoConfigBuilder().writeConfig(normalized);
+    if (Platform.isAndroid) {
+      // The Quick Settings tile starts the VPN with the last profile without
+      // the app, so the saved profile must already be the Android one.
+      final controller = MihomoController();
+      await const MihomoConfigBuilder().prepareAndroidTunnelConfig(configFile,
+          endpoint: await controller.endpoint,
+          secret: await controller.ensureSecret());
+    }
+    final fields =
+        parseUserInfo(_header(response.headers, 'subscription-userinfo'));
     final profile = ImportedSubscription(
       name: metadata.serviceName,
       url: uri.toString(),
@@ -139,17 +162,23 @@ class SubscriptionRepository {
             receiveTimeout: const Duration(seconds: 15),
             responseType: ResponseType.plain));
     Map<String, int> fields = const <String, int>{};
-    // HEAD is cheap, but some panels only send the header on GET.
-    for (final method in const <String>['HEAD', 'GET']) {
+    // HEAD is cheap, but some panels only send the header on GET. Remember
+    // which one worked, so a GET-only panel is not asked with HEAD first every
+    // minute; the other method is still tried if the known one stops working.
+    final known = _workingMethod[uri.toString()];
+    final order = known == 'GET'
+        ? const <String>['GET', 'HEAD']
+        : const <String>['HEAD', 'GET'];
+    for (final method in order) {
       try {
-        final response = await client.request<String>(uri.toString(),
-            options: Options(
-                method: method,
-                validateStatus: (status) =>
-                    status != null && status >= 200 && status < 300));
-        fields = parseUserInfo(
-            _header(response.headers.map, 'subscription-userinfo'));
-        if (fields.isNotEmpty) break;
+        final response = await fetch(client, uri,
+            method: method, deviceHeaders: await _deviceHeaders());
+        fields =
+            parseUserInfo(_header(response.headers, 'subscription-userinfo'));
+        if (fields.isNotEmpty) {
+          _workingMethod[uri.toString()] = method;
+          break;
+        }
       } on DioException {
         // Try the next method; a failed refresh just keeps the old numbers.
       }
@@ -177,6 +206,150 @@ class SubscriptionRepository {
     return latest();
   }
 
+  /// Largest subscription body accepted (a real profile is well under 1 MB).
+  static const maxBodyBytes = 10 * 1024 * 1024;
+  static const _maxRedirects = 5;
+
+  /// GET/HEAD of a subscription with redirects followed by hand: every hop
+  /// must pass [validateSubscriptionUrl] (no downgrade to plain HTTP), the
+  /// device headers (HWID, model, OS) go only to the original host — another
+  /// host gets just the User-Agent — and the body is capped at
+  /// [maxBodyBytes].
+  static Future<({Map<String, List<String>> headers, String body})> fetch(
+      Dio dio, Uri uri,
+      {required String method,
+      required Map<String, String> deviceHeaders}) async {
+    var current = uri;
+    for (var hop = 0;; hop++) {
+      final sameHost = current.scheme == uri.scheme &&
+          current.host.toLowerCase() == uri.host.toLowerCase() &&
+          current.port == uri.port;
+      final headers = sameHost
+          ? deviceHeaders
+          : <String, String>{
+              if (deviceHeaders['User-Agent'] case final agent?)
+                'User-Agent': agent,
+            };
+      final response = await dio.request<ResponseBody>(current.toString(),
+          options: Options(
+              method: method,
+              headers: headers,
+              followRedirects: false,
+              responseType: ResponseType.stream,
+              validateStatus: (status) => status != null));
+      final status = response.statusCode ?? 0;
+      final location = response.headers.value('location');
+      if (status >= 300 && status < 400 && location != null) {
+        await response.data?.stream.drain<void>().catchError((Object _) {});
+        if (hop >= _maxRedirects) {
+          throw FormatException(tr('Слишком много перенаправлений.'));
+        }
+        current = validateSubscriptionUrl(current.resolve(location).toString());
+        continue;
+      }
+      if (status < 200 || status >= 300) {
+        await response.data?.stream.drain<void>().catchError((Object _) {});
+        throw DioException.badResponse(
+            statusCode: status,
+            requestOptions: response.requestOptions,
+            response: response);
+      }
+      final length =
+          int.tryParse(response.headers.value('content-length') ?? '');
+      if (length != null && length > maxBodyBytes) {
+        throw FormatException(tr('Профиль подписки слишком большой.'));
+      }
+      final bytes = BytesBuilder(copy: false);
+      final stream = response.data?.stream;
+      if (stream != null && method != 'HEAD') {
+        await for (final chunk in stream) {
+          bytes.add(chunk);
+          if (bytes.length > maxBodyBytes) {
+            throw FormatException(tr('Профиль подписки слишком большой.'));
+          }
+        }
+      }
+      return (
+        headers: response.headers.map,
+        body: utf8.decode(bytes.takeBytes(), allowMalformed: true),
+      );
+    }
+  }
+
+  static Future<Map<String, String>> _deviceHeaders() async {
+    try {
+      return await DeviceIdentity.instance.headers();
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
+  /// The panel's HWID verdict from the response headers, as FlClashX reads
+  /// them: `x-hwid-max-devices-reached: true` with the panel's text in
+  /// `announce` (optionally `base64:`), or `x-hwid-not-supported: true`.
+  static String? hwidNotice(Map<String, List<String>> headers) {
+    String? value(String name) {
+      for (final entry in headers.entries) {
+        if (entry.key.toLowerCase() == name) {
+          return entry.value.join(',').trim();
+        }
+      }
+      return null;
+    }
+
+    if (value('x-hwid-max-devices-reached')?.toLowerCase() == 'true') {
+      final announce = _decodeAnnounce(value('announce'));
+      return announce.isNotEmpty
+          ? announce
+          : tr(
+              'Достигнут лимит устройств подписки. Удалите лишнее устройство в «Кабинете» → «Устройства» и обновите подписку.');
+    }
+    if (value('x-hwid-not-supported')?.toLowerCase() == 'true') {
+      return tr(
+          'Сервер подписки не принял идентификатор устройства (HWID). Обновите приложение или напишите в поддержку.');
+    }
+    return null;
+  }
+
+  static String _decodeAnnounce(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    final text = raw.startsWith('base64:') ? raw.substring(7) : raw;
+    try {
+      return utf8.decode(base64.decode(base64.normalize(text))).trim();
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  /// Remnawave answers a request it will not serve (no HWID, device limit
+  /// reached, expired or unknown client) with placeholder servers whose
+  /// names carry the reason and whose address is 0.0.0.0 or 127.0.0.1.
+  /// Returns that reason, or null for a real profile.
+  static String? panelStubMessage(String mihomoYaml) {
+    final dynamic root;
+    try {
+      root = loadYaml(mihomoYaml);
+    } catch (_) {
+      return null;
+    }
+    final proxies = root is YamlMap ? root['proxies'] : null;
+    if (proxies is! YamlList || proxies.isEmpty) return null;
+    final names = <String>[];
+    for (final proxy in proxies.whereType<YamlMap>()) {
+      final server = '${proxy['server'] ?? ''}'.trim();
+      if (!const <String>{'0.0.0.0', '127.0.0.1', '::', '::1', 'localhost'}
+          .contains(server)) {
+        return null;
+      }
+      final name = '${proxy['name'] ?? ''}'.trim();
+      if (name.isNotEmpty) names.add(name);
+    }
+    return names.isEmpty ? null : names.join(' · ');
+  }
+
+  /// Subscription URL -> the request method that returned the counters.
+  static final _workingMethod = <String, String>{};
+
   static Uri validateSubscriptionUrl(String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());
     final isLoopback = uri != null &&
@@ -186,8 +359,8 @@ class SubscriptionRepository {
         uri.userInfo.isNotEmpty ||
         uri.hasFragment ||
         (uri.scheme != 'https' && !(uri.scheme == 'http' && isLoopback))) {
-      throw const FormatException(
-          'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.');
+      throw FormatException(tr(
+          'Для внешней подписки используйте HTTPS; HTTP допустим только на localhost. Ссылки с userinfo/fragment запрещены.'));
     }
     return uri;
   }

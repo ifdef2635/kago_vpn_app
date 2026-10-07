@@ -577,8 +577,10 @@ const stringsEn = <String, String>{
   ' Часовой пояс сервера определить не удалось.':
       ' Couldn\'t detect the server\'s time zone.',
   'Весь трафик через VPN (TUN)': 'All traffic through the VPN (TUN)',
-  'Для Discord, звонков, игр и программ без системного прокси. При подключении Windows спросит разрешение администратора.':
-      'For Discord, calls, games and apps without system proxy support. Windows asks for administrator permission when connecting.',
+  'Для Discord, звонков, игр и программ без системного прокси. Windows один раз спросит разрешение администратора.':
+      'For Discord, calls, games and apps without system proxy support. Windows asks for administrator permission once.',
+  'Режим TUN: Windows один раз спросит разрешение администратора.':
+      'TUN mode: Windows asks for administrator permission once.',
   'Запрашивается разрешение администратора для режима TUN.':
       'Asking for administrator permission for TUN mode.',
   'Режим TUN не включён: нет разрешения администратора. Discord и игры работают без VPN.':
@@ -586,4 +588,6 @@ const stringsEn = <String, String>{
   'Ядро TUN остановилось.': 'The TUN core stopped.',
   'Ядро TUN не запустилось за 20 секунд: {lastError}{v}':
       'The TUN core didn\'t start in 20 seconds: {lastError}{v}',
+  'Задача TUN не настроена (код {code}).':
+      'The TUN task was not set up (code {code}).',
 };

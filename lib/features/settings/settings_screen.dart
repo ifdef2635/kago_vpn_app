@@ -244,7 +244,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               icon: Icons.vpn_lock_rounded,
               title: tr('Весь трафик через VPN (TUN)'),
               subtitle: tr(
-                  'Для Discord, звонков, игр и программ без системного прокси. При подключении Windows спросит разрешение администратора.'),
+                  'Для Discord, звонков, игр и программ без системного прокси. Windows один раз спросит разрешение администратора.'),
               trailing: Switch(value: _windowsTun, onChanged: _setWindowsTun),
               onTap: () => _setWindowsTun(!_windowsTun)),
         // Hidden when the subscription routes Russian sites itself.

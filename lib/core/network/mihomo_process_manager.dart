@@ -244,12 +244,7 @@ class MihomoProcessManager {
 
     final directory = File(configPath).parent.path;
     if (windowsTun) {
-      _writeLog(tr('Запрашивается разрешение администратора для режима TUN.'));
-      final started = await MihomoWindowsTun.launch(
-          coreExecutable: binary,
-          coreSha256: MihomoPinnedCore.exeSha256Hex,
-          config: configFile,
-          userDir: directory);
+      final started = await _startWindowsTun(binary, configFile);
       if (started) {
         await _awaitWindowsTun(controller, directory, routesRussia);
         return;
@@ -327,6 +322,33 @@ class MihomoProcessManager {
         <String, Object?>{'lastError': lastError, 'v': _logTail()}));
   }
 
+  /// Starts the elevated TUN core: through the scheduled task (permission
+  /// asked once, when it is installed or the core version changed), or —
+  /// for a Windows user without administrator rights — with a UAC prompt now.
+  Future<bool> _startWindowsTun(String binary, File configFile) async {
+    if (await MihomoWindowsTun.isAdministrator()) {
+      if (await MihomoWindowsTun.isInstalled() &&
+          await MihomoWindowsTun.runService(configFile)) {
+        return true;
+      }
+      _writeLog(
+          tr('Режим TUN: Windows один раз спросит разрешение администратора.'));
+      final code = await MihomoWindowsTun.install(coreExecutable: binary);
+      if (code == 0 && await MihomoWindowsTun.runService(configFile)) {
+        return true;
+      }
+      if (code == MihomoWindowsTun.declined) return false;
+      // The task could not be set up: ask for this connect only.
+      _writeLog(tr('Задача TUN не настроена (код {code}).',
+          <String, Object?>{'code': code}));
+    }
+    _writeLog(tr('Запрашивается разрешение администратора для режима TUN.'));
+    return MihomoWindowsTun.launch(
+        coreExecutable: binary,
+        coreSha256: MihomoPinnedCore.exeSha256Hex,
+        config: configFile);
+  }
+
   /// Waits for the elevated core's controller, then turns the system proxy on
   /// and watches the core (it is not our child: no exit code).
   Future<void> _awaitWindowsTun(
@@ -361,7 +383,12 @@ class MihomoProcessManager {
         lastError = error;
       }
     }
-    final tail = await MihomoWindowsTun.logTail();
+    final status = await MihomoWindowsTun.serviceStatus();
+    final logs = await MihomoWindowsTun.logTail();
+    final tail = <String>[
+      if (status.isNotEmpty && status != 'running') status,
+      if (logs.isNotEmpty) logs,
+    ].join('\n');
     await stop();
     throw StateError(tr(
         'Ядро TUN не запустилось за 20 секунд: {lastError}{v}',
@@ -378,7 +405,7 @@ class MihomoProcessManager {
       _windowsTunDir = null;
       _windowsTunWatch?.cancel();
       _windowsTunWatch = null;
-      await MihomoWindowsTun.requestStop(tunDir);
+      await MihomoWindowsTun.requestStop();
       // The script checks every 0.3 s; wait until the controller is gone so
       // the next start does not find the old core on its ports.
       final probe = MihomoController(
@@ -393,6 +420,7 @@ class MihomoProcessManager {
         }
         await Future<void>.delayed(const Duration(milliseconds: 250));
       }
+      await MihomoWindowsTun.awaitServiceStopped();
       _writeLog(tr('Mihomo остановлен.'));
     }
     final process = _process;

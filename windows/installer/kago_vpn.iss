@@ -35,7 +35,9 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 ; Не ставить поверх работающего приложения: оно держит ядро и системный прокси.
-CloseApplications=yes
+; force: в тихом режиме (обновление из приложения) занятый файл иначе
+; означал бы «Прервать» и откат установки.
+CloseApplications=force
 RestartApplications=no
 
 [Languages]
@@ -100,6 +102,19 @@ begin
     RegWriteDWordValue(HKCU, ProxyKey, 'ProxyEnable', 0);
     RegWriteStringValue(HKCU, ProxyKey, 'ProxyServer', '');
   end;
+end;
+
+// Обновление из приложения: старая версия могла не завершиться (зависнуть при
+// выходе) и держать свои файлы — тогда тихая установка откатывалась.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM kago_vpn.exe', '', SW_HIDE,
+    ewWaitUntilTerminated, Code);
+  if Code = 0 then
+    Sleep(800);
+  Result := '';
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

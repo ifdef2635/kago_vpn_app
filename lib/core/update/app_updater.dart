@@ -42,6 +42,16 @@ enum UpdateInstallResult {
   openedManually,
 }
 
+/// Windows refused to start the installer (Smart App Control or another
+/// application control policy: the installer has no Authenticode signature).
+class UpdateBlockedException implements Exception {
+  const UpdateBlockedException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// In-app updates from the latest GitHub release, on every platform:
 /// Android — the APK goes to the system installer (same signing key, so it
 /// installs over the current version); Windows — the Inno Setup installer runs
@@ -315,21 +325,46 @@ class AppUpdater {
     }
     if (Platform.isWindows) {
       // Inno Setup: progress window only, closes the old app if it still
-      // runs, and starts KaGo VPN again when done (kago_vpn.iss).
-      await Process.start(
-          file.path,
-          const <String>[
-            '/SILENT',
-            '/SUPPRESSMSGBOXES',
-            '/NORESTART',
-            '/CLOSEAPPLICATIONS',
-          ],
-          mode: ProcessStartMode.detached);
+      // runs (by force if it does not close: with /SUPPRESSMSGBOXES a busy
+      // file would otherwise answer "Abort" and roll the update back), and
+      // starts KaGo VPN again when done (kago_vpn.iss). The log helps when
+      // an update fails.
+      try {
+        await Process.start(
+            file.path,
+            <String>[
+              '/SILENT',
+              '/SUPPRESSMSGBOXES',
+              '/NORESTART',
+              '/CLOSEAPPLICATIONS',
+              '/FORCECLOSEAPPLICATIONS',
+              '/LOG=${windowsUpdateLog.path}',
+            ],
+            mode: ProcessStartMode.detached);
+      } on ProcessException catch (error) {
+        if (blockedByPolicy(error)) {
+          throw UpdateBlockedException(tr(
+              'Windows не дала запустить установщик: включено «Интеллектуальное управление приложениями» (Smart App Control), а у установщика пока нет цифровой подписи. Обновление можно будет установить, когда выйдет подписанная версия.'));
+        }
+        rethrow;
+      }
       return UpdateInstallResult.started;
     }
     if (Platform.isMacOS) return _installMacos(file);
     throw UnsupportedError(tr('Обновление не поддерживается на этой системе.'));
   }
+
+  /// Error codes of an application control policy (Smart App Control,
+  /// WDAC, AppLocker) refusing an executable.
+  static bool blockedByPolicy(ProcessException error) =>
+      error.errorCode == 4551 || // ERROR_SYSTEM_INTEGRITY_POLICY_VIOLATION
+      error.errorCode == 1260 || // ERROR_ACCESS_DISABLED_BY_POLICY
+      error.message.contains('Application Control') ||
+      error.message.contains('управления приложениями');
+
+  /// The installer's log (`%TEMP%\KaGoVPN-update.log`).
+  static File get windowsUpdateLog => File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}KaGoVPN-update.log');
 
   /// `…/KaGo VPN.app` of the running app.
   static Directory get macosBundle =>

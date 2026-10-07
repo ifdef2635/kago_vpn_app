@@ -590,4 +590,6 @@ const stringsEn = <String, String>{
       'The TUN core didn\'t start in 20 seconds: {lastError}{v}',
   'Задача TUN не настроена (код {code}).':
       'The TUN task was not set up (code {code}).',
+  'Windows не дала запустить установщик: включено «Интеллектуальное управление приложениями» (Smart App Control), а у установщика пока нет цифровой подписи. Обновление можно будет установить, когда выйдет подписанная версия.':
+      "Windows didn't allow the installer to run: Smart App Control is on and the installer has no digital signature yet. The update can be installed once a signed version is out.",
 };

@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The bundled flag font really draws a colour flag for regional-indicator
-/// pairs (Windows has none of its own).
+/// pairs (Windows has none of its own). The font is used only on Windows; the
+/// macOS test engine does not draw it through a fallback (checked on Windows
+/// and Linux).
 void main() {
-  test('flag font draws the German flag in colour', () async {
+  test('flag font draws the German flag in colour', skip: Platform.isMacOS,
+      () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     final bytes =
         File('assets/fonts/TwemojiCountryFlags.ttf').readAsBytesSync();

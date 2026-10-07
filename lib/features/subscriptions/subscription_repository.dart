@@ -131,6 +131,20 @@ class SubscriptionRepository {
     return profile;
   }
 
+  /// Sign-out: forgets every saved subscription and deletes the profile the
+  /// core runs (the free Telegram access stays available).
+  Future<void> clear() async {
+    await _storage.delete(key: _key);
+    final active = await const MihomoConfigBuilder().activeConfigFile();
+    if (await active.exists()) await active.delete();
+    if (Platform.isAndroid) {
+      // The tile must not start the deleted profile's path any more.
+      await const MethodChannel('net.usekago.app/service')
+          .invokeMethod<bool>('forgetConfig')
+          .catchError((Object _) => false);
+    }
+  }
+
   /// Parses `upload=1; download=2; total=3; expire=4` from the
   /// `subscription-userinfo` header. Malformed tokens are skipped.
   static Map<String, int> parseUserInfo(String? header) {

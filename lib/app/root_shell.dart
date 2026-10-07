@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/network/anonymous_mode.dart';
 import '../core/network/app_providers.dart';
 import '../core/theme/app_widgets.dart';
 import '../core/theme/kago_theme.dart';
@@ -201,6 +203,8 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
       _listener = AppLifecycleListener(onStateChange: onState);
       return;
     }
+    // A time zone left by the anonymous profile after a crash.
+    unawaited(WindowsTimeZone.restore());
     _listener = AppLifecycleListener(
         onStateChange: onState,
         onExitRequested: () async {

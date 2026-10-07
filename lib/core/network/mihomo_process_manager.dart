@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/subscriptions/config_builder.dart';
 import '../../features/subscriptions/russian_rules.dart';
+import 'anonymous_mode.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_macos.dart';
 import 'mihomo_windows_core_updater.dart';
@@ -44,6 +45,8 @@ class MihomoProcessManager {
   }
 
   Future<void> _restoreSystemProxy() async {
+    // The anonymous profile's time zone goes with the connection.
+    if (Platform.isWindows) await WindowsTimeZone.restore();
     if (Platform.isWindows) await _windowsSystemProxy.restoreIfOwned();
     if (Platform.isMacOS) await _macosSystemProxy.restoreIfOwned();
   }

@@ -56,8 +56,8 @@ class AppUpdater {
   AppUpdater({this.proxyPort});
 
   static const repo = 'ifdef2635/kago_vpn_app';
-  static const _apiLatest =
-      'https://api.github.com/repos/$repo/releases/latest';
+  static const _apiReleases =
+      'https://api.github.com/repos/$repo/releases?per_page=20';
   static const _webLatest = 'https://github.com/$repo/releases/latest';
   static const _channel = MethodChannel('net.usekago.app/service');
 
@@ -111,6 +111,68 @@ class AppUpdater {
           (match) => '${match.group(1)}• ')
       .trim();
 
+  /// The platforms a release is for: the `Платформы: Android, macOS` line of
+  /// its notes (`Platforms:` also works). Null when there is no such line —
+  /// the release is for every platform. Every release still carries all
+  /// three installers; the line only decides who is offered the update.
+  static Set<String>? platformsFrom(String notes) {
+    final match = RegExp(r'^[\s*_]*(?:Платформы|Platforms)[\s*_]*:[\s*_]*(.+)$',
+            multiLine: true, caseSensitive: false)
+        .firstMatch(notes);
+    if (match == null) return null;
+    final platforms = <String>{};
+    for (final word
+        in match.group(1)!.toLowerCase().split(RegExp(r'[^a-z]+'))) {
+      switch (word) {
+        case 'android':
+          platforms.add('android');
+        case 'windows':
+          platforms.add('windows');
+        case 'macos' || 'mac':
+          platforms.add('macos');
+        case 'all' || 'все':
+          return null;
+      }
+    }
+    return platforms.isEmpty ? null : platforms;
+  }
+
+  /// From GitHub's release list: the newest release, if any release newer
+  /// than [current] is for [os]. A release for other systems only is not
+  /// offered; the next one for [os] installs the newest version, which also
+  /// carries the earlier changes. Notes are those of the releases for [os].
+  static ({String tag, String notes})? pick(
+      List<dynamic> releases, String os, String current) {
+    final newer = <({String tag, String body})>[];
+    for (final item in releases) {
+      if (item is! Map) continue;
+      final tag = item['tag_name'];
+      if (item['draft'] == true || item['prerelease'] == true) continue;
+      if (tag is! String || !isNewer(tag.replaceFirst('v', ''), current)) {
+        continue;
+      }
+      final body = item['body'];
+      newer.add((tag: tag, body: body is String ? body : ''));
+    }
+    if (newer.isEmpty) return null;
+    newer.sort((a, b) =>
+        isNewer(a.tag.replaceFirst('v', ''), b.tag.replaceFirst('v', ''))
+            ? -1
+            : 1);
+    final relevant = newer
+        .where((release) => platformsFrom(release.body)?.contains(os) ?? true)
+        .toList();
+    if (relevant.isEmpty) return null;
+    final notes = relevant.length == 1
+        ? plainNotes(relevant.single.body)
+        : relevant
+            .take(3)
+            .map((release) =>
+                '${release.tag.replaceFirst('v', '')}:\n${plainNotes(release.body)}')
+            .join('\n\n');
+    return (tag: newer.first.tag, notes: notes);
+  }
+
   /// The hash for [name] in a `sha256sum`/`shasum` listing
   /// (`<hex>  <name>` or `<hex> *<name>`).
   static String? hashFor(String sums, String name) {
@@ -147,17 +209,15 @@ class AppUpdater {
     return dio;
   }
 
-  /// The latest release tag and notes: the GitHub API, or — when the API is
-  /// unreachable or rate-limited — the redirect of github.com/…/releases/latest.
-  Future<({String tag, String notes})> _latest() async {
+  /// The release to offer this platform: from the GitHub API, or — when the
+  /// API is unreachable or rate-limited — the redirect of
+  /// github.com/…/releases/latest and that release's `release.json`
+  /// (platforms; then only the latest release is known).
+  Future<({String tag, String notes})?> _candidate(String os) async {
     try {
-      final response = await _dio().get<Map<String, dynamic>>(_apiLatest);
+      final response = await _dio().get<List<dynamic>>(_apiReleases);
       final data = response.data;
-      final tag = data?['tag_name'];
-      if (tag is String) {
-        final body = data?['body'];
-        return (tag: tag, notes: body is String ? plainNotes(body) : '');
-      }
+      if (data != null) return pick(data, os, kagoAppVersion);
     } catch (_) {
       // Fall back to the web redirect below.
     }
@@ -168,16 +228,27 @@ class AppUpdater {
     if (parseVersion(tag) == null) {
       throw StateError(tr('Не удалось узнать последнюю версию.'));
     }
+    if (!isNewer(tag.replaceFirst('v', ''), kagoAppVersion)) return null;
+    try {
+      final info = await _dio().get<String>(
+          'https://github.com/$repo/releases/download/$tag/release.json',
+          options: Options(responseType: ResponseType.plain));
+      final Object? decoded = jsonDecode(info.data ?? '');
+      final platforms = decoded is Map ? decoded['platforms'] : null;
+      if (platforms is List && !platforms.contains(os)) return null;
+    } catch (_) {
+      // No release.json (older releases): the release is for everyone.
+    }
     return (tag: tag, notes: '');
   }
 
-  /// A release newer than this app, or null.
+  /// A release newer than this app for this platform, or null.
   Future<AppRelease?> check() async {
     if (!supported) return null;
-    final latest = await _latest();
-    final version = latest.tag.replaceFirst('v', '');
-    if (!isNewer(version, kagoAppVersion)) return null;
     final os = Platform.operatingSystem;
+    final latest = await _candidate(os);
+    if (latest == null) return null;
+    final version = latest.tag.replaceFirst('v', '');
     final names = assetsFor(os, version);
     if (names == null) return null;
     final base = 'https://github.com/$repo/releases/download/${latest.tag}';

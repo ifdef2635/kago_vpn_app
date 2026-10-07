@@ -132,6 +132,7 @@ class MainActivity : FlutterActivity() {
                     startVpnService(Intent(this, KaGoVpnService::class.java).setAction(KaGoVpnService.ACTION_STOP))
                     result.success(mapOf("state" to "stopping"))
                 }
+                "forgetConfig" -> result.success(KaGoVpnService.forgetConfigPath(this))
                 "rememberConfig" -> result.success(
                     KaGoVpnService.rememberConfigPath(this, call.argument<String>("path").orEmpty())
                 )

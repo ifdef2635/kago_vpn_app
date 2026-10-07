@@ -252,6 +252,19 @@ class KaGoVpnService : VpnService() {
         @Volatile var isStarting: Boolean = false
             private set
 
+        /**
+         * The profile the tile starts. Called after a subscription import, so
+         * the tile does not keep starting the guest (Telegram-only) profile.
+         * Only files of the app itself are accepted.
+         */
+        fun rememberConfigPath(context: Context, path: String): Boolean {
+            val file = File(path).canonicalFile
+            val home = File(context.applicationInfo.dataDir).canonicalFile
+            if (!file.isFile || !file.path.startsWith(home.path + File.separator)) return false
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CONFIG_PATH, file.path).apply()
+            return true
+        }
+
         /** The app prepared a profile once, so the tile can start headless. */
         fun hasPreparedConfig(context: Context): Boolean {
             val path = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CONFIG_PATH, null)

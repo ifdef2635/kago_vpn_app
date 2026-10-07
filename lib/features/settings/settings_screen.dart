@@ -15,6 +15,7 @@ import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/update/app_updater.dart';
+import '../subscriptions/russian_rules.dart';
 import '../update/update_flow.dart';
 import 'app_routing_screen.dart';
 import '../../core/l10n/l10n.dart';
@@ -231,7 +232,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.'),
               trailing: Switch(value: _macTun, onChanged: _setMacTun),
               onTap: () => _setMacTun(!_macTun)),
-        if (Platform.isWindows || Platform.isMacOS)
+        // Hidden when the subscription routes Russian sites itself.
+        if ((Platform.isWindows || Platform.isMacOS) &&
+            ref.watch(subscriptionRoutesRussiaProvider).valueOrNull != true)
           _SettingsTile(
               icon: Icons.alt_route_rounded,
               title: tr('Российские сайты — напрямую'),

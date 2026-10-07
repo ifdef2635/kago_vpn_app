@@ -355,14 +355,17 @@ class MihomoMacosSystemProxy {
     return error.isEmpty ? '${result.stdout}'.trim() : error;
   }
 
-  Future<void> enable({bool tun = false}) async {
+  /// [subscriptionRoutesRussia]: as on Windows, the profile's own rules for
+  /// Russian sites replace the fixed exception list.
+  Future<void> enable(
+      {bool tun = false, bool subscriptionRoutesRussia = false}) async {
     _requireMacos();
     await restoreIfOwned();
     final preferences = await SharedPreferences.getInstance();
     final bypass = bypassFor(
-        bypassRussian:
-            preferences.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ??
-                false);
+        bypassRussian: !subscriptionRoutesRussia &&
+            (preferences.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ??
+                false));
     final owned = <String>[];
     final savedDns = <String, List<String>>{};
     String? lastError;

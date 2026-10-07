@@ -132,6 +132,9 @@ class MainActivity : FlutterActivity() {
                     startVpnService(Intent(this, KaGoVpnService::class.java).setAction(KaGoVpnService.ACTION_STOP))
                     result.success(mapOf("state" to "stopping"))
                 }
+                "rememberConfig" -> result.success(
+                    KaGoVpnService.rememberConfigPath(this, call.argument<String>("path").orEmpty())
+                )
                 "status" -> result.success(mapOf("state" to if (KaGoVpnService.isConnected) "connected" else "disconnected"))
                 "coreVersion" -> result.success(runCatching { MihomoNativeCore.version() }.getOrNull())
                 "installedApps" -> Thread {

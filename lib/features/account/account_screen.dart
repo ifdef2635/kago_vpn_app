@@ -13,6 +13,7 @@ import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../guest/guest_telegram.dart';
 import '../subscriptions/subscription_providers.dart';
 import '../subscriptions/subscription_repository.dart';
 import 'account_providers.dart';
@@ -186,7 +187,9 @@ String remainingLabel(DateTime? expiresAt, DateTime now) {
 /// Imports [url] as this device's subscription unless it already is.
 Future<void> useOnThisDevice(WidgetRef ref, String url) async {
   final current = await SubscriptionRepository().latest();
-  if (current?.url == url) return;
+  if (current?.url == url && !GuestTelegram.needed(current, DateTime.now())) {
+    return;
+  }
   await SubscriptionRepository().import(url);
   ref.invalidate(importedSubscriptionProvider);
   ref.invalidate(proxyGroupsProvider);
@@ -325,11 +328,18 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
     var imported = false;
     if (sub != null && sub.isActive && sub.url.isNotEmpty) {
       final local = await SubscriptionRepository().latest();
-      if (local == null) {
+      // Also replace a saved profile that has expired or used up its traffic.
+      if (GuestTelegram.needed(local, DateTime.now())) {
         await useOnThisDevice(ref, sub.url).catchError((Object _) {});
         imported = true;
       }
     }
+    // Before refreshAccount: it replaces this card, and ref must stay usable.
+    if (imported && mounted) {
+      ref.invalidate(importedSubscriptionProvider);
+      await DashboardScreen.reconnectIfGuest(context, ref);
+    }
+    if (!mounted) return;
     refreshAccount(ref);
     if (mounted) {
       showSnack(
@@ -343,6 +353,8 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   Future<void> _telegram() async {
     setState(() => _busy = true);
     try {
+      if (!await _telegramAvailable()) return;
+      if (!mounted) return;
       final ok = await SiteSessionScreen.open(context, SiteSessionMode.login,
           api: ref.read(kagoApiProvider));
       if (ok) await _afterSignIn();
@@ -351,6 +363,41 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Without a VPN Telegram's sign-in page often does not open. Then the
+  /// free guest access (only Telegram) is offered and started first.
+  Future<bool> _telegramAvailable() async {
+    if (ref.read(vpnActiveProvider) ||
+        await GuestTelegram.telegramReachable()) {
+      return true;
+    }
+    if (!mounted) return false;
+    final connect = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.telegram, size: 32),
+        title: Text(tr('Telegram не открывается без VPN')),
+        content: Text(tr(
+            'Включите бесплатный доступ к Telegram: через VPN пойдёт только Telegram, остальные сайты — как обычно. Он работает без подписки.')),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(tr('Отмена'))),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(tr('Включить'))),
+        ],
+      ),
+    );
+    if (connect != true || !mounted) return false;
+    await DashboardScreen.toggleVpn(context, ref, false);
+    if (await DashboardScreen.waitForVpn(ref, true)) return true;
+    if (mounted) {
+      showSnack(context,
+          tr('VPN не подключился. Попробуйте ещё раз или войдите по email.'));
+    }
+    return false;
   }
 
   Future<void> _forgot() => showDialog<void>(

@@ -9,6 +9,7 @@ import '../../core/network/android_vpn_events.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
+import '../guest/guest_telegram.dart';
 import '../subscriptions/config_builder.dart';
 import '../subscriptions/subscription_providers.dart';
 import '../subscriptions/subscription_repository.dart';
@@ -30,6 +31,8 @@ class DashboardScreen extends ConsumerWidget {
     final androidConnected = androidState == 'connected';
     final connected = coreRunning || androidConnected;
     final starting = androidState == 'starting';
+    final guestNeeded = ref.watch(guestModeNeededProvider);
+    final guestActive = ref.watch(guestModeActiveProvider);
     // Only problems are worth a line on the main screen.
     final problem = switch (androidState) {
       'error' => androidEvent?['message'] as String? ??
@@ -140,6 +143,16 @@ class DashboardScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          if (guestNeeded || (connected && guestActive)) ...<Widget>[
+            const SizedBox(height: 4),
+            Text(
+                connected
+                    ? tr(
+                        'Бесплатный доступ: через VPN работает только Telegram')
+                    : tr('Без подписки — бесплатный доступ к Telegram'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: p.muted, fontSize: 12)),
+          ],
           const SizedBox(height: 18),
           _IpCard(connected: connected),
           const SizedBox(height: 10),
@@ -170,13 +183,21 @@ class DashboardScreen extends ConsumerWidget {
           }
           return;
         }
-        final config = await const MihomoConfigBuilder().activeConfigFile();
+        final (config, guest) = await _connectConfig(ref);
         await manager.start(configPath: config.path);
+        ref.read(guestModeActiveProvider.notifier).state = guest;
         ref.read(desktopCoreRunningProvider.notifier).state = true;
         _refreshCoreData(ref);
         if (context.mounted) {
-          _showMessage(context, tr('Mihomo запущен и controller отвечает.'));
+          _showMessage(
+              context,
+              guest
+                  ? tr(
+                      'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.')
+                  : tr('Mihomo запущен и controller отвечает.'));
         }
+      } on GuestUnavailable catch (error) {
+        if (context.mounted) _showMessage(context, error.message);
       } catch (error) {
         ref.read(desktopCoreRunningProvider.notifier).state = manager.isRunning;
         _refreshCoreData(ref);
@@ -197,15 +218,8 @@ class DashboardScreen extends ConsumerWidget {
             _showMessage(context, tr('Запрошено отключение Android VPN.'));
           }
         } else {
-          final config = await const MihomoConfigBuilder().activeConfigFile();
-          if (!await config.exists()) {
-            if (context.mounted) {
-              ref.read(rootTabIndexProvider.notifier).state = 3;
-              _showMessage(context,
-                  tr('Сначала войдите в аккаунт KAGO во вкладке «Кабинет».'));
-            }
-            return;
-          }
+          final (config, guest) = await _connectConfig(ref);
+          ref.read(guestModeActiveProvider.notifier).state = guest;
           final controller = ref.read(mihomoControllerProvider);
           await const MihomoConfigBuilder().prepareAndroidTunnelConfig(
             config,
@@ -215,8 +229,13 @@ class DashboardScreen extends ConsumerWidget {
           await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>(
               'connect', <String, String>{'configPath': config.path});
           if (context.mounted) {
-            _showMessage(context,
-                tr('Запуск VPN запрошен. Подтвердите системное разрешение Android.'));
+            _showMessage(
+                context,
+                guest
+                    ? tr(
+                        'Без подписки VPN работает только для Telegram — бесплатно. Подтвердите системное разрешение Android.')
+                    : tr(
+                        'Запуск VPN запрошен. Подтвердите системное разрешение Android.'));
           }
         }
       } on MissingPluginException {
@@ -238,6 +257,8 @@ class DashboardScreen extends ConsumerWidget {
               tr('Не удалось подготовить профиль: {message}',
                   <String, Object?>{'message': error.message}));
         }
+      } on GuestUnavailable catch (error) {
+        if (context.mounted) _showMessage(context, error.message);
       }
       return;
     }
@@ -252,6 +273,60 @@ class DashboardScreen extends ConsumerWidget {
       if (context.mounted) {
         _showMessage(context, error.message ?? tr('Не удалось запустить VPN.'));
       }
+    }
+  }
+
+  /// Waits until the VPN is [active] (or not); false after [timeout].
+  static Future<bool> waitForVpn(WidgetRef ref, bool active,
+      {Duration timeout = const Duration(seconds: 30)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (ref.read(vpnActiveProvider) == active) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    return ref.read(vpnActiveProvider) == active;
+  }
+
+  /// After sign-in on a guest connection: reconnect with the subscription,
+  /// so everything (not only Telegram) goes through the VPN again.
+  static Future<void> reconnectIfGuest(
+      BuildContext context, WidgetRef ref) async {
+    if (!ref.read(guestModeActiveProvider) || !ref.read(vpnActiveProvider)) {
+      return;
+    }
+    final profile = await ref
+        .read(importedSubscriptionProvider.future)
+        .catchError((Object _) => null);
+    if (GuestTelegram.needed(profile, DateTime.now()) || !context.mounted) {
+      return;
+    }
+    await toggleVpn(context, ref, true);
+    if (!await waitForVpn(ref, false, timeout: const Duration(seconds: 8)) ||
+        !context.mounted) {
+      return;
+    }
+    await toggleVpn(context, ref, false);
+  }
+
+  /// The profile to connect with: the subscription, or — without a working
+  /// one — the free guest config that carries only Telegram.
+  static Future<(File, bool)> _connectConfig(WidgetRef ref) async {
+    final active = await const MihomoConfigBuilder().activeConfigFile();
+    final profile = await ref
+        .read(importedSubscriptionProvider.future)
+        .catchError((Object _) => null);
+    if (!GuestTelegram.needed(profile, DateTime.now()) &&
+        await active.exists()) {
+      return (active, false);
+    }
+    try {
+      return (await GuestTelegram.prepare(), true);
+    } on Object {
+      // Guest access unavailable and nothing saved: sign in first.
+      if (await active.exists()) rethrow;
+      ref.read(rootTabIndexProvider.notifier).state = 3;
+      throw GuestUnavailable(
+          tr('Сначала войдите в аккаунт KAGO во вкладке «Кабинет».'));
     }
   }
 

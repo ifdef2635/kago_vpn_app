@@ -13,7 +13,8 @@ class IpInfo {
       this.countryCode,
       this.city,
       this.isp,
-      this.timeZone});
+      this.timeZone,
+      this.viaVpn});
   final String ip;
   final String? country;
   final String? countryCode;
@@ -22,6 +23,18 @@ class IpInfo {
 
   /// IANA time zone of the address (`Europe/Berlin`), if the service knows.
   final String? timeZone;
+
+  /// Looked up through the VPN (true) or directly (false); null if unknown.
+  final bool? viaVpn;
+
+  IpInfo withRoute({required bool viaVpn}) => IpInfo(
+      ip: ip,
+      country: country,
+      countryCode: countryCode,
+      city: city,
+      isp: isp,
+      timeZone: timeZone,
+      viaVpn: viaVpn);
 
   /// Regional-indicator flag emoji for [countryCode], or an empty string.
   String get flag {

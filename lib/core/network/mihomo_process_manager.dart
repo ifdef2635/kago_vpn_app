@@ -11,6 +11,7 @@ import 'mihomo_controller.dart';
 import 'mihomo_macos.dart';
 import 'mihomo_windows_core_updater.dart';
 import 'mihomo_windows_system_proxy.dart';
+import 'mihomo_windows_tun.dart';
 import '../l10n/l10n.dart';
 
 /// Desktop lifecycle: the managed Windows core, the core bundled in the macOS
@@ -62,7 +63,15 @@ class MihomoProcessManager {
   /// outside). Not emitted for a normal [stop].
   Stream<int> get exits => _exits.stream;
 
-  bool get isRunning => _process != null;
+  bool get isRunning => _process != null || _windowsTunDir != null;
+
+  /// Windows TUN: the folder of the running elevated core's profile (the core
+  /// is not a child of this process); null when it is not running.
+  String? _windowsTunDir;
+  Timer? _windowsTunWatch;
+
+  /// A note for the user about the last start (e.g. TUN was not allowed).
+  String? notice;
   Stream<String> get logs => _logs.stream;
   List<String> get recentLogs => List<String>.unmodifiable(_recentLogs);
 
@@ -141,7 +150,8 @@ class MihomoProcessManager {
   }
 
   Future<void> start({required String configPath}) async {
-    if (_process != null) return;
+    if (isRunning) return;
+    notice = null;
     final overridePath = (await executable)?.trim() ?? '';
     final usingOverride = overridePath.isNotEmpty;
     final String binary;
@@ -196,6 +206,10 @@ class MihomoProcessManager {
     }
     final config = decoded;
     final routesRussia = RussianRules.present(config);
+    // Windows "all traffic through VPN": UDP (Discord voice, games) too.
+    var windowsTun = Platform.isWindows &&
+        !usingOverride &&
+        await MihomoWindowsTun.enabled();
     if (_managedDesktop) {
       config['mixed-port'] = 7890;
       final tunValue = config['tun'];
@@ -216,6 +230,10 @@ class MihomoProcessManager {
         tun['auto-detect-interface'] = false;
       }
       config['tun'] = tun;
+      if (windowsTun) {
+        MihomoWindowsTun.enableTun(config);
+        MihomoConfigBuilder.ensureDns(config);
+      }
     }
     final host = controllerUri.host == '::1' ? '[::1]' : controllerUri.host;
     // The file on disk is re-read here: apply the same lock-down as on import.
@@ -225,6 +243,29 @@ class MihomoProcessManager {
     await configFile.writeAsString(jsonEncode(config), flush: true);
 
     final directory = File(configPath).parent.path;
+    if (windowsTun) {
+      _writeLog(tr('Запрашивается разрешение администратора для режима TUN.'));
+      final started = await MihomoWindowsTun.launch(
+          coreExecutable: binary,
+          coreSha256: MihomoPinnedCore.exeSha256Hex,
+          config: configFile,
+          userDir: directory);
+      if (started) {
+        await _awaitWindowsTun(controller, directory, routesRussia);
+        return;
+      }
+      // Declined: the usual system proxy (UDP apps go around the VPN).
+      windowsTun = false;
+      notice = tr(
+          'Режим TUN не включён: нет разрешения администратора. Discord и игры работают без VPN.');
+      _writeLog(notice!);
+      final tun = config['tun'];
+      if (tun is Map<String, dynamic>) {
+        tun['enable'] = false;
+        tun['auto-route'] = false;
+      }
+      await configFile.writeAsString(jsonEncode(config), flush: true);
+    }
     // The macOS TUN wrapper takes no arguments: it runs the root core with its
     // own root-owned home and reads the config from stdin.
     final process = await Process.start(
@@ -286,8 +327,74 @@ class MihomoProcessManager {
         <String, Object?>{'lastError': lastError, 'v': _logTail()}));
   }
 
+  /// Waits for the elevated core's controller, then turns the system proxy on
+  /// and watches the core (it is not our child: no exit code).
+  Future<void> _awaitWindowsTun(
+      MihomoController controller, String directory, bool routesRussia) async {
+    _windowsTunDir = directory;
+    Object? lastError;
+    for (var attempt = 0; attempt < 40; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      try {
+        await controller.version();
+        _writeLog(tr('Mihomo controller готов.'));
+        await _enableSystemProxy(routesRussia: routesRussia);
+        _writeLog(tr('Весь трафик идёт через VPN (TUN).'));
+        var misses = 0;
+        _windowsTunWatch =
+            Timer.periodic(const Duration(seconds: 3), (timer) async {
+          try {
+            await controller.version();
+            misses = 0;
+          } catch (_) {
+            if (++misses < 2 || _windowsTunDir == null) return;
+            timer.cancel();
+            _windowsTunWatch = null;
+            _windowsTunDir = null;
+            _writeLog(tr('Ядро TUN остановилось.'));
+            await _restoreSystemProxy();
+            if (!_exits.isClosed) _exits.add(-1);
+          }
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    final tail = await MihomoWindowsTun.logTail();
+    await stop();
+    throw StateError(tr(
+        'Ядро TUN не запустилось за 20 секунд: {lastError}{v}',
+        <String, Object?>{
+          'lastError': lastError,
+          'v': tail.isEmpty ? '' : '\n$tail'
+        }));
+  }
+
   Future<void> stop() async {
     await _restoreSystemProxy();
+    final tunDir = _windowsTunDir;
+    if (tunDir != null) {
+      _windowsTunDir = null;
+      _windowsTunWatch?.cancel();
+      _windowsTunWatch = null;
+      await MihomoWindowsTun.requestStop(tunDir);
+      // The script checks every 0.3 s; wait until the controller is gone so
+      // the next start does not find the old core on its ports.
+      final probe = MihomoController(
+        connectTimeout: const Duration(milliseconds: 300),
+        receiveTimeout: const Duration(milliseconds: 500),
+      );
+      for (var i = 0; i < 20; i++) {
+        try {
+          await probe.version();
+        } catch (_) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+      _writeLog(tr('Mihomo остановлен.'));
+    }
     final process = _process;
     if (process == null) return;
     _process = null;

@@ -61,6 +61,11 @@ abstract final class MihomoPinnedCore {
   static String? get sha256Hex =>
       '974a4d7ad69aed27aa2e8f91d61113573c14dadb14562c63e58effabf59816f0';
 
+  /// SHA-256 of `mihomo.exe` inside that ZIP. The elevated TUN core
+  /// (MihomoWindowsTun) runs only this exact file.
+  static const exeSha256Hex =
+      '04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314';
+
   static final Uri url = Uri.https(
       'github.com', '/MetaCubeX/mihomo/releases/download/$version/$assetName');
 

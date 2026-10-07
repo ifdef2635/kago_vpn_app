@@ -201,13 +201,14 @@ class DashboardScreen extends ConsumerWidget {
         if (context.mounted) {
           _showMessage(
               context,
-              guest
-                  ? tr(
-                      'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.')
-                  : anonymous
-                      ? tr('Анонимный режим включён.{zone}',
-                          <String, Object?>{'zone': zoneNote ?? ''})
-                      : tr('Mihomo запущен и controller отвечает.'));
+              manager.notice ??
+                  (guest
+                      ? tr(
+                          'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.')
+                      : anonymous
+                          ? tr('Анонимный режим включён.{zone}',
+                              <String, Object?>{'zone': zoneNote ?? ''})
+                          : tr('Mihomo запущен и controller отвечает.')));
         }
       } on GuestUnavailable catch (error) {
         if (context.mounted) _showMessage(context, error.message);
@@ -573,7 +574,11 @@ class _IpCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ip = ref.watch(ipInfoProvider);
     final hidden = ref.watch(ipHiddenProvider);
-    final info = ip.valueOrNull;
+    final looked = ip.valueOrNull;
+    // A previous result from the other state (VPN on/off) is stale.
+    final info = looked != null && (looked.viaVpn ?? connected) == connected
+        ? looked
+        : null;
     final loading = ip.isLoading;
     final failed = ip.hasError && info == null;
     final title = connected ? tr('IP через VPN') : tr('Ваш IP');

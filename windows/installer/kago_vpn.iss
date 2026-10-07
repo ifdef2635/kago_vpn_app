@@ -60,8 +60,8 @@ Filename: "{app}\kago_vpn.exe"; Description: "{cm:LaunchProgram,KaGo VPN}"; Flag
 Filename: "{app}\kago_vpn.exe"; Flags: nowait; Check: WizardSilent
 
 [CustomMessages]
-russian.FullCleanup=Удалить также все данные KaGo VPN?%n%nБудут удалены ядро Mihomo, подписка, вход в аккаунт и настройки — полная очистка.%nНажмите «Нет», чтобы сохранить их для повторной установки.
-english.FullCleanup=Also remove all KaGo VPN data?%n%nThe Mihomo core, subscription, sign-in and settings will be deleted (full cleanup).%nChoose "No" to keep them for a reinstall.
+russian.FullCleanup=Удалить также все данные KaGo VPN?%n%nБудут удалены ядро Mihomo (для ядра режима TUN Windows спросит разрешение администратора), подписка, вход в аккаунт и настройки — полная очистка.%nНажмите «Нет», чтобы сохранить их для повторной установки.
+english.FullCleanup=Also remove all KaGo VPN data?%n%nThe Mihomo core (Windows asks for administrator permission for the TUN core), subscription, sign-in and settings will be deleted (full cleanup).%nChoose "No" to keep them for a reinstall.
 
 [UninstallDelete]
 ; Данные встроенного WebView2 (вход через Telegram) лежат рядом с exe.
@@ -120,5 +120,11 @@ begin
     DelTree(ExpandConstant('{app}'), True, True, True);
     Exec(ExpandConstant('{sys}\cmdkey.exe'), '/delete:' + StorageCredential, '',
       SW_HIDE, ewWaitUntilTerminated, Code);
+    // Ядро режима TUN (MihomoWindowsTun) лежит в Program Files: удалить его
+    // можно только с правами администратора — Windows спросит разрешение.
+    if DirExists(ExpandConstant('{commonpf64}\KaGo VPN Core')) then
+      ShellExec('runas', ExpandConstant('{cmd}'),
+        '/c rmdir /s /q "' + ExpandConstant('{commonpf64}\KaGo VPN Core') + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, Code);
   end;
 end;

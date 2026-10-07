@@ -46,7 +46,9 @@ class MihomoWindowsSystemProxy {
   static const _backupKey = 'mihomo.windows.proxy.backup.v1';
   static const _ownedProxyKey = 'mihomo.windows.proxy.owned.v1';
 
-  Future<void> enable() async {
+  /// [subscriptionRoutesRussia]: the profile has its own rules for Russian
+  /// sites, so the fixed exception list is not applied (the switch is hidden).
+  Future<void> enable({bool subscriptionRoutesRussia = false}) async {
     _requireWindows();
     await restoreIfOwned();
 
@@ -55,7 +57,8 @@ class MihomoWindowsSystemProxy {
     await preferences.setString(_backupKey, jsonEncode(snapshot));
     await preferences.setString(_ownedProxyKey, proxyServer);
 
-    final bypassRussian = preferences.getBool(bypassRussianKey) ?? false;
+    final bypassRussian = !subscriptionRoutesRussia &&
+        (preferences.getBool(bypassRussianKey) ?? false);
     final key = _openRegistryKey();
     try {
       key.createValue(const RegistryValue.int32('ProxyEnable', 1));

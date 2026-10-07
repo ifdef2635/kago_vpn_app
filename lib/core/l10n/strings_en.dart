@@ -543,4 +543,21 @@ const stringsEn = <String, String>{
       'The update signature did not verify. The update was not installed.',
   'Для Mihomo нет эталонного SHA-256 — ядро не установлено. Попробуйте позже.':
       'There is no reference SHA-256 for Mihomo, so the core was not installed. Try again later.',
+  'Telegram не открывается без VPN': 'Telegram doesn\'t open without a VPN',
+  'Включите бесплатный доступ к Telegram: через VPN пойдёт только Telegram, остальные сайты — как обычно. Он работает без подписки.':
+      'Turn on free Telegram access: only Telegram goes through the VPN, other sites work as usual. No subscription needed.',
+  'Включить': 'Turn on',
+  'VPN не подключился. Попробуйте ещё раз или войдите по email.':
+      'The VPN didn\'t connect. Try again or sign in with email.',
+  'Бесплатный доступ: через VPN работает только Telegram':
+      'Free access: only Telegram goes through the VPN',
+  'Без подписки — бесплатный доступ к Telegram':
+      'No subscription: free access to Telegram',
+  'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.':
+      'Free Telegram access is on. Other sites work without the VPN.',
+  'Без подписки VPN работает только для Telegram — бесплатно. Подтвердите системное разрешение Android.':
+      'Without a subscription the VPN works only for Telegram, for free. Confirm the Android system permission.',
+  'Гостевой сервер не найден.': 'No guest server found.',
+  'Не удалось получить бесплатный доступ к Telegram: {error}':
+      'Couldn\'t get free Telegram access: {error}',
 };

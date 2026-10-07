@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:yaml/yaml.dart';
 
@@ -93,6 +94,11 @@ class SubscriptionRepository {
       await const MihomoConfigBuilder().prepareAndroidTunnelConfig(configFile,
           endpoint: await controller.endpoint,
           secret: await controller.ensureSecret());
+      // The tile starts the subscription again, not a guest profile.
+      await const MethodChannel('net.usekago.app/service').invokeMethod<bool>(
+          'rememberConfig', <String, String>{
+        'path': configFile.path
+      }).catchError((Object _) => false);
     }
     final fields =
         parseUserInfo(_header(response.headers, 'subscription-userinfo'));

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/subscriptions/config_builder.dart';
+import '../../features/subscriptions/russian_rules.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_macos.dart';
 import 'mihomo_windows_core_updater.dart';
@@ -31,9 +32,15 @@ class MihomoProcessManager {
   /// system proxy; Linux uses a manual core path.
   static bool get _managedDesktop => Platform.isWindows || Platform.isMacOS;
 
-  Future<void> _enableSystemProxy({bool tun = false}) async {
-    if (Platform.isWindows) await _windowsSystemProxy.enable();
-    if (Platform.isMacOS) await _macosSystemProxy.enable(tun: tun);
+  Future<void> _enableSystemProxy(
+      {bool tun = false, bool routesRussia = false}) async {
+    if (Platform.isWindows) {
+      await _windowsSystemProxy.enable(subscriptionRoutesRussia: routesRussia);
+    }
+    if (Platform.isMacOS) {
+      await _macosSystemProxy.enable(
+          tun: tun, subscriptionRoutesRussia: routesRussia);
+    }
   }
 
   Future<void> _restoreSystemProxy() async {
@@ -185,6 +192,7 @@ class MihomoProcessManager {
       throw FormatException(tr('Активная конфигурация Mihomo повреждена.'));
     }
     final config = decoded;
+    final routesRussia = RussianRules.present(config);
     if (_managedDesktop) {
       config['mixed-port'] = 7890;
       final tunValue = config['tun'];
@@ -260,7 +268,7 @@ class MihomoProcessManager {
         await controller.version();
         _writeLog(tr('Mihomo controller готов.'));
         if (_managedDesktop) {
-          await _enableSystemProxy(tun: tunMode);
+          await _enableSystemProxy(tun: tunMode, routesRussia: routesRussia);
           _writeLog(tr('Системный прокси направлен на 127.0.0.1:7890.'));
           if (tunMode) _writeLog(tr('Весь трафик идёт через VPN (TUN).'));
         }

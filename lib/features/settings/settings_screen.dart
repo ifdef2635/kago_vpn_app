@@ -12,6 +12,7 @@ import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_macos.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/network/mihomo_windows_system_proxy.dart';
+import '../../core/network/mihomo_windows_tun.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
@@ -36,6 +37,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _windowsCoreStatus = tr('Проверяется…');
   bool _bypassRussian = false;
   bool _macTun = true;
+  bool _windowsTun = true;
 
   /// Technical rows (core, logs, controller) stay folded away by default.
   bool _advanced = false;
@@ -50,6 +52,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _bypassRussian =
               prefs.getBool(MihomoWindowsSystemProxy.bypassRussianKey) ?? false;
           _macTun = prefs.getBool(MihomoMacosCore.tunKey) ?? true;
+          _windowsTun = prefs.getBool(MihomoWindowsTun.tunKey) ?? true;
         });
       }).catchError((Object _) {});
     }
@@ -236,6 +239,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.'),
               trailing: Switch(value: _macTun, onChanged: _setMacTun),
               onTap: () => _setMacTun(!_macTun)),
+        if (Platform.isWindows)
+          _SettingsTile(
+              icon: Icons.vpn_lock_rounded,
+              title: tr('Весь трафик через VPN (TUN)'),
+              subtitle: tr(
+                  'Для Discord, звонков, игр и программ без системного прокси. При подключении Windows спросит разрешение администратора.'),
+              trailing: Switch(value: _windowsTun, onChanged: _setWindowsTun),
+              onTap: () => _setWindowsTun(!_windowsTun)),
         // Hidden when the subscription routes Russian sites itself.
         if ((Platform.isWindows || Platform.isMacOS) &&
             ref.watch(subscriptionRoutesRussiaProvider).valueOrNull != true)
@@ -373,6 +384,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (error) {
       _snack(tr(
           'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+    }
+  }
+
+  Future<void> _setWindowsTun(bool value) async {
+    setState(() => _windowsTun = value);
+    await MihomoWindowsTun.setEnabled(value);
+    if (ref.read(desktopCoreRunningProvider)) {
+      _snack(tr('Переподключитесь, чтобы применить.'));
     }
   }
 

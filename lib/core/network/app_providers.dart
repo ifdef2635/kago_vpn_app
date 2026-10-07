@@ -205,9 +205,20 @@ final ipInfoProvider = FutureProvider.autoDispose<IpInfo>((ref) async {
   ref.onDispose(timer.cancel);
   // Give the proxy / VPN a moment to come up or go away after a state change.
   await Future<void>.delayed(const Duration(milliseconds: 1200));
-  return ref
+  Future<IpInfo> lookup() => ref
       .read(ipInfoServiceProvider)
       .fetch(proxyPort: !Platform.isAndroid && active ? 7890 : null);
+  IpInfo info;
+  try {
+    info = await lookup();
+  } catch (_) {
+    // Right after the VPN goes up or down the network is still switching.
+    await Future<void>.delayed(const Duration(seconds: 2));
+    info = await lookup();
+  }
+  // Tagged, so the screen never shows the VPN address after disconnecting
+  // (or the real one after connecting) while a new lookup fails or runs.
+  return info.withRoute(viaVpn: active);
 });
 
 /// Keeps the traffic counters of the saved subscription fresh. Without this

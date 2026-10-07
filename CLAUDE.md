@@ -28,7 +28,8 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - Android-релиз — один APK для arm64. Не использовать `--split-per-abi`: он меняет versionCode. Другие ABI исключены в `packaging.jniLibs`, а `.so` сжаты (`useLegacyPackaging`). Без этого APK весил 132 МБ вместо ~30.
 - Релиз — **только** workflow `release.yml`: тег `v<X.Y.Z>`, совпадающий с `pubspec.yaml`, или ручной запуск (Actions → Release; тег создаёт сам GitHub Actions — из облачной сессии Claude тег не пушится). Он собирает Android, Windows и macOS параллельно и публикует релиз, только если готовы все три файла: `.apk`, `.exe` и `.dmg` (плюс `.zip` Windows и `SHA256SUMS-*`). Платформенные workflow сами релиз не публикуют. Без ключа подписи релизная сборка падает намеренно. Сборки веток получают только debug-ключ (секреты — лишь при `inputs.release`). Опубликованный релиз не перезаписывается. `SHA256SUMS.txt` подписывается ключом Android, открытый ключ — в `lib/core/update/release_signature.dart`; ключ подписи не менять, иначе старые версии не примут обновление. CI проверяет `dart format` — форматировать код перед коммитом. Actions закреплены по SHA. macOS: с секретами `KAGO_MACOS_*`/`KAGO_APPLE_*` — подпись Developer ID и нотаризация, без них — ad-hoc (Gatekeeper предупреждает).
 
-- Обновление из приложения (`lib/core/update/app_updater.dart`) берёт последний GitHub Release и ищет файлы по именам: `KaGoVPN-Android-<v>.apk`, `KaGoVPN-Windows-x64-Setup-<v>.exe`, `KaGoVPN-macOS-<v>.dmg` и `SHA256SUMS-<Android|Windows|macOS>.txt`. Имена не менять (проверяет `test/app_updater_test.dart`). Первый раздел RELEASE_STATUS.md публикуется как «Что нового» и виден пользователям в диалоге обновления.
+- **Обновление по платформам:** строка `Платформы: Android, Windows, macOS` (любой набор) в первом разделе RELEASE_STATUS.md — каким системам приложение предложит релиз; без строки — всем. Указывать только системы, которых касаются изменения. Файлы всех трёх систем публикуются всегда.
+- Обновление из приложения (`lib/core/update/app_updater.dart`) берёт список GitHub Releases и ищет файлы по именам: `KaGoVPN-Android-<v>.apk`, `KaGoVPN-Windows-x64-Setup-<v>.exe`, `KaGoVPN-macOS-<v>.dmg` и `SHA256SUMS-<Android|Windows|macOS>.txt`. Имена не менять (проверяет `test/app_updater_test.dart`). Первый раздел RELEASE_STATUS.md публикуется как «Что нового» и виден пользователям в диалоге обновления.
 
 - В виджетах читать `AsyncValue` через `valueOrNull`/`when`, не `.value`: при ошибке `.value` выбрасывает её, и в релизе вместо экрана виден серый блок.
 
@@ -61,6 +62,11 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 ### Гостевой доступ к Telegram
 - Без рабочей подписки (нет, истекла, трафик исчерпан) подключение идёт в гостевом режиме: через гостевой сервер KAGO только Telegram, остальное — `DIRECT` (запрошено 2026-10-07: «не быстрый, работает всегда, вне зависимости от статуса подписки»). Код — `lib/features/guest/guest_telegram.dart`, серверы — подписка по `https://usekago.net/guest/telegram`, без HWID. Ограничение «только Telegram» и скорость обязательно делаются на сервере (README).
 - «Российские сайты — напрямую» на Windows/macOS показывается, только если в подписке нет своих правил для России (`russian_rules.dart`).
+
+### Режимы подключения и данные
+- Два режима (запрошено 2026-10-07): «Обычный» — подписка как есть; «Анонимный» — `lib/core/network/anonymous_mode.dart` (DNS только через VPN, без IPv6, на Windows часовой пояс сервера через `tzutil` с возвратом своего).
+- Выход из аккаунта удаляет подписку и конфиг ядра с устройства.
+- Windows: флаги — шрифт `assets/fonts/TwemojiCountryFlags.ttf` (fallback темы); удаление спрашивает о полной очистке и всегда отключает системный прокси KaGo. `kago_vpn.iss` хранить в UTF-8 с BOM.
 
 ### Языки
 - Интерфейс на русском и английском: все строки через `tr('Русский текст')` из `lib/core/l10n/l10n.dart`, перевод — в `strings_en.dart`. Новая строка без перевода роняет `test/l10n_test.dart`.

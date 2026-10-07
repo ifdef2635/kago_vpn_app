@@ -124,11 +124,42 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
+  /// Signs out and removes the account's subscription from this device:
+  /// the VPN stops, the saved profile and the core's config are deleted.
   static Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    await ref.read(kagoApiProvider).logout();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Выйти из аккаунта?')),
+        content: Text(tr(
+            'VPN отключится, а подписка будет удалена с этого устройства. Чтобы подключиться снова, войдите в аккаунт.')),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(tr('Отмена'))),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(tr('Выйти'))),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    if (ref.read(vpnActiveProvider)) {
+      await DashboardScreen.toggleVpn(context, ref, true);
+      await DashboardScreen.waitForVpn(ref, false,
+          timeout: const Duration(seconds: 8));
+    }
+    await ref.read(kagoApiProvider).logout().catchError((Object _) {});
     await SiteSessionScreen.clearWebSession();
+    await SubscriptionRepository().clear();
+    ref.read(guestModeActiveProvider.notifier).state = false;
+    ref.invalidate(importedSubscriptionProvider);
+    ref.invalidate(proxyGroupsProvider);
     refreshAccount(ref);
-    if (context.mounted) showSnack(context, tr('Вы вышли из аккаунта.'));
+    if (context.mounted) {
+      showSnack(context,
+          tr('Вы вышли из аккаунта. Подписка удалена с этого устройства.'));
+    }
   }
 }
 

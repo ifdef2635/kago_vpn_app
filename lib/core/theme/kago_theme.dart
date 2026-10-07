@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+
+/// Fallback fonts that draw country flag emoji (Windows).
+const kagoFlagFonts = <String>['KagoFlags'];
 
 /// Colors of usekago.net: a light blue-grey page with white cards, a royal
 /// blue for buttons and links, and a navy hero card. The dark variant keeps
@@ -228,6 +233,9 @@ abstract final class KaGoTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      // Windows fonts draw a flag emoji as two letters ("DE"); the bundled
+      // flag font turns them into the flag.
+      fontFamilyFallback: Platform.isWindows ? kagoFlagFonts : null,
       extensions: <ThemeExtension<dynamic>>[p],
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{

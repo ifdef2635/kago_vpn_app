@@ -8,12 +8,20 @@ import '../l10n/l10n.dart';
 /// location and provider name.
 class IpInfo {
   const IpInfo(
-      {required this.ip, this.country, this.countryCode, this.city, this.isp});
+      {required this.ip,
+      this.country,
+      this.countryCode,
+      this.city,
+      this.isp,
+      this.timeZone});
   final String ip;
   final String? country;
   final String? countryCode;
   final String? city;
   final String? isp;
+
+  /// IANA time zone of the address (`Europe/Berlin`), if the service knows.
+  final String? timeZone;
 
   /// Regional-indicator flag emoji for [countryCode], or an empty string.
   String get flag {
@@ -48,7 +56,9 @@ class IpInfo {
       throw FormatException(_text(json['message']) ?? tr('ipwho.is: отказ.'));
     }
     final connection = json['connection'];
+    final zone = json['timezone'];
     return IpInfo(
+      timeZone: zone is Map<String, dynamic> ? _text(zone['id']) : null,
       ip: _validIp(json['ip']),
       country: _text(json['country']),
       countryCode: _text(json['country_code']),
@@ -62,6 +72,7 @@ class IpInfo {
   /// https://api.ip.sb/geoip
   factory IpInfo.fromIpSb(Map<String, dynamic> json) => IpInfo(
         ip: _validIp(json['ip']),
+        timeZone: _text(json['timezone']),
         country: _text(json['country']),
         countryCode: _text(json['country_code']),
         city: _text(json['city']),

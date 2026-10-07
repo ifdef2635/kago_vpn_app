@@ -1,7 +1,7 @@
 name: kago_vpn
 description: KaGo VPN client for Mihomo (Clash.Meta), usekago.net.
 publish_to: none
-version: 1.0.6+10006
+version: 2.0.0+20000
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
@@ -34,3 +34,9 @@ flutter:
   assets:
     - assets/branding/kago_mark.svg
     - assets/branding/kago_icon.png
+  # Windows has no colour flag emoji: country flags in server names come from
+  # this font (Twemoji, CC BY 4.0 — assets/fonts/TwemojiCountryFlags-LICENSE.md).
+  fonts:
+    - family: KagoFlags
+      fonts:
+        - asset: assets/fonts/TwemojiCountryFlags.ttf

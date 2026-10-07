@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/device/device_identity.dart';
+import '../../core/network/anonymous_mode.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_macos.dart';
 import '../../core/network/mihomo_windows_core_updater.dart';
@@ -15,6 +16,8 @@ import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/update/app_updater.dart';
+import '../dashboard/dashboard_screen.dart';
+import '../guest/guest_telegram.dart';
 import '../subscriptions/russian_rules.dart';
 import '../update/update_flow.dart';
 import 'app_routing_screen.dart';
@@ -209,6 +212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   List<Widget> _connectionTiles() => <Widget>[
+        _anonymousTile(),
         if (Platform.isAndroid) ...<Widget>[
           _SettingsTile(
               icon: Icons.apps_rounded,
@@ -321,6 +325,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           subtitle: tr(
               'На Linux пока нужен внешний Mihomo. Встроенное ядро есть в версиях для Windows, macOS и Android.')),
     ];
+  }
+
+  /// Two connection profiles: "Normal" (the subscription as is) and
+  /// "Anonymous" (AnonymousMode).
+  Widget _anonymousTile() {
+    final anonymous = ref.watch(anonymousModeProvider).valueOrNull ?? false;
+    return _SettingsTile(
+        icon: Icons.privacy_tip_outlined,
+        title: tr('Анонимный режим'),
+        subtitle: anonymous
+            ? (Platform.isWindows
+                ? tr(
+                    'DNS только через VPN, без IPv6, часовой пояс как у сервера. Выключите — обычный режим.')
+                : tr(
+                    'DNS только через VPN, без IPv6. Выключите — обычный режим.'))
+            : tr(
+                'Обычный режим: подписка как есть. Включите, чтобы скрыть признаки VPN.'),
+        trailing: Switch(value: anonymous, onChanged: _setAnonymous),
+        onTap: () => _setAnonymous(!anonymous));
+  }
+
+  Future<void> _setAnonymous(bool value) async {
+    await AnonymousMode.setEnabled(value);
+    ref.invalidate(anonymousModeProvider);
+    if (!mounted) return;
+    // A running connection switches to the chosen profile right away.
+    if (ref.read(vpnActiveProvider) && !ref.read(guestModeActiveProvider)) {
+      await DashboardScreen.toggleVpn(context, ref, true);
+      if (!await DashboardScreen.waitForVpn(ref, false,
+              timeout: const Duration(seconds: 8)) ||
+          !mounted) {
+        return;
+      }
+      await DashboardScreen.toggleVpn(context, ref, false);
+    }
   }
 
   Future<void> _setBypassRussian(bool value) async {

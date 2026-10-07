@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/mihomo_models.dart';
 import '../../core/network/android_vpn_events.dart';
+import '../../core/network/anonymous_mode.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
@@ -143,6 +144,12 @@ class DashboardScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          if (connected && !guestActive && ref.watch(anonymousActiveProvider))
+            Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(tr('Анонимный режим'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: p.muted, fontSize: 12))),
           if (guestNeeded || (connected && guestActive)) ...<Widget>[
             const SizedBox(height: 4),
             Text(
@@ -188,13 +195,19 @@ class DashboardScreen extends ConsumerWidget {
         ref.read(guestModeActiveProvider.notifier).state = guest;
         ref.read(desktopCoreRunningProvider.notifier).state = true;
         _refreshCoreData(ref);
+        final anonymous = !guest && await AnonymousMode.enabled();
+        ref.read(anonymousActiveProvider.notifier).state = anonymous;
+        final zoneNote = anonymous ? await _matchTimeZone(ref) : null;
         if (context.mounted) {
           _showMessage(
               context,
               guest
                   ? tr(
                       'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.')
-                  : tr('Mihomo запущен и controller отвечает.'));
+                  : anonymous
+                      ? tr('Анонимный режим включён.{zone}',
+                          <String, Object?>{'zone': zoneNote ?? ''})
+                      : tr('Mihomo запущен и controller отвечает.'));
         }
       } on GuestUnavailable catch (error) {
         if (context.mounted) _showMessage(context, error.message);
@@ -220,6 +233,8 @@ class DashboardScreen extends ConsumerWidget {
         } else {
           final (config, guest) = await _connectConfig(ref);
           ref.read(guestModeActiveProvider.notifier).state = guest;
+          ref.read(anonymousActiveProvider.notifier).state =
+              !guest && await AnonymousMode.enabled();
           final controller = ref.read(mihomoControllerProvider);
           await const MihomoConfigBuilder().prepareAndroidTunnelConfig(
             config,
@@ -308,6 +323,22 @@ class DashboardScreen extends ConsumerWidget {
     await toggleVpn(context, ref, false);
   }
 
+  /// Windows, anonymous profile: the system time zone of the VPN exit, so
+  /// the browser's clock matches the IP. Returns a note for the user.
+  static Future<String?> _matchTimeZone(WidgetRef ref) async {
+    if (!Platform.isWindows) return null;
+    try {
+      final info = await ref.read(ipInfoServiceProvider).fetch(proxyPort: 7890);
+      final zone = info.timeZone;
+      if (zone != null && await WindowsTimeZone.apply(zone)) {
+        return tr(' Часовой пояс: {zone}.', <String, Object?>{'zone': zone});
+      }
+    } catch (_) {
+      // Not fatal: the connection works, only the clock is not matched.
+    }
+    return tr(' Часовой пояс сервера определить не удалось.');
+  }
+
   /// The profile to connect with: the subscription, or — without a working
   /// one — the free guest config that carries only Telegram.
   static Future<(File, bool)> _connectConfig(WidgetRef ref) async {
@@ -317,6 +348,10 @@ class DashboardScreen extends ConsumerWidget {
         .catchError((Object _) => null);
     if (!GuestTelegram.needed(profile, DateTime.now()) &&
         await active.exists()) {
+      // The anonymous profile is derived from the subscription each time.
+      if (await AnonymousMode.enabled()) {
+        return (await AnonymousMode.write(active), false);
+      }
       return (active, false);
     }
     try {

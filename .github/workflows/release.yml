@@ -161,6 +161,23 @@ jobs:
         run: |
           awk '/^## /{n++; next} n==1 && /^Для разработчиков/{exit} n==1' RELEASE_STATUS.md > release-notes.md
           test -s release-notes.md || echo "KaGo VPN $V" > release-notes.md
+          # Строка «Платформы: Android, Windows, macOS» — каким системам
+          # приложение предложит это обновление (без строки — всем). Файлы
+          # всех трёх систем публикуются в любом случае. release.json читает
+          # приложение, когда API GitHub недоступен.
+          LINE="$(grep -iE '^[[:space:]*_]*(Платформы|Platforms)[[:space:]*_]*:' release-notes.md | head -1 || true)"
+          PLATFORMS=""
+          for p in android windows macos; do
+            if [[ -z "$LINE" ]] || echo "$LINE" | grep -qiE "\b${p}\b|\b${p%os}\b"; then
+              PLATFORMS="$PLATFORMS\"$p\","
+            fi
+          done
+          if [[ -z "$PLATFORMS" ]]; then
+            echo "::error::В строке «$LINE» нет ни одной платформы (Android, Windows, macOS)." >&2
+            exit 1
+          fi
+          printf '{"version":"%s","platforms":[%s]}\n' "$V" "${PLATFORMS%,}" > dist/release.json
+          cat dist/release.json
 
       - name: GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2

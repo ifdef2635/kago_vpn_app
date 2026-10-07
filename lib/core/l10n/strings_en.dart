@@ -560,4 +560,20 @@ const stringsEn = <String, String>{
   'Гостевой сервер не найден.': 'No guest server found.',
   'Не удалось получить бесплатный доступ к Telegram: {error}':
       'Couldn\'t get free Telegram access: {error}',
+  'Выйти из аккаунта?': 'Sign out?',
+  'VPN отключится, а подписка будет удалена с этого устройства. Чтобы подключиться снова, войдите в аккаунт.':
+      'The VPN will disconnect and the subscription will be removed from this device. Sign in again to reconnect.',
+  'Вы вышли из аккаунта. Подписка удалена с этого устройства.':
+      'Signed out. The subscription was removed from this device.',
+  'Анонимный режим': 'Anonymous mode',
+  'DNS только через VPN, без IPv6, часовой пояс как у сервера. Выключите — обычный режим.':
+      'DNS only through the VPN, no IPv6, the server\'s time zone. Turn off for normal mode.',
+  'DNS только через VPN, без IPv6. Выключите — обычный режим.':
+      'DNS only through the VPN, no IPv6. Turn off for normal mode.',
+  'Обычный режим: подписка как есть. Включите, чтобы скрыть признаки VPN.':
+      'Normal mode: the subscription as is. Turn on to hide signs of a VPN.',
+  'Анонимный режим включён.{zone}': 'Anonymous mode is on.{zone}',
+  ' Часовой пояс: {zone}.': ' Time zone: {zone}.',
+  ' Часовой пояс сервера определить не удалось.':
+      ' Couldn\'t detect the server\'s time zone.',
 };

@@ -17,16 +17,15 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Android VPN lifecycle shell. The tunnel is established only after the native core library
  * is present; failed core startup closes the TUN descriptor immediately (fail closed).
  */
 class KaGoVpnService : VpnService() {
-    private val worker = Executors.newSingleThreadExecutor()
-    @Volatile private var coreStarted = false
-    // Set in onDestroy: a start still running on the worker must not leave
-    // the core up without the service (nothing could stop it then).
+    // Set in onDestroy: a start still running on the core thread must not
+    // leave the core up without the service (nothing could stop it then).
     @Volatile private var destroyed = false
 
     override fun onCreate() {
@@ -37,7 +36,10 @@ class KaGoVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                runOnWorker { stopTunnel("disconnected", stopSelfAfter = true) }
+                // A later START (fast taps on the tile) supersedes this stop.
+                val request = requests.incrementAndGet()
+                isStarting = false
+                onCoreThread { if (request == requests.get()) stopTunnel("disconnected", stopStartId = startId) }
                 return START_NOT_STICKY
             }
             ACTION_START, null -> {
@@ -51,24 +53,30 @@ class KaGoVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_CONFIG_PATH, configPath).apply()
+                val request = requests.incrementAndGet()
                 isStarting = true
                 KaGoVpnEvents.emit("starting")
                 KaGoTileService.requestUpdate(this)
-                runOnWorker { startTunnel(configPath) }
+                onCoreThread { if (request == requests.get()) startTunnel(configPath, request) }
                 return START_STICKY
             }
             else -> return START_NOT_STICKY
         }
     }
 
-    private fun runOnWorker(task: () -> Unit) {
-        if (!worker.isShutdown) runCatching { worker.execute(task) }
+    private fun onCoreThread(task: () -> Unit) {
+        runCatching { coreThread.execute { runCatching(task) } }
     }
 
-    private fun startTunnel(configPath: String) {
+    private fun startTunnel(configPath: String, request: Int) {
         if (destroyed) return
-        if (coreStarted) {
+        if (coreRunning) {
+            // Already up (a stop was superseded by this start).
+            isConnected = true
             isStarting = false
+            KaGoTileService.requestUpdate(this)
+            updateNotification(getString(R.string.vpn_connected))
+            KaGoVpnEvents.emit("connected")
             return
         }
         var descriptor: ParcelFileDescriptor? = null
@@ -117,11 +125,14 @@ class KaGoVpnService : VpnService() {
             // The native ABI contract requires the core to dup(tunFd) before returning success.
             descriptor.close()
             descriptor = null
+            coreRunning = true
+            // Stopped or destroyed while the core was starting: the later
+            // request runs next on this thread; never leave the core orphaned.
             if (destroyed) {
-                runCatching { MihomoNativeCore.stop() }
+                stopCore()
                 return
             }
-            coreStarted = true
+            if (request != requests.get()) return
             isConnected = true
             isStarting = false
             KaGoTileService.requestUpdate(this)
@@ -129,26 +140,33 @@ class KaGoVpnService : VpnService() {
             KaGoVpnEvents.emit("connected")
         } catch (error: Throwable) {
             runCatching { descriptor?.close() }
-            runCatching { MihomoNativeCore.stop() }
-            coreStarted = false
-            isConnected = false
-            isStarting = false
-            stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopSelfAfter = true)
+            stopCore()
+            if (request == requests.get()) {
+                stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopStartId = -1)
+            }
         }
     }
 
-    @Suppress("DEPRECATION")
-    private fun stopTunnel(state: String, message: String? = null, stopSelfAfter: Boolean = false) {
+    private fun stopCore() {
         // Idempotent in the core; called even if this instance did not start
         // it (a previous instance may have).
         runCatching { MihomoNativeCore.stop() }
-        coreStarted = false
+        coreRunning = false
+    }
+
+    /**
+     * Stops the core and the service. [stopStartId] is the id of the STOP
+     * command: stopSelf(id) is ignored when a newer START was delivered
+     * meanwhile, so a fast off/on never loses the "on". -1 stops in any case.
+     */
+    private fun stopTunnel(state: String, message: String? = null, stopStartId: Int) {
+        stopCore()
         isConnected = false
         isStarting = false
         KaGoVpnEvents.emit(state, message)
         KaGoTileService.requestUpdate(this)
         removeForegroundNotification()
-        if (stopSelfAfter) stopSelf()
+        if (stopStartId >= 0) stopSelf(stopStartId) else stopSelf()
     }
 
     @Suppress("DEPRECATION")
@@ -157,17 +175,18 @@ class KaGoVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        runOnWorker { stopTunnel("revoked", stopSelfAfter = true) }
+        val request = requests.incrementAndGet()
+        onCoreThread { if (request == requests.get()) stopTunnel("revoked", stopStartId = -1) }
     }
 
     override fun onDestroy() {
         destroyed = true
-        runCatching { MihomoNativeCore.stop() }
-        coreStarted = false
         isConnected = false
         isStarting = false
+        // On the core thread, after anything this instance queued, and before
+        // the start of a new instance: start and stop never overlap.
+        onCoreThread { stopCore() }
         KaGoTileService.requestUpdate(this)
-        worker.shutdownNow()
         super.onDestroy()
     }
 
@@ -249,6 +268,17 @@ class KaGoVpnService : VpnService() {
         private const val TUN_MTU = 1500
         @Volatile var isConnected: Boolean = false
             private set
+
+        /**
+         * Every core start/stop of every service instance runs on this one
+         * thread. With a thread per instance, fast taps on the tile let a new
+         * instance start the (process-wide) core while the old one was still
+         * starting or stopping it, and the connection hung at "starting".
+         */
+        private val coreThread = Executors.newSingleThreadExecutor()
+        /** The latest start/stop request; older queued work is skipped. */
+        private val requests = AtomicInteger()
+        @Volatile private var coreRunning = false
         @Volatile var isStarting: Boolean = false
             private set
 
@@ -262,6 +292,12 @@ class KaGoVpnService : VpnService() {
             val home = File(context.applicationInfo.dataDir).canonicalFile
             if (!file.isFile || !file.path.startsWith(home.path + File.separator)) return false
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CONFIG_PATH, file.path).apply()
+            return true
+        }
+
+        /** Sign-out: the tile opens the app instead of starting a profile. */
+        fun forgetConfigPath(context: Context): Boolean {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_CONFIG_PATH).apply()
             return true
         }
 

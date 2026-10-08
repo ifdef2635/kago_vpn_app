@@ -8,8 +8,21 @@ name: Release
 # публикация — новая версия в pubspec.yaml.
 # Запуск: тег v<версия> (совпадает с pubspec.yaml) или Actions → Release →
 # Run workflow (тег создаётся на выбранном коммите).
+# Предварительный релиз (тег с суффиксом, например v2.0.4-pre.1, или галочка
+# «Предварительный релиз» при ручном запуске) публикуется с отметкой
+# pre-release: файлы подписаны боевым ключом, но приложение такие релизы
+# пропускает (app_updater: prerelease == true) — это способ прогнать весь
+# релизный путь, не предлагая версию пользователям.
+run-name: >-
+  Release ${{ github.ref_type == 'tag' && github.ref_name
+  || (inputs.prerelease && 'pre-release' || 'из pubspec.yaml') }}
 on:
   workflow_dispatch:
+    inputs:
+      prerelease:
+        description: 'Предварительный релиз (пользователям не предлагается)'
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*'
@@ -58,6 +71,9 @@ jobs:
       KAGO_APPLE_ID: ${{ secrets.KAGO_APPLE_ID }}
       KAGO_APPLE_TEAM_ID: ${{ secrets.KAGO_APPLE_TEAM_ID }}
       KAGO_APPLE_APP_PASSWORD: ${{ secrets.KAGO_APPLE_APP_PASSWORD }}
+      KAGO_APPLE_API_KEY_BASE64: ${{ secrets.KAGO_APPLE_API_KEY_BASE64 }}
+      KAGO_APPLE_API_KEY_ID: ${{ secrets.KAGO_APPLE_API_KEY_ID }}
+      KAGO_APPLE_API_ISSUER: ${{ secrets.KAGO_APPLE_API_ISSUER }}
 
   publish:
     needs: [android, windows, macos]
@@ -72,6 +88,8 @@ jobs:
 
       - name: Версия
         id: version
+        env:
+          PRERELEASE_INPUT: ${{ inputs.prerelease && 'true' || 'false' }}
         run: |
           VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
           NAME="${VERSION%%+*}"
@@ -79,9 +97,28 @@ jobs:
             echo "::error::Неверная версия в pubspec.yaml: $NAME" >&2; exit 1
           fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
-            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
-            exit 1
+          # Тег релиза: при пуше тега — он сам (с суффиксом предварительной
+          # сборки, если есть), при ручном запуске — из pubspec.yaml.
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            # У v2.0.4-pre.1 версия приложения — 2.0.4: суффикс отбрасывается.
+            BASE="${TAG#v}"; BASE="${BASE%%-*}"
+            if [[ "$BASE" != "$NAME" ]]; then
+              echo "::error::Тег $TAG не совпадает с версией pubspec.yaml ($NAME)."
+              exit 1
+            fi
+          elif [[ "$PRERELEASE_INPUT" == "true" ]]; then
+            TAG="v$NAME-pre.$GITHUB_RUN_NUMBER"
+          else
+            TAG="v$NAME"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # Предварительный релиз — тег с суффиксом после версии.
+          if [[ "$TAG" == *-* ]]; then
+            echo 'stable=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::Предварительный релиз $TAG — приложение его не предложит."
+          else
+            echo 'stable=true' >> "$GITHUB_OUTPUT"
           fi
 
       # Уже опубликованный релиз не заменяется: иначе любой запуск из ветки
@@ -89,10 +126,10 @@ jobs:
       - name: Релиз ещё не опубликован
         env:
           GH_TOKEN: ${{ github.token }}
-          V: ${{ steps.version.outputs.name }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "::error::Релиз v$V уже опубликован. Поднимите версию в pubspec.yaml." >&2
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::Релиз $TAG уже опубликован. Поднимите версию в pubspec.yaml." >&2
             exit 1
           fi
 
@@ -183,9 +220,17 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           body_path: release-notes.md
-          tag_name: v${{ steps.version.outputs.name }}
+          tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: KaGo VPN ${{ steps.version.outputs.name }}
+          # Пустая строка в выражениях GitHub ложна, поэтому условие
+          # записано «от предварительного релиза»: у стабильного — только
+          # «KaGo VPN <версия>».
+          name: >-
+            KaGo VPN ${{ steps.version.outputs.name }}${{
+            steps.version.outputs.stable != 'true'
+            && format(' ({0})', steps.version.outputs.tag) || '' }}
           files: dist/*
-          prerelease: false
-          make_latest: true
+          # Предварительный релиз не становится «latest»: ни страница
+          # releases/latest, ни приложение его не подхватят.
+          prerelease: ${{ steps.version.outputs.stable != 'true' }}
+          make_latest: ${{ steps.version.outputs.stable == 'true' }}

@@ -12,6 +12,7 @@ class _FakeServer implements HttpClientAdapter {
   final requests = <RequestOptions>[];
   String access = 'a1';
   bool refreshWorks = true;
+  bool passwordWrong = false;
 
   ResponseBody _json(Object body, int status,
           {List<String> cookies = const <String>[]}) =>
@@ -28,6 +29,9 @@ class _FakeServer implements HttpClientAdapter {
     final cookie = options.headers['Cookie'] as String? ?? '';
     switch (options.path) {
       case '/auth/login':
+        if (passwordWrong) {
+          return _json(<String, String>{}, 401);
+        }
         return _json(<String, String>{'expires_at': ''}, 200,
             cookies: <String>[
               'access_token=$access; Path=/; HttpOnly; Secure; SameSite=Lax',
@@ -111,6 +115,21 @@ void main() {
       ..refreshWorks = false;
     await expectLater(api.me(), throwsA(isA<KagoUnauthorized>()));
     expect(await api.cookies.hasSession, isFalse);
+  });
+
+  test('a wrong password is not reported as an expired session', () async {
+    final server = _FakeServer();
+    final api = _api(server);
+    await api.login('user@example.com', 'secret');
+    server.passwordWrong = true;
+    await expectLater(
+        api.login('user@example.com', 'wrong'),
+        throwsA(isA<KagoApiException>()
+            .having((e) => e, 'type', isNot(isA<KagoUnauthorized>()))
+            .having((e) => e.status, 'status', 401)));
+    expect(
+        server.requests.map((r) => r.path), isNot(contains('/auth/refresh')));
+    expect(await api.cookies.hasSession, isTrue);
   });
 
   test('FastAPI validation errors become a readable message', () async {

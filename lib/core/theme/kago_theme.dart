@@ -73,10 +73,12 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
     brand: Color(0xFF2B5FD0), // --color-primary
     accent: Color(0xFF2B5FD0),
     accentSoft: Color(0xFFE8F0FF), // --color-primary-light
-    canvas: Color(0xFFEDF2FA), // --color-page-bg
+    // Page and borders a step darker than usekago.net: on a monitor the
+    // site's #EDF2FA page and #E2E8F0 borders left white cards hard to see.
+    canvas: Color(0xFFE3E9F3), // --color-page-bg #EDF2FA, darkened
     surface: Color(0xFFFFFFFF), // --color-bg
-    surfaceRaised: Color(0xFFF4F8FE), // --color-surface
-    border: Color(0xFFE2E8F0), // --color-border
+    surfaceRaised: Color(0xFFEEF2F9), // --color-surface #F4F8FE, darkened
+    border: Color(0xFFCCD6E6), // --color-border #E2E8F0, darkened
     text: Color(0xFF13203F), // --color-text-h
     muted: Color(0xFF42526B), // --color-text-body
     danger: Color(0xFFC62828), // --color-danger #DC2626, darkened for AA

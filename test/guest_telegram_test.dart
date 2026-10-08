@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kago_vpn/features/guest/guest_telegram.dart';
@@ -82,5 +85,99 @@ rules:
 ''';
     final proxies = GuestTelegram.proxiesFrom(body);
     expect(proxies.map((proxy) => proxy['name']), <String>['guest-de']);
+  });
+
+  test('duplicates, panel placeholders and broken dialer-proxy are skipped',
+      () {
+    const body = '''
+proxies:
+  - {name: de, type: ss, server: de.example.com, port: 443, cipher: aes-128-gcm, password: p}
+  - {name: de, type: ss, server: de2.example.com, port: 443, cipher: aes-128-gcm, password: p}
+  - {name: "Подписка истекла", type: ss, server: 0.0.0.0, port: 1, cipher: aes-128-gcm, password: p}
+  - {name: local, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: p}
+  - {name: chained, type: ss, server: nl.example.com, port: 443, cipher: aes-128-gcm, password: p, dialer-proxy: missing}
+  - {name: via-de, type: ss, server: fi.example.com, port: 443, cipher: aes-128-gcm, password: p, dialer-proxy: de}
+''';
+    expect(GuestTelegram.proxiesFrom(body).map((proxy) => proxy['name']),
+        <String>['de', 'via-de']);
+  });
+
+  group('download from a server that checks the User-Agent', () {
+    late HttpServer server;
+    late HttpServer panel;
+    final seen = <String, Map<String, String?>>{};
+    const appAgent = 'mihomo/1.19.32 KaGoVPN/2.0.4 (Windows 24H2)';
+    const yaml = '''
+proxies:
+  - {name: guest-de, type: vless, server: de.example.com, port: 443, uuid: 11111111-2222-3333-4444-555555555555, network: tcp, tls: true}
+proxy-groups:
+  - {name: Proxy, type: select, proxies: [guest-de]}
+rules:
+  - MATCH,Proxy
+''';
+
+    setUp(() async {
+      seen.clear();
+      // The panel on another host: only the User-Agent may reach it.
+      panel = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      panel.listen((request) {
+        seen['panel'] = <String, String?>{
+          'ua': request.headers.value('user-agent'),
+          'hwid': request.headers.value('x-hwid'),
+        };
+        request.response
+          ..headers.contentType = ContentType.text
+          ..write(yaml)
+          ..close();
+      });
+      // usekago.net: like the nginx rule in the README.
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) {
+        final agent = request.headers.value('user-agent') ?? '';
+        seen['site'] = <String, String?>{'ua': agent};
+        if (!agent.toLowerCase().contains('kagovpn/')) {
+          request.response
+            ..statusCode = 404
+            ..close();
+          return;
+        }
+        request.response
+          ..statusCode = 302
+          ..headers.set('location', 'http://localhost:${panel.port}/sub/guest')
+          ..close();
+      });
+    });
+    tearDown(() async {
+      await server.close(force: true);
+      await panel.close(force: true);
+    });
+
+    Uri site() => Uri.parse('http://127.0.0.1:${server.port}/guest/telegram');
+
+    test('the app gets the servers through the redirect, without HWID',
+        () async {
+      final proxies =
+          await GuestTelegram.download(source: site(), userAgent: appAgent);
+      expect(proxies.single['name'], 'guest-de');
+      expect(seen['site']!['ua'], appAgent);
+      expect(seen['panel']!['ua'], appAgent);
+      expect(seen['panel']!['hwid'], isNull);
+      // And the config the core gets is valid for the app.
+      final config = GuestTelegram.buildConfig(proxies);
+      expect((config['rules'] as List).last, 'MATCH,DIRECT');
+    });
+
+    test('anyone else gets 404, reported in plain words', () async {
+      Object? error;
+      try {
+        await GuestTelegram.download(
+            source: site(), userAgent: 'Mozilla/5.0', dio: Dio());
+      } catch (caught) {
+        error = caught;
+      }
+      expect(error, isA<DioException>());
+      expect(seen['panel'], isNull);
+      expect(GuestTelegram.reason(error!), contains('404'));
+    });
   });
 }

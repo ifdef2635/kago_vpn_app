@@ -140,11 +140,23 @@ const stringsEn = <String, String>{
   'Вы вошли. Подписка добавлена на это устройство.':
       'You are signed in. The subscription was added to this device.',
   'Вы вошли в аккаунт.': 'You are signed in.',
+  'KaGo VPN продолжает работать в трее. Чтобы выйти, нажмите на значок правой кнопкой → «Выход».':
+      'KaGo VPN keeps running in the tray. To quit, right-click the icon → “Quit”.',
+  'Открыть KaGo VPN': 'Open KaGo VPN',
+  'Выход': 'Quit',
+  'KaGo VPN — подключено': 'KaGo VPN — connected',
+  'KaGo VPN — не подключено': 'KaGo VPN — not connected',
+  'сервер KAGO ответил {status}, попробуйте позже':
+      'the KAGO server answered {status}, try again later',
+  'нет связи с usekago.net, проверьте интернет':
+      'cannot reach usekago.net, check the internet connection',
+  'Неверный email или пароль.': 'Wrong email or password.',
+  'Вы вошли, но подписку не удалось добавить: {error}':
+      'You are signed in, but the subscription could not be added: {error}',
   'Забыли пароль?': 'Forgot your password?',
-  'Вы регистрировались раньше и пароль не задавали':
-      'You registered before and never set a password',
-  'Зарегистрируйтесь с той же почтой — аккаунт и подписка сохранятся.':
-      'Sign up with the same email — your account and subscription will be kept.',
+  'Аккаунт создан через Telegram': 'Account created via Telegram',
+  'Войдите через Telegram — пароль не нужен, подписка подключится сама.':
+      'Sign in with Telegram — no password needed, the subscription connects automatically.',
   'Пароль был, но вы его забыли': 'You had a password but forgot it',
   'Напишите в поддержку — поможем восстановить доступ.':
       'Contact support — we will help you restore access.',

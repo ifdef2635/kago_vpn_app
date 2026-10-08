@@ -181,12 +181,15 @@ final mihomoProcessProvider = Provider<MihomoProcessManager>((ref) {
 });
 final desktopCoreRunningProvider = StateProvider<bool>((ref) => false);
 
+/// A desktop start or stop is in progress (the power button waits).
+final desktopVpnBusyProvider = StateProvider<bool>((ref) => false);
+
 /// True while a VPN core is up: the desktop core process or the Android service.
 final vpnActiveProvider = Provider<bool>((ref) {
   final desktop = ref.watch(desktopCoreRunningProvider);
   final android = Platform.isAndroid &&
       ref.watch(androidVpnEventProvider
-          .select((event) => event.value?['state'] == 'connected'));
+          .select((event) => event.valueOrNull?['state'] == 'connected'));
   return desktop || android;
 });
 

@@ -24,6 +24,9 @@ import 'windows_zones.g.dart';
 abstract final class AnonymousMode {
   static const key = 'kago.connection.anonymous';
 
+  /// File name of the anonymous profile (also how Android reports it running).
+  static const configName = 'anonymous_config.yaml';
+
   static Future<bool> enabled() async {
     try {
       return (await SharedPreferences.getInstance()).getBool(key) ?? false;
@@ -93,8 +96,8 @@ abstract final class AnonymousMode {
     }
     apply(decoded);
     final active = await const MihomoConfigBuilder().activeConfigFile();
-    final file = File(
-        '${active.parent.path}${Platform.pathSeparator}anonymous_config.yaml');
+    final file =
+        File('${active.parent.path}${Platform.pathSeparator}$configName');
     await file.writeAsString(jsonEncode(decoded), flush: true);
     return file;
   }

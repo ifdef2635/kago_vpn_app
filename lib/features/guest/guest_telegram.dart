@@ -27,6 +27,9 @@ abstract final class GuestTelegram {
   static const url = 'https://usekago.net/guest/telegram';
   static const groupName = 'KaGo Telegram';
 
+  /// File name of the guest profile (also how Android reports it running).
+  static const configName = 'guest_config.yaml';
+
   /// Telegram's own domains and address ranges (core.telegram.org/resources/cidr.txt).
   static const domains = <String>[
     'telegram.org',
@@ -117,23 +120,82 @@ abstract final class GuestTelegram {
   }
 
   /// The guest servers of a subscription body (any format the app reads).
+  /// Skipped: entries without a name, type or server; the placeholders a
+  /// panel serves for a disabled user (server 0.0.0.0 or loopback); a repeated
+  /// name (Mihomo refuses the whole config); a `dialer-proxy` to a server that
+  /// is not in the list.
   static List<Map<String, dynamic>> proxiesFrom(String body) {
     final yaml = const SubscriptionContentParser().toMihomoConfig(body);
     final parsed = loadYaml(yaml);
     final list = parsed is YamlMap ? parsed['proxies'] : null;
     final proxies = <Map<String, dynamic>>[];
+    final names = <String>{};
     if (list is YamlList) {
       for (final item in list) {
         if (proxies.length >= maxProxies) break;
         if (item is! YamlMap) continue;
         final proxy = jsonDecode(jsonEncode(item)) as Map<String, dynamic>;
         final name = proxy['name'];
-        if (name is String && name.isNotEmpty && proxy['type'] is String) {
-          proxies.add(proxy);
+        final server = '${proxy['server'] ?? ''}'.trim().toLowerCase();
+        if (name is! String ||
+            name.trim().isEmpty ||
+            name == groupName ||
+            proxy['type'] is! String ||
+            _placeholderServer(server) ||
+            !names.add(name)) {
+          continue;
         }
+        proxies.add(proxy);
       }
     }
+    return <Map<String, dynamic>>[
+      for (final proxy in proxies)
+        if (proxy['dialer-proxy'] == null ||
+            names.contains(proxy['dialer-proxy']))
+          proxy
+    ];
+  }
+
+  static bool _placeholderServer(String server) =>
+      server.isEmpty ||
+      server == '0.0.0.0' ||
+      server == 'localhost' ||
+      server == '::' ||
+      server == '::1' ||
+      server.startsWith('127.');
+
+  /// Downloads the guest servers. usekago.net answers only this app (by the
+  /// `KaGoVPN/` part of the User-Agent, README); anyone else gets 404.
+  static Future<List<Map<String, dynamic>>> download(
+      {Uri? source, Dio? dio, String? userAgent}) async {
+    final agent = userAgent ?? await DeviceIdentity.instance.userAgent();
+    final response = await SubscriptionRepository.fetch(
+        dio ??
+            Dio(BaseOptions(
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 15))),
+        source ?? Uri.parse(url),
+        method: 'GET',
+        deviceHeaders: <String, String>{'User-Agent': agent});
+    final proxies = proxiesFrom(response.body);
+    if (proxies.isEmpty) {
+      throw FormatException(tr('Гостевой сервер не найден.'));
+    }
     return proxies;
+  }
+
+  /// A short reason for the user instead of the whole Dio error.
+  static String reason(Object error) {
+    if (error is FormatException) return error.message;
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      if (status != null) {
+        return tr('сервер KAGO ответил {status}, попробуйте позже',
+            <String, Object?>{'status': status});
+      }
+      return tr('нет связи с usekago.net, проверьте интернет');
+    }
+    return '$error';
   }
 
   static Future<File> _file(String name) async {
@@ -147,18 +209,7 @@ abstract final class GuestTelegram {
     final cache = await _file('guest_proxies.json');
     List<Map<String, dynamic>> proxies;
     try {
-      final agent = await DeviceIdentity.instance.userAgent();
-      final response = await SubscriptionRepository.fetch(
-          Dio(BaseOptions(
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 15))),
-          Uri.parse(url),
-          method: 'GET',
-          deviceHeaders: <String, String>{'User-Agent': agent});
-      proxies = proxiesFrom(response.body);
-      if (proxies.isEmpty) {
-        throw FormatException(tr('Гостевой сервер не найден.'));
-      }
+      proxies = await download();
       await cache.parent.create(recursive: true);
       await cache.writeAsString(jsonEncode(proxies), flush: true);
     } catch (error) {
@@ -166,11 +217,11 @@ abstract final class GuestTelegram {
       if (saved.isEmpty) {
         throw GuestUnavailable(tr(
             'Не удалось получить бесплатный доступ к Telegram: {error}',
-            <String, Object?>{'error': error}));
+            <String, Object?>{'error': reason(error)}));
       }
       proxies = saved;
     }
-    final file = await _file('guest_config.yaml');
+    final file = await _file(configName);
     await file.parent.create(recursive: true);
     await file.writeAsString(
         const MihomoConfigBuilder().encode(jsonEncode(buildConfig(proxies))),

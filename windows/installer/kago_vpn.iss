@@ -104,16 +104,41 @@ begin
   end;
 end;
 
-// Обновление из приложения: старая версия могла не завершиться (зависнуть при
-// выходе) и держать свои файлы — тогда тихая установка откатывалась.
-function PrepareToInstall(var NeedsRestart: Boolean): String;
+function FindWindowW(lpClassName, lpWindowName: String): HWND;
+  external 'FindWindowW@user32.dll stdcall';
+function RegisterWindowMessageW(lpString: String): Longint;
+  external 'RegisterWindowMessageW@user32.dll stdcall';
+
+// Приложение живёт в трее (закрытие окна его не завершает). Сначала просим
+// его выйти, как из меню трея: оно остановит ядро и вернёт системный прокси,
+// TUN и часовой пояс. Если не вышло за 12 с — завершаем принудительно.
+procedure QuitApp;
 var
-  Code: Integer;
+  Wnd: HWND;
+  Waited, Code: Integer;
 begin
+  Wnd := FindWindowW('FLUTTER_RUNNER_WIN32_WINDOW', 'KaGo VPN');
+  if Wnd <> 0 then
+  begin
+    PostMessage(Wnd, RegisterWindowMessageW('KaGoVPN.Quit'), 0, 0);
+    Waited := 0;
+    while (Waited < 12000) and (FindWindowW('FLUTTER_RUNNER_WIN32_WINDOW', 'KaGo VPN') <> 0) do
+    begin
+      Sleep(250);
+      Waited := Waited + 250;
+    end;
+  end;
+  // Обновление из приложения: старая версия могла не завершиться (зависнуть
+  // при выходе) и держать свои файлы — тогда тихая установка откатывалась.
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM kago_vpn.exe', '', SW_HIDE,
     ewWaitUntilTerminated, Code);
   if Code = 0 then
     Sleep(800);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  QuitApp;
   Result := '';
 end;
 
@@ -125,6 +150,7 @@ begin
   begin
     FullCleanup := (not UninstallSilent) and
       (MsgBox(CustomMessage('FullCleanup'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES);
+    QuitApp;
     StopCore;
     RestoreProxy;
   end;

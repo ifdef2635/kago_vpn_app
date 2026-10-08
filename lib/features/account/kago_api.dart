@@ -281,13 +281,20 @@ class KagoApi {
       .catchError((Object _) => false)
       .whenComplete(() => _refreshing = null);
 
+  /// Sign-in calls: a 401 there is a wrong password, not a lost session.
+  static const _signIn = <String>{
+    '/auth/login',
+    '/auth/register',
+    '/auth/telegram'
+  };
+
   Future<dynamic> request(String method, String path, {Object? body}) async {
     Response<String> response;
     try {
       response = await _raw(method, path, body: body);
       if (response.statusCode == 401 &&
           path != '/auth/refresh' &&
-          path != '/auth/login') {
+          !_signIn.contains(path)) {
         if (!await _refresh()) {
           await cookies.clear();
           throw KagoUnauthorized();
@@ -306,6 +313,14 @@ class KagoApi {
       } catch (_) {
         json = null;
       }
+    }
+    if (status == 401 && _signIn.contains(path)) {
+      // Wrong email or password, not an expired session.
+      throw KagoApiException(
+          json is Map<String, dynamic> && json['detail'] != null
+              ? errorDetail(json, status)
+              : tr('Неверный email или пароль.'),
+          status: status);
     }
     if (status == 401) {
       await cookies.clear();

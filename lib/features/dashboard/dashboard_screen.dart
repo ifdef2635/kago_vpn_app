@@ -132,7 +132,7 @@ class DashboardScreen extends ConsumerWidget {
           Center(
               child: _PowerButton(
                   connected: connected,
-                  busy: starting,
+                  busy: starting || ref.watch(desktopVpnBusyProvider),
                   onPressed: () => toggleVpn(context, ref, androidConnected))),
           const SizedBox(height: 10),
           Text(
@@ -179,6 +179,12 @@ class DashboardScreen extends ConsumerWidget {
   static Future<void> toggleVpn(
       BuildContext context, WidgetRef ref, bool androidConnected) async {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      // One start or stop at a time: a second tap while the core starts would
+      // start a second core, and a stop during the start would let the start
+      // turn the system proxy on after the stop restored it.
+      final busy = ref.read(desktopVpnBusyProvider.notifier);
+      if (busy.state) return;
+      busy.state = true;
       final manager = ref.read(mihomoProcessProvider);
       try {
         if (manager.isRunning) {
@@ -221,6 +227,8 @@ class DashboardScreen extends ConsumerWidget {
               tr('Не удалось запустить Mihomo: {error}',
                   <String, Object?>{'error': error}));
         }
+      } finally {
+        busy.state = false;
       }
       return;
     }
@@ -316,6 +324,12 @@ class DashboardScreen extends ConsumerWidget {
     if (GuestTelegram.needed(profile, DateTime.now()) || !context.mounted) {
       return;
     }
+    await reconnect(context, ref);
+  }
+
+  /// Restarts a running VPN, so it uses the profile saved just now.
+  static Future<void> reconnect(BuildContext context, WidgetRef ref) async {
+    if (!ref.read(vpnActiveProvider)) return;
     await toggleVpn(context, ref, true);
     if (!await waitForVpn(ref, false, timeout: const Duration(seconds: 8)) ||
         !context.mounted) {

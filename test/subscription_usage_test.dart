@@ -9,14 +9,18 @@ import 'package:kago_vpn/features/subscriptions/subscription_repository.dart';
 /// Answers each HTTP method with the given `subscription-userinfo` value
 /// (null: no header at all).
 class _UserInfoAdapter implements HttpClientAdapter {
-  _UserInfoAdapter(this._headerByMethod);
+  _UserInfoAdapter(this._headerByMethod, {this.during});
   final Map<String, String?> _headerByMethod;
   final List<String> methods = <String>[];
+
+  /// Runs while the request is "in flight".
+  final Future<void> Function()? during;
 
   @override
   Future<ResponseBody> fetch(RequestOptions options,
       Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     methods.add(options.method);
+    await during?.call();
     final value = _headerByMethod[options.method];
     return ResponseBody.fromString('', 200, headers: <String, List<String>>{
       if (value != null) 'Subscription-Userinfo': <String>[value],
@@ -82,6 +86,20 @@ void main() {
     expect(updated.name, 'KaGo');
     expect(updated.groups, <String>['KaGo VPN']);
     expect((await repository.latest())!.usedBytes, 300);
+  });
+
+  test('refreshUsage does not bring back a profile removed meanwhile',
+      () async {
+    final repository = repositoryWithProfile();
+    final adapter = _UserInfoAdapter(<String, String?>{
+      'HEAD': 'upload=100; download=200; total=1000',
+    }, during: () => const FlutterSecureStorage().delete(key: key));
+
+    final updated =
+        await repository.refreshUsage(dio: Dio()..httpClientAdapter = adapter);
+
+    expect(updated, isNull);
+    expect(await repository.latest(), isNull);
   });
 
   test('refreshUsage falls back to GET when HEAD carries no header', () async {

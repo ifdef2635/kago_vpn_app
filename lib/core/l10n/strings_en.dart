@@ -141,10 +141,9 @@ const stringsEn = <String, String>{
       'You are signed in. The subscription was added to this device.',
   'Вы вошли в аккаунт.': 'You are signed in.',
   'Забыли пароль?': 'Forgot your password?',
-  'Вы регистрировались раньше и пароль не задавали':
-      'You registered before and never set a password',
-  'Зарегистрируйтесь с той же почтой — аккаунт и подписка сохранятся.':
-      'Sign up with the same email — your account and subscription will be kept.',
+  'Аккаунт создан через Telegram': 'Account created via Telegram',
+  'Войдите через Telegram — пароль не нужен, подписка подключится сама.':
+      'Sign in with Telegram — no password needed, the subscription connects automatically.',
   'Пароль был, но вы его забыли': 'You had a password but forgot it',
   'Напишите в поддержку — поможем восстановить доступ.':
       'Contact support — we will help you restore access.',

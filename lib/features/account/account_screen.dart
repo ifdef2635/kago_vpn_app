@@ -431,41 +431,44 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
     return false;
   }
 
-  Future<void> _forgot() => showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(tr('Забыли пароль?')),
-          content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(tr('Вы регистрировались раньше и пароль не задавали'),
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(tr(
-                    'Зарегистрируйтесь с той же почтой — аккаунт и подписка сохранятся.')),
-                const SizedBox(height: 14),
-                Text(tr('Пароль был, но вы его забыли'),
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(tr('Напишите в поддержку — поможем восстановить доступ.')),
-              ]),
-          actions: <Widget>[
-            TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  setState(() => _register = true);
-                },
-                child: Text(tr('Регистрация'))),
-            FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  openUrl(context, _supportUrl);
-                },
-                child: Text(tr('Поддержка'))),
-          ],
-        ),
-      );
+  /// The site has no password reset: an account made by the Telegram bot
+  /// signs in through Telegram, and a forgotten password is restored by
+  /// support. Registering again with the same email is refused by the site.
+  Future<void> _forgot() async {
+    final telegram = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Забыли пароль?')),
+        content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(tr('Аккаунт создан через Telegram'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(tr(
+                  'Войдите через Telegram — пароль не нужен, подписка подключится сама.')),
+              const SizedBox(height: 14),
+              Text(tr('Пароль был, но вы его забыли'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(tr('Напишите в поддержку — поможем восстановить доступ.')),
+            ]),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+                openUrl(context, _supportUrl);
+              },
+              child: Text(tr('Поддержка'))),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(tr('Войти через Telegram'))),
+        ],
+      ),
+    );
+    if (telegram == true && mounted && !_busy) await _telegram();
+  }
 
   @override
   Widget build(BuildContext context) {

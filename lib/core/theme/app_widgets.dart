@@ -23,7 +23,7 @@ class SurfaceCard extends StatelessWidget {
         boxShadow: light
             ? <BoxShadow>[
                 BoxShadow(
-                    color: const Color(0xFF1A2D5C).withValues(alpha: .05),
+                    color: const Color(0xFF1A2D5C).withValues(alpha: .08),
                     blurRadius: 20,
                     offset: const Offset(0, 4)),
               ]

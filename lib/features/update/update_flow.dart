@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/models/mihomo_models.dart';
@@ -53,7 +54,15 @@ Future<void> showUpdateDialog(BuildContext context, AppRelease release) =>
         barrierDismissible: false,
         builder: (_) => _UpdateDialog(release: release));
 
-enum _Stage { offer, downloading, installing, permission, manual, failed }
+enum _Stage {
+  offer,
+  downloading,
+  installing,
+  permission,
+  manual,
+  blocked,
+  failed
+}
 
 class _UpdateDialog extends ConsumerStatefulWidget {
   const _UpdateDialog({required this.release});
@@ -142,8 +151,29 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
         case UpdateInstallResult.openedManually:
           setState(() => _stage = _Stage.manual);
       }
+    } on UpdateBlockedException {
+      // Smart App Control: the steps to allow the installer, then retry.
+      if (mounted) setState(() => _stage = _Stage.blocked);
     } catch (error) {
       _fail('$error');
+    }
+  }
+
+  /// Windows Security on the Smart App Control page (Windows 11), or on
+  /// "App & browser control" if that page link is not known.
+  Future<void> _openSmartAppControl() async {
+    for (final link in const <String>[
+      'windowsdefender://smartapp/',
+      'windowsdefender://appbrowser/',
+    ]) {
+      try {
+        if (await launchUrl(Uri.parse(link),
+            mode: LaunchMode.externalApplication)) {
+          return;
+        }
+      } catch (_) {
+        // Try the next page.
+      }
     }
   }
 
@@ -169,7 +199,7 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
       title: Text(tr('Доступна версия {version}',
           <String, Object?>{'version': release.version})),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 280),
+        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 360),
         child: SingleChildScrollView(child: _body(context)),
       ),
       actions: _actions(context),
@@ -227,6 +257,24 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
       case _Stage.manual:
         return Text(tr(
             'Открыт образ диска с новой версией: перетащите KaGo VPN в «Программы» с заменой и запустите снова.'));
+      case _Stage.blocked:
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(tr(
+                  'Windows заблокировала установщик: включено «Интеллектуальное управление приложениями» (Smart App Control), а у установщика KaGo VPN пока нет цифровой подписи.')),
+              const SizedBox(height: 12),
+              Text(tr('Как установить обновление:'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(tr(
+                  '1. Нажмите «Открыть настройки» — откроется «Безопасность Windows» → «Управление приложениями и браузером» → «Интеллектуальное управление приложениями».\n2. Выберите «Выкл.».\n3. Вернитесь сюда и нажмите «Установить».')),
+              const SizedBox(height: 12),
+              Text(
+                  tr('После установки защиту можно снова включить там же (Windows 11 с обновлением от апреля 2026 года; в более старых версиях включить её обратно можно только переустановкой Windows).'),
+                  style: TextStyle(color: muted, fontSize: 13)),
+            ]);
       case _Stage.failed:
         return Text(tr('Не удалось обновить: {error}',
             <String, Object?>{'error': _error}));
@@ -256,6 +304,14 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
       case _Stage.manual:
         return <Widget>[
           FilledButton(onPressed: close, child: Text(tr('Понятно'))),
+        ];
+      case _Stage.blocked:
+        return <Widget>[
+          TextButton(onPressed: close, child: Text(tr('Позже'))),
+          OutlinedButton(
+              onPressed: _openSmartAppControl,
+              child: Text(tr('Открыть настройки'))),
+          FilledButton(onPressed: _install, child: Text(tr('Установить'))),
         ];
       case _Stage.failed:
         return <Widget>[

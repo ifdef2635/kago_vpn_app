@@ -5,6 +5,7 @@ import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/desktop/windows_tray.dart';
 import '../core/network/android_vpn_events.dart';
 import '../core/network/anonymous_mode.dart';
 import '../core/network/app_providers.dart';
@@ -188,10 +189,12 @@ class _TabTransitionState extends State<_TabTransition>
       child: SlideTransition(position: _offset, child: widget.child));
 }
 
-/// On desktop, closing the window must not leave mihomo running with the Windows
-/// system proxy still pointing at it. Stops the core (which restores the proxy)
-/// before the app exits, with a hard time limit so closing never hangs. Also
-/// tracks whether the app is on screen (appForegroundProvider).
+/// On desktop, quitting must not leave mihomo running with the system proxy
+/// still pointing at it: the core is stopped (which restores the proxy) before
+/// the app exits, with a hard time limit so quitting never hangs. On Windows
+/// the window's close button hides it to the tray ([WindowsTray]) and the
+/// app quits from the tray menu. Also tracks whether the app is on screen
+/// (appForegroundProvider).
 class _ExitGuard extends ConsumerStatefulWidget {
   const _ExitGuard({required this.child});
   final Widget child;
@@ -220,6 +223,14 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
     }
     // A time zone left by the anonymous profile after a crash.
     unawaited(WindowsTimeZone.restore());
+    // Windows: closing the window hides it to the tray; «Выход» in the tray
+    // menu (or Windows shutting down) stops the core, then the app ends.
+    unawaited(WindowsTray.attach(
+        connected: ref.read(vpnActiveProvider),
+        onQuit: () async {
+          await ref.read(mihomoProcessProvider).stop();
+          ref.read(desktopCoreRunningProvider.notifier).state = false;
+        }));
     _listener = AppLifecycleListener(
         onStateChange: onState,
         onExitRequested: () async {
@@ -242,5 +253,12 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    if (Platform.isWindows) {
+      ref.listen(vpnActiveProvider, (_, connected) {
+        unawaited(WindowsTray.setConnected(connected));
+      });
+    }
+    return widget.child;
+  }
 }

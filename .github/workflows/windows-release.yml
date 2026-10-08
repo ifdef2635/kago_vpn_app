@@ -22,6 +22,7 @@ on:
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - 'tool/build_windows_release.ps1'
+      - 'tool/windows_tray_smoke.ps1'
       - '.github/workflows/windows-release.yml'
 
 # Только чтение: сборка не публикует релиз (это делает release.yml).
@@ -53,6 +54,12 @@ jobs:
       - name: Сборка (tool/build_windows_release.ps1)
         shell: pwsh
         run: ./tool/build_windows_release.ps1
+
+      # Только сборки веток: трей, один экземпляр, выход из трея.
+      - name: Проверка трея (tool/windows_tray_smoke.ps1)
+        if: ${{ !inputs.release }}
+        shell: pwsh
+        run: ./tool/windows_tray_smoke.ps1
 
       - name: Установщик (Inno Setup)
         shell: pwsh

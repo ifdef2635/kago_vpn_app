@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/desktop/windows_tray.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/models/mihomo_models.dart';
 import '../../core/network/app_providers.dart';
@@ -141,6 +142,7 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
             // Quit at once, so the installer finds no file in use. A normal
             // exit can hang in plugin shutdown (WebView2); the core and the
             // system proxy are already stopped above.
+            await WindowsTray.remove();
             Process.killPid(pid, ProcessSignal.sigkill);
             exit(0);
           } else {

@@ -140,6 +140,12 @@ const stringsEn = <String, String>{
   'Вы вошли. Подписка добавлена на это устройство.':
       'You are signed in. The subscription was added to this device.',
   'Вы вошли в аккаунт.': 'You are signed in.',
+  'KaGo VPN продолжает работать в трее. Чтобы выйти, нажмите на значок правой кнопкой → «Выход».':
+      'KaGo VPN keeps running in the tray. To quit, right-click the icon → “Quit”.',
+  'Открыть KaGo VPN': 'Open KaGo VPN',
+  'Выход': 'Quit',
+  'KaGo VPN — подключено': 'KaGo VPN — connected',
+  'KaGo VPN — не подключено': 'KaGo VPN — not connected',
   'сервер KAGO ответил {status}, попробуйте позже':
       'the KAGO server answered {status}, try again later',
   'нет связи с usekago.net, проверьте интернет':

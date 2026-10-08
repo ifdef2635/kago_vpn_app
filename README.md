@@ -1,6 +1,6 @@
 # KaGo VPN
 
-VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) со встроенным официальным ядром Mihomo (Clash Meta) и Riverpod. Платформы — Android, Windows x64 и macOS (Apple Silicon и Intel). Текущая версия — **2.0.2**; история изменений и известные ограничения — в [RELEASE_STATUS.md](RELEASE_STATUS.md).
+VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) со встроенным официальным ядром Mihomo (Clash Meta) и Riverpod. Платформы — Android, Windows x64 и macOS (Apple Silicon и Intel). Текущая версия — **2.0.3**; история изменений и известные ограничения — в [RELEASE_STATUS.md](RELEASE_STATUS.md).
 
 ## Возможности
 
@@ -66,8 +66,14 @@ VPN-клиент на Flutter/Dart 3 для [usekago.net](https://usekago.net) �
 4. **Пользователь в панели:** например `kago-guest`, без срока действия, лимит трафика с ежемесячным сбросом (или без лимита), **лимит устройств (HWID) выключен**, в скваде — только гостевой inbound.
 5. **Адрес на сайте:** в nginx usekago.net, например
    ```nginx
-   location = /guest/telegram { return 302 https://<домен подписок>/<shortUuid гостя>; }
+   location = /guest/telegram {
+       # Только приложение KaGo VPN: его User-Agent —
+       # «mihomo/1.19.32 KaGoVPN/2.0.3 (Windows 10.0.26100)» и т. п.
+       if ($http_user_agent !~* "KaGoVPN/") { return 404; }
+       return 302 https://<домен подписок>/<shortUuid гостя>;
+   }
    ```
+   Проверка User-Agent отсекает случайные запросы и сканеры, но не защищает ключ: заголовок легко подделать. Защита — правила 2–4 на сервере. При редиректе на другой домен приложение отправляет туда только User-Agent (по префиксу `mihomo/` панель отдаёт формат Mihomo).
    Проверка: `curl -sL -A "mihomo/1.19.32 KaGoVPN/1.0.6" https://usekago.net/guest/telegram | head` выдаёт YAML с `proxies:`.
 
 Сменить серверы или ключ гостя можно в панели — приложение обновит список при следующем подключении.

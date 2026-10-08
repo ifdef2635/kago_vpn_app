@@ -592,4 +592,12 @@ const stringsEn = <String, String>{
       'The TUN task was not set up (code {code}).',
   'Windows не дала запустить установщик: включено «Интеллектуальное управление приложениями» (Smart App Control), а у установщика пока нет цифровой подписи. Обновление можно будет установить, когда выйдет подписанная версия.':
       "Windows didn't allow the installer to run: Smart App Control is on and the installer has no digital signature yet. The update can be installed once a signed version is out.",
+  'Windows заблокировала установщик: включено «Интеллектуальное управление приложениями» (Smart App Control), а у установщика KaGo VPN пока нет цифровой подписи.':
+      'Windows blocked the installer: Smart App Control is on, and the KaGo VPN installer has no digital signature yet.',
+  'Как установить обновление:': 'How to install the update:',
+  '1. Нажмите «Открыть настройки» — откроется «Безопасность Windows» → «Управление приложениями и браузером» → «Интеллектуальное управление приложениями».\n2. Выберите «Выкл.».\n3. Вернитесь сюда и нажмите «Установить».':
+      '1. Click "Open settings": Windows Security → App & browser control → Smart App Control opens.\n2. Choose "Off".\n3. Come back here and click "Install".',
+  'После установки защиту можно снова включить там же (Windows 11 с обновлением от апреля 2026 года; в более старых версиях включить её обратно можно только переустановкой Windows).':
+      'After the update you can turn the protection back on in the same place (Windows 11 with the April 2026 update; on older versions it can only be turned back on by reinstalling Windows).',
+  'Открыть настройки': 'Open settings',
 };

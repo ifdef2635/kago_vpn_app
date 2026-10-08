@@ -65,6 +65,11 @@ class MihomoProcessManager {
 
   bool get isRunning => _process != null || _windowsTunDir != null;
 
+  /// The running core takes all traffic (Windows or macOS TUN), not only the
+  /// apps that use the system proxy.
+  bool get allTraffic => _windowsTunDir != null || _macosTun;
+  bool _macosTun = false;
+
   /// Windows TUN: the folder of the running elevated core's profile (the core
   /// is not a child of this process); null when it is not running.
   String? _windowsTunDir;
@@ -152,6 +157,7 @@ class MihomoProcessManager {
   Future<void> start({required String configPath}) async {
     if (isRunning) return;
     notice = null;
+    _macosTun = false;
     final overridePath = (await executable)?.trim() ?? '';
     final usingOverride = overridePath.isNotEmpty;
     final String binary;
@@ -168,6 +174,7 @@ class MihomoProcessManager {
       final core = await MihomoMacosCore.resolve(_writeLog);
       binary = core.binary.path;
       tunMode = core.tun;
+      _macosTun = core.tun;
       _writeLog(tr('Запускается встроенный Mihomo {version}.',
           <String, Object?>{'version': MihomoPinnedCore.version}));
     } else {

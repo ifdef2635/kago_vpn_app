@@ -27,6 +27,24 @@ abstract final class GuestTelegram {
   static const url = 'https://usekago.net/guest/telegram';
   static const groupName = 'KaGo Telegram';
 
+  /// Health check through the guest server (it lets only Telegram through).
+  static const checkUrl = 'https://telegram.org/';
+
+  /// The same site by its address (149.154.160.0/20): the Telegram apps
+  /// connect to addresses, not names, so the server must let them through
+  /// too (Xray `geoip:telegram`).
+  static const addressCheckUrl = 'http://149.154.167.99/';
+
+  /// Checks the running guest connection through the core's controller.
+  static Future<GuestCheck> check(
+      Future<int?> Function(String url) delayThroughGuest) async {
+    if (await delayThroughGuest(checkUrl) == null) return GuestCheck.serverDown;
+    if (await delayThroughGuest(addressCheckUrl) == null) {
+      return GuestCheck.addressesBlocked;
+    }
+    return GuestCheck.ok;
+  }
+
   /// File name of the guest profile (also how Android reports it running).
   static const configName = 'guest_config.yaml';
 
@@ -100,7 +118,7 @@ abstract final class GuestTelegram {
           'type': names.length > 1 ? 'fallback' : 'select',
           'proxies': names,
           if (names.length > 1) ...<String, dynamic>{
-            'url': 'https://telegram.org/',
+            'url': checkUrl,
             'interval': 600,
             'lazy': true,
           },
@@ -253,6 +271,22 @@ abstract final class GuestTelegram {
     return file;
   }
 
+  /// The guest servers for the servers tab while the core is off: the last
+  /// list, or a fresh one (saved for next time); empty when unavailable.
+  static Future<List<Map<String, dynamic>>> savedOrDownload() async {
+    final cache = await _file('guest_proxies.json');
+    final saved = await _cached(cache);
+    if (saved.isNotEmpty) return saved;
+    try {
+      final proxies = await download();
+      await cache.parent.create(recursive: true);
+      await cache.writeAsString(jsonEncode(proxies), flush: true);
+      return proxies;
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> _cached(File cache) async {
     try {
       final Object? decoded = jsonDecode(await cache.readAsString());
@@ -282,6 +316,9 @@ abstract final class GuestTelegram {
     }
   }
 }
+
+/// Result of [GuestTelegram.check].
+enum GuestCheck { ok, serverDown, addressesBlocked }
 
 /// Guest access could not start; [message] is for the user.
 class GuestUnavailable implements Exception {

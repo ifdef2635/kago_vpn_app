@@ -140,6 +140,50 @@ const stringsEn = <String, String>{
   'Вы вошли. Подписка добавлена на это устройство.':
       'You are signed in. The subscription was added to this device.',
   'Вы вошли в аккаунт.': 'You are signed in.',
+  'Не удалось загрузить кабинет. Попробуйте ещё раз.':
+      'Could not load the account. Try again.',
+  'Не удалось сохранить.': 'Could not save.',
+  'Режим не включён.': 'The mode is not on.',
+  'Вы вошли, но подписку не удалось добавить.':
+      'You are signed in, but the subscription could not be added.',
+  'Ваш IP (через VPN идёт только Telegram)':
+      'Your IP (only Telegram goes through the VPN)',
+  'VPN отключён.': 'VPN disconnected.',
+  'VPN подключён, анонимный режим.': 'VPN connected, anonymous mode.',
+  'VPN подключён.': 'VPN connected.',
+  'Бесплатный доступ к Telegram включён.': 'Free Telegram access is on.',
+  'Бесплатный доступ к Telegram сейчас недоступен.':
+      'Free Telegram access is unavailable right now.',
+  'Не удалось подключиться.': 'Could not connect.',
+  'VPN отключается…': 'Disconnecting VPN…',
+  'Включаем бесплатный доступ к Telegram…': 'Turning on free Telegram access…',
+  'Подключаемся…': 'Connecting…',
+  'Не удалось обновить подписку.': 'Could not update the subscription.',
+  'Подробнее': 'Details',
+  'Устройства появятся после оформления подписки.':
+      'Devices will appear here once you have a subscription.',
+  'Не удалось загрузить устройства. Попробуйте позже.':
+      'Could not load devices. Try again later.',
+  'Выберите сервер.': 'Choose a server.',
+  'VPN выключен. Выбрать сервер и проверить задержку можно после подключения.':
+      'VPN is off. You can choose a server and check latency after connecting.',
+  'Не удалось загрузить список серверов.': 'Could not load the server list.',
+  'Серверов пока нет. Войдите в аккаунт KAGO с активной подпиской во вкладке «Кабинет» — серверы появятся здесь.':
+      'No servers yet. Sign in to a KAGO account with an active subscription on the “Account” tab and the servers will appear here.',
+  'Не удалось выбрать сервер.': 'Could not select the server.',
+  'Не удалось проверить задержку.': 'Could not check latency.',
+  'Бесплатный сервер Telegram сейчас не отвечает.':
+      'The free Telegram server is not responding right now.',
+  'Через гостевой сервер не открылся {url} за 5 секунд. Проверьте гостевой сервер, его ноду и подписку гостя в панели.':
+      '{url} did not open through the guest server within 5 seconds. Check the guest server, its node and the guest subscription in the panel.',
+  'Telegram может не подключиться через бесплатный сервер.':
+      'Telegram may not connect through the free server.',
+  'Сайт telegram.org открывается через гостевой сервер, а адрес Telegram ({url}) — нет. Приложения Telegram подключаются по адресам, поэтому в маршрутизации Xray гостевого inbound нужно разрешить geoip:telegram (README, «Гостевой доступ к Telegram»).':
+      'telegram.org opens through the guest server but the Telegram address ({url}) does not. Telegram apps connect by address, so the Xray routing of the guest inbound must allow geoip:telegram (README, “Guest access to Telegram”).',
+  'Приложение Telegram может не подключиться без режима «Весь трафик через VPN».':
+      'The Telegram app may not connect without “All traffic through VPN”.',
+  'Включите «Весь трафик через VPN» в Настройках. Или в Telegram: Настройки → Продвинутые настройки → Тип соединения → «Использовать системный прокси».':
+      'Turn on “All traffic through VPN” in Settings. Or in Telegram: Settings → Advanced → Connection type → “Use system proxy”.',
   'панель отказала гостю: {message}': 'the panel refused the guest: {message}',
   'панель выдала заглушку вместо серверов: «{message}»':
       'the panel served a placeholder instead of servers: “{message}”',
@@ -156,8 +200,6 @@ const stringsEn = <String, String>{
   'нет связи с usekago.net, проверьте интернет':
       'cannot reach usekago.net, check the internet connection',
   'Неверный email или пароль.': 'Wrong email or password.',
-  'Вы вошли, но подписку не удалось добавить: {error}':
-      'You are signed in, but the subscription could not be added: {error}',
   'Забыли пароль?': 'Forgot your password?',
   'Аккаунт создан через Telegram': 'Account created via Telegram',
   'Войдите через Telegram — пароль не нужен, подписка подключится сама.':
@@ -293,19 +335,8 @@ const stringsEn = <String, String>{
   'Контроллер недоступен — проверьте адрес в настройках.':
       'Controller unavailable — check the address in settings.',
   'Не подключено': 'Not connected',
-  'Ядро Mihomo остановлено.': 'Mihomo core stopped.',
-  'Mihomo запущен и controller отвечает.':
-      'Mihomo started and the controller responds.',
-  'Не удалось запустить Mihomo: {error}': 'Could not start Mihomo: {error}',
-  'Запрошено отключение Android VPN.': 'Android VPN disconnect requested.',
-  'Запуск VPN запрошен. Подтвердите системное разрешение Android.':
-      'VPN start requested. Confirm the Android system permission.',
   'Android native bridge недоступен в этой сборке.':
       'The Android native bridge is not available in this build.',
-  'Не удалось выполнить запрос Android VPN.':
-      'Could not complete the Android VPN request.',
-  'Не удалось подготовить профиль: {message}':
-      'Could not prepare the profile: {message}',
   'Нативный VPN-мост ещё не подключён. REST-клиент Mihomo доступен после настройки контроллера.':
       'The native VPN bridge is not connected yet. The Mihomo REST client is available after configuring the controller.',
   'Не удалось запустить VPN.': 'Could not start the VPN.',
@@ -327,20 +358,10 @@ const stringsEn = <String, String>{
   'По порядку': 'By order',
   'По задержке': 'By latency',
   'По имени': 'By name',
-  'Выберите активный узел. Данные берутся из ядра Mihomo.':
-      'Choose the active node. Data comes from the Mihomo core.',
-  'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.':
-      'The core is off: servers from the profile are shown. Node selection and latency tests are available after connecting.',
-  'Не удалось получить группы прокси: {error}':
-      'Could not get proxy groups: {error}',
-  'Прокси-групп нет. Добавьте профиль и загрузите конфигурацию ядра.':
-      'No proxy groups. Add a profile and load the core configuration.',
   '{type} · {length} шт.': '{type} · {length} nodes',
   '{type} · узел выбирается автоматически':
       '{type} · node is chosen automatically',
   'У этой группы нет доступных узлов.': 'This group has no available nodes.',
-  'Не удалось выбрать узел: {error}': 'Could not select the node: {error}',
-  'Не удалось проверить задержку: {error}': 'Could not test latency: {error}',
   'Таймаут': 'Timeout',
   '{value} мс': '{value} ms',
   'Проверяется…': 'Checking…',
@@ -376,7 +397,6 @@ const stringsEn = <String, String>{
   'HTTPS или локальный HTTP. Secret создаётся автоматически.':
       'HTTPS or local HTTP. The secret is generated automatically.',
   'Адрес контроллера сохранён.': 'Controller address saved.',
-  'Не удалось сохранить: {error}': 'Could not save: {error}',
   'Полный путь к исполняемому файлу Mihomo.':
       'Full path to the Mihomo executable.',
   'Путь к Mihomo сохранён.': 'Mihomo path saved.',
@@ -486,8 +506,6 @@ const stringsEn = <String, String>{
   'Войдите в аккаунт': 'Sign in to your account',
   'Обновляем подписку…': 'Updating the subscription…',
   'Подписка обновлена.': 'Subscription updated.',
-  'Не удалось обновить подписку: {error}':
-      'Could not update the subscription: {error}',
   'Войдите в аккаунт KAGO — подписка подключится сама':
       'Sign in to your KAGO account and the subscription is added automatically',
   'Нет подписки': 'No subscription',
@@ -516,7 +534,6 @@ const stringsEn = <String, String>{
   'Весь трафик через VPN': 'All traffic through VPN',
   'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.':
       'For Telegram and apps that ignore the system proxy. Asks for the administrator password once.',
-  'Не включено: {error}': 'Not turned on: {error}',
   'Переподключитесь, чтобы применить.': 'Reconnect to apply.',
   'Не удалось узнать последнюю версию.':
       'Could not find out the latest version.',
@@ -568,10 +585,6 @@ const stringsEn = <String, String>{
       'Free access: only Telegram goes through the VPN',
   'Без подписки — бесплатный доступ к Telegram':
       'No subscription: free access to Telegram',
-  'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.':
-      'Free Telegram access is on. Other sites work without the VPN.',
-  'Без подписки VPN работает только для Telegram — бесплатно. Подтвердите системное разрешение Android.':
-      'Without a subscription the VPN works only for Telegram, for free. Confirm the Android system permission.',
   'Гостевой сервер не найден.': 'No guest server found.',
   'Не удалось получить бесплатный доступ к Telegram: {error}':
       'Couldn\'t get free Telegram access: {error}',
@@ -587,10 +600,6 @@ const stringsEn = <String, String>{
       'DNS only through the VPN, no IPv6. Turn off for normal mode.',
   'Обычный режим: подписка как есть. Включите, чтобы скрыть признаки VPN.':
       'Normal mode: the subscription as is. Turn on to hide signs of a VPN.',
-  'Анонимный режим включён.{zone}': 'Anonymous mode is on.{zone}',
-  ' Часовой пояс: {zone}.': ' Time zone: {zone}.',
-  ' Часовой пояс сервера определить не удалось.':
-      ' Couldn\'t detect the server\'s time zone.',
   'Весь трафик через VPN (TUN)': 'All traffic through the VPN (TUN)',
   'Для Discord, звонков, игр и программ без системного прокси. Windows один раз спросит разрешение администратора.':
       'For Discord, calls, games and apps without system proxy support. Windows asks for administrator permission once.',

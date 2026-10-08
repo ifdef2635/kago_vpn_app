@@ -6,6 +6,7 @@ import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/l10n/l10n.dart';
+import '../guest/guest_telegram.dart';
 
 /// Servers tab, laid out like FlClashX: group tabs on top, a grid of node
 /// cards (name, protocol, latency) below, latency test and sorting in the header.
@@ -63,23 +64,22 @@ class ProxiesScreen extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
               online
-                  ? tr('Выберите активный узел. Данные берутся из ядра Mihomo.')
+                  ? tr('Выберите сервер.')
                   : tr(
-                      'Ядро выключено: показаны серверы из профиля. Выбор узла и проверка задержки доступны после подключения.'),
+                      'VPN выключен. Выбрать сервер и проверить задержку можно после подключения.'),
               style: TextStyle(color: context.kago.muted, fontSize: 13)),
           const SizedBox(height: 16),
           groupsAsync.when(
             loading: () => const LoadingPanel(),
             error: (error, _) => ErrorPanel(
-                message: tr('Не удалось получить группы прокси: {error}',
-                    <String, Object?>{'error': error}),
+                message: tr('Не удалось загрузить список серверов.'),
                 onRetry: () => ref.invalidate(proxyGroupsProvider)),
             data: (items) {
               final group = _activeGroup(items, selectedName);
               if (group == null) {
                 return SurfaceCard(
                     child: Text(
-                        tr('Прокси-групп нет. Добавьте профиль и загрузите конфигурацию ядра.'),
+                        tr('Серверов пока нет. Войдите в аккаунт KAGO с активной подпиской во вкладке «Кабинет» — серверы появятся здесь.'),
                         style: TextStyle(color: context.kago.muted)));
               }
               final nodes = _sorted(group.nodes, sort, delays);
@@ -204,9 +204,8 @@ Future<void> _selectNode(
     ref.invalidate(ipInfoProvider);
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(tr('Не удалось выбрать узел: {error}',
-              <String, Object?>{'error': error}))));
+      showShortMessage(context, tr('Не удалось выбрать сервер.'),
+          details: '$error');
     }
   }
 }
@@ -230,7 +229,10 @@ Future<void> _testGroupDelays(
     Future<void> worker() async {
       while (queue.isNotEmpty) {
         final name = queue.removeLast();
-        final delay = await controller.testDelay(name);
+        // The guest server lets only Telegram through.
+        final delay = group.name == GuestTelegram.groupName
+            ? await controller.testDelay(name, url: GuestTelegram.checkUrl)
+            : await controller.testDelay(name);
         ref.read(proxyDelaysProvider.notifier).state = <String, int>{
           ...ref.read(proxyDelaysProvider),
           name: delay ?? -1,
@@ -244,9 +246,8 @@ Future<void> _testGroupDelays(
     ]);
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(tr('Не удалось проверить задержку: {error}',
-              <String, Object?>{'error': error}))));
+      showShortMessage(context, tr('Не удалось проверить задержку.'),
+          details: '$error');
     }
   } finally {
     pending.state = const <String>{};

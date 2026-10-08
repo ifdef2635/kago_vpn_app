@@ -95,7 +95,11 @@ class AccountScreen extends ConsumerWidget {
               loading: () => <Widget>[const _HeroFrame(child: _HeroLoading())],
               error: (error, _) => <Widget>[
                 ErrorPanel(
-                    message: '$error', onRetry: () => refreshAccount(ref)),
+                    message: error is KagoApiException
+                        ? error.message
+                        : tr(
+                            'Не удалось загрузить кабинет. Попробуйте ещё раз.'),
+                    onRetry: () => refreshAccount(ref)),
               ],
               // Subscriptions come only from a KAGO account: a guest signs in.
               data: (value) => value == null
@@ -368,10 +372,9 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
           // Signed in anyway; say why the subscription was not added (for
           // example the device limit).
           if (!mounted) return;
-          showSnack(
-              context,
-              tr('Вы вошли, но подписку не удалось добавить: {error}',
-                  <String, Object?>{'error': _errorText(error)}));
+          showShortMessage(
+              context, tr('Вы вошли, но подписку не удалось добавить.'),
+              details: _errorText(error));
           refreshAccount(ref);
           return;
         }
@@ -1172,8 +1175,12 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
       child: data.when(
         skipError: true,
         loading: () => const LinearProgressIndicator(minHeight: 2),
-        error: (error, _) =>
-            Text(_errorText(error), style: TextStyle(color: p.muted)),
+        // Without a subscription the site answers 404 «Subscription not found».
+        error: (error, _) => Text(
+            error is KagoApiException && error.status == 404
+                ? tr('Устройства появятся после оформления подписки.')
+                : tr('Не удалось загрузить устройства. Попробуйте позже.'),
+            style: TextStyle(color: p.muted, fontSize: 13)),
         data: (devices) {
           if (devices == null || devices.devices.isEmpty) {
             return Text(

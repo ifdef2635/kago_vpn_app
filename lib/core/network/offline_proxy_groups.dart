@@ -1,13 +1,19 @@
 import 'dart:convert';
 
+import '../../features/guest/guest_telegram.dart';
 import '../../features/subscriptions/config_builder.dart';
 import '../models/mihomo_models.dart';
 
 /// Servers and groups of the saved profile, read from its config file. Used
 /// while the core is not running, when the controller cannot be asked.
+/// Without a saved subscription: the free Telegram server (guest access).
 Future<List<ProxyGroup>> loadOfflineProxyGroups() async {
   final file = await const MihomoConfigBuilder().activeConfigFile();
-  if (!await file.exists()) return const <ProxyGroup>[];
+  if (!await file.exists()) {
+    final guest = await GuestTelegram.savedOrDownload();
+    if (guest.isEmpty) return const <ProxyGroup>[];
+    return proxyGroupsFromConfig(GuestTelegram.buildConfig(guest));
+  }
   final Object? decoded = jsonDecode(await file.readAsString());
   if (decoded is! Map<String, dynamic>) return const <ProxyGroup>[];
   return proxyGroupsFromConfig(decoded);

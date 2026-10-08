@@ -193,7 +193,7 @@ class DashboardScreen extends ConsumerWidget {
           ref.read(desktopCoreRunningProvider.notifier).state = false;
           _refreshCoreData(ref);
           if (context.mounted) {
-            _showMessage(context, tr('Ядро Mihomo остановлено.'));
+            _showMessage(context, tr('VPN отключён.'));
           }
           return true;
         }
@@ -204,30 +204,33 @@ class DashboardScreen extends ConsumerWidget {
         _refreshCoreData(ref);
         final anonymous = !guest && await AnonymousMode.enabled();
         ref.read(anonymousActiveProvider.notifier).state = anonymous;
-        final zoneNote = anonymous ? await _matchTimeZone(ref) : null;
+        if (anonymous) await _matchTimeZone(ref);
         if (context.mounted) {
           _showMessage(
               context,
               manager.notice ??
                   (guest
-                      ? tr(
-                          'Бесплатный доступ к Telegram включён. Остальные сайты работают без VPN.')
+                      ? tr('Бесплатный доступ к Telegram включён.')
                       : anonymous
-                          ? tr('Анонимный режим включён.{zone}',
-                              <String, Object?>{'zone': zoneNote ?? ''})
-                          : tr('Mihomo запущен и controller отвечает.')));
+                          ? tr('VPN подключён, анонимный режим.')
+                          : tr('VPN подключён.')));
+        }
+        if (guest && context.mounted) {
+          await _checkGuest(context, ref, allTraffic: manager.allTraffic);
         }
         return true;
       } on GuestUnavailable catch (error) {
-        if (context.mounted) _showMessage(context, error.message);
+        if (context.mounted) {
+          _showMessage(
+              context, tr('Бесплатный доступ к Telegram сейчас недоступен.'),
+              details: error.message);
+        }
       } catch (error) {
         ref.read(desktopCoreRunningProvider.notifier).state = manager.isRunning;
         _refreshCoreData(ref);
         if (context.mounted) {
-          _showMessage(
-              context,
-              tr('Не удалось запустить Mihomo: {error}',
-                  <String, Object?>{'error': error}));
+          _showMessage(context, tr('Не удалось подключиться.'),
+              details: '$error');
         }
       } finally {
         busy.state = false;
@@ -239,7 +242,7 @@ class DashboardScreen extends ConsumerWidget {
         if (androidConnected) {
           await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>('disconnect');
           if (context.mounted) {
-            _showMessage(context, tr('Запрошено отключение Android VPN.'));
+            _showMessage(context, tr('VPN отключается…'));
           }
         } else {
           final (config, guest) = await _connectConfig(ref);
@@ -258,10 +261,15 @@ class DashboardScreen extends ConsumerWidget {
             _showMessage(
                 context,
                 guest
-                    ? tr(
-                        'Без подписки VPN работает только для Telegram — бесплатно. Подтвердите системное разрешение Android.')
-                    : tr(
-                        'Запуск VPN запрошен. Подтвердите системное разрешение Android.'));
+                    ? tr('Включаем бесплатный доступ к Telegram…')
+                    : tr('Подключаемся…'));
+          }
+          if (guest &&
+              context.mounted &&
+              await waitForVpn(ref, true,
+                  timeout: const Duration(seconds: 20)) &&
+              context.mounted) {
+            await _checkGuest(context, ref, allTraffic: true);
           }
         }
         return true;
@@ -272,20 +280,25 @@ class DashboardScreen extends ConsumerWidget {
         }
       } on PlatformException catch (error) {
         if (context.mounted) {
-          _showMessage(context,
-              error.message ?? tr('Не удалось выполнить запрос Android VPN.'));
+          _showMessage(context, tr('Не удалось подключиться.'),
+              details: error.message);
         }
       } on FormatException catch (error) {
-        if (context.mounted) _showMessage(context, error.message);
+        if (context.mounted) {
+          _showMessage(context, tr('Не удалось подключиться.'),
+              details: error.message);
+        }
       } on FileSystemException catch (error) {
         if (context.mounted) {
-          _showMessage(
-              context,
-              tr('Не удалось подготовить профиль: {message}',
-                  <String, Object?>{'message': error.message}));
+          _showMessage(context, tr('Не удалось подключиться.'),
+              details: error.message);
         }
       } on GuestUnavailable catch (error) {
-        if (context.mounted) _showMessage(context, error.message);
+        if (context.mounted) {
+          _showMessage(
+              context, tr('Бесплатный доступ к Telegram сейчас недоступен.'),
+              details: error.message);
+        }
       }
       return false;
     }
@@ -303,6 +316,43 @@ class DashboardScreen extends ConsumerWidget {
       }
     }
     return false;
+  }
+
+  /// After the free Telegram access starts: checks it through the guest
+  /// server and says, in one line, what will stop Telegram (details for
+  /// support behind «Подробнее»). Nothing when all is well.
+  static Future<void> _checkGuest(BuildContext context, WidgetRef ref,
+      {required bool allTraffic}) async {
+    final controller = ref.read(mihomoControllerProvider);
+    final GuestCheck result;
+    try {
+      result = await GuestTelegram.check(
+          (url) => controller.testDelay(GuestTelegram.groupName, url: url));
+    } catch (_) {
+      return;
+    }
+    if (!context.mounted) return;
+    switch (result) {
+      case GuestCheck.serverDown:
+        _showMessage(
+            context, tr('Бесплатный сервер Telegram сейчас не отвечает.'),
+            details: tr(
+                'Через гостевой сервер не открылся {url} за 5 секунд. Проверьте гостевой сервер, его ноду и подписку гостя в панели.',
+                <String, Object?>{'url': GuestTelegram.checkUrl}));
+      case GuestCheck.addressesBlocked:
+        _showMessage(context,
+            tr('Telegram может не подключиться через бесплатный сервер.'),
+            details: tr(
+                'Сайт telegram.org открывается через гостевой сервер, а адрес Telegram ({url}) — нет. Приложения Telegram подключаются по адресам, поэтому в маршрутизации Xray гостевого inbound нужно разрешить geoip:telegram (README, «Гостевой доступ к Telegram»).',
+                <String, Object?>{'url': GuestTelegram.addressCheckUrl}));
+      case GuestCheck.ok:
+        if (!allTraffic) {
+          _showMessage(context,
+              tr('Приложение Telegram может не подключиться без режима «Весь трафик через VPN».'),
+              details: tr(
+                  'Включите «Весь трафик через VPN» в Настройках. Или в Telegram: Настройки → Продвинутые настройки → Тип соединения → «Использовать системный прокси».'));
+        }
+    }
   }
 
   /// Waits until the VPN is [active] (or not); false after [timeout].
@@ -344,19 +394,16 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   /// Windows, anonymous profile: the system time zone of the VPN exit, so
-  /// the browser's clock matches the IP. Returns a note for the user.
-  static Future<String?> _matchTimeZone(WidgetRef ref) async {
-    if (!Platform.isWindows) return null;
+  /// the browser's clock matches the IP.
+  static Future<void> _matchTimeZone(WidgetRef ref) async {
+    if (!Platform.isWindows) return;
     try {
       final info = await ref.read(ipInfoServiceProvider).fetch(proxyPort: 7890);
       final zone = info.timeZone;
-      if (zone != null && await WindowsTimeZone.apply(zone)) {
-        return tr(' Часовой пояс: {zone}.', <String, Object?>{'zone': zone});
-      }
+      if (zone != null) await WindowsTimeZone.apply(zone);
     } catch (_) {
       // Not fatal: the connection works, only the clock is not matched.
     }
-    return tr(' Часовой пояс сервера определить не удалось.');
   }
 
   /// The profile to connect with: the subscription, or — without a working
@@ -403,17 +450,17 @@ class DashboardScreen extends ConsumerWidget {
       if (context.mounted) _showMessage(context, tr('Подписка обновлена.'));
     } catch (error) {
       if (context.mounted) {
-        _showMessage(
-            context,
-            tr('Не удалось обновить подписку: {error}',
-                <String, Object?>{'error': error}));
+        _showMessage(context, tr('Не удалось обновить подписку.'),
+            details: '$error');
       }
     }
   }
 
-  static void _showMessage(BuildContext context, String value) =>
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(value)));
+  /// A short line at the bottom; technical [details] (for support) only
+  /// behind «Подробнее».
+  static void _showMessage(BuildContext context, String value,
+          {String? details}) =>
+      showShortMessage(context, value, details: details);
 }
 
 class _StatusPill extends StatelessWidget {
@@ -602,7 +649,14 @@ class _IpCard extends ConsumerWidget {
         : null;
     final loading = ip.isLoading;
     final failed = ip.hasError && info == null;
-    final title = connected ? tr('IP через VPN') : tr('Ваш IP');
+    // Free Telegram access: only Telegram goes through the VPN, so the IP
+    // the sites see is the user's own.
+    final guest = connected && ref.watch(guestModeActiveProvider);
+    final title = guest
+        ? tr('Ваш IP (через VPN идёт только Telegram)')
+        : connected
+            ? tr('IP через VPN')
+            : tr('Ваш IP');
     final String address;
     if (info != null) {
       address = hidden ? '•••.•••.•••.•••' : info.ip;

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kago_vpn/core/network/offline_proxy_groups.dart';
 import 'package:kago_vpn/features/guest/guest_telegram.dart';
 import 'package:kago_vpn/features/subscriptions/config_builder.dart';
 import 'package:kago_vpn/features/subscriptions/subscription_repository.dart';
@@ -204,5 +205,35 @@ proxies:
       expect(seen['panel'], isNull);
       expect(GuestTelegram.reason(error!), contains('404'));
     });
+  });
+
+  test('self-check: server down, Telegram addresses blocked, or fine',
+      () async {
+    Future<int?> Function(String) answers(Map<String, int?> byUrl) =>
+        (url) async => byUrl[url];
+    expect(await GuestTelegram.check(answers(<String, int?>{})),
+        GuestCheck.serverDown);
+    expect(
+        await GuestTelegram.check(
+            answers(<String, int?>{GuestTelegram.checkUrl: 120})),
+        GuestCheck.addressesBlocked);
+    expect(
+        await GuestTelegram.check(answers(<String, int?>{
+          GuestTelegram.checkUrl: 120,
+          GuestTelegram.addressCheckUrl: 90,
+        })),
+        GuestCheck.ok);
+    // The address check uses an address of Telegram's own network.
+    expect(GuestTelegram.addressCheckUrl, contains('149.154.167.'));
+  });
+
+  test('the servers tab lists the guest server without a subscription', () {
+    final groups =
+        proxyGroupsFromConfig(GuestTelegram.buildConfig(<Map<String, dynamic>>[
+      <String, dynamic>{'name': '🇬🇷 Греция', 'type': 'vless'},
+    ]));
+    expect(groups.single.name, GuestTelegram.groupName);
+    expect(groups.single.nodes.single.name, '🇬🇷 Греция');
+    expect(groups.single.nodes.single.type, 'Vless');
   });
 }

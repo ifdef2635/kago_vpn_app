@@ -382,8 +382,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await MihomoWindowsSystemProxy().setBypassRussian(value);
       }
     } catch (error) {
-      _snack(tr(
-          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+      _snack(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 
@@ -404,7 +403,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (error != null) {
           await MihomoMacosCore.setTunEnabled(false);
           if (mounted) setState(() => _macTun = false);
-          _snack(tr('Не включено: {error}', <String, Object?>{'error': error}));
+          _snack(tr('Режим не включён.'), details: error);
           return;
         }
       }
@@ -412,14 +411,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _snack(tr('Переподключитесь, чтобы применить.'));
       }
     } catch (error) {
-      _snack(tr(
-          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+      _snack(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 
-  void _snack(String text) {
+  void _snack(String text, {String? details}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    showShortMessage(context, text, details: details);
   }
 
   Future<void> _editEndpoint() async {
@@ -442,8 +440,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) setState(() => _endpoint = saved);
       _snack(tr('Адрес контроллера сохранён.'));
     } catch (error) {
-      _snack(tr(
-          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+      _snack(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 
@@ -461,8 +458,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) setState(() => _binary = value.trim());
       _snack(tr('Путь к Mihomo сохранён.'));
     } catch (error) {
-      _snack(tr(
-          'Не удалось сохранить: {error}', <String, Object?>{'error': error}));
+      _snack(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 

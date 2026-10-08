@@ -1,6 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import 'kago_theme.dart';
+
+/// A short message at the bottom of the screen. Technical [details] (an
+/// exception, a server answer) are not shown in it, only behind «Подробнее».
+void showShortMessage(BuildContext context, String text, {String? details}) {
+  final messenger = ScaffoldMessenger.of(context);
+  final more = details?.trim() ?? '';
+  messenger.showSnackBar(SnackBar(
+    content: Text(text),
+    action: more.isEmpty || more == text
+        ? null
+        : SnackBarAction(
+            label: tr('Подробнее'),
+            onPressed: () => showDialog<void>(
+              context: messenger.context,
+              builder: (dialogContext) => AlertDialog(
+                title: Text(text),
+                content: SingleChildScrollView(child: SelectableText(more)),
+                actions: <Widget>[
+                  TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: Text(tr('Закрыть'))),
+                ],
+              ),
+            ),
+          ),
+  ));
+}
 
 class SurfaceCard extends StatelessWidget {
   const SurfaceCard(

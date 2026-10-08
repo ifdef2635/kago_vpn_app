@@ -22,6 +22,7 @@ _Обновлено: 2026-10-08 (версия 2.0.4)._ Строка «Платф
 
 Для разработчиков:
 - macOS: `MacosFileStorage` (`lib/core/storage/secure_storage.dart`, тест `macos_file_storage_test.dart`) вместо login keychain — `secure/secrets.json` в папке приложения, папка с правами 700. Причина: ad-hoc подпись меняется с каждой сборкой, ACL записей связки привязан к подписи, и каждое чтение записи после обновления спрашивало пароль. Записи `macosLegacyKeys` переносятся из связки по одной и один раз (операции идут по очереди); `mihomo.secret` не переносится — создаётся новый.
+- Под `flutter test` (переменная `FLUTTER_TEST`) `kagoSecureStorage` и на macOS — обычный `FlutterSecureStorage` с моком плагина: иначе тесты на раннере macOS шли в `path_provider`.
 - Тема: `canvas #E3E9F3`, `surfaceRaised #EEF2F9`, `border #CCD6E6`, тень карточки 8 %.
 - `toggleVpn` (ПК): одна операция за раз (`desktopVpnBusyProvider`, кнопка показывает загрузку). Раньше второе нажатие во время `start()` запускало второй mihomo, а «стоп» во время запуска давал `start()` включить системный прокси после его восстановления.
 - `refreshUsage` перечитывает хранилище перед записью и меняет только профиль с тем же URL (тест в `subscription_usage_test.dart`).

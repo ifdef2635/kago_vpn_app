@@ -12,8 +12,12 @@ import 'package:path_provider/path_provider.dart';
 /// signature; the login keychain then asked for the password once per item
 /// (5–7 times) after each update, and the data-protection keychain needs an
 /// Apple Developer team (-34018 without it).
+/// Under `flutter test` the plugin's in-memory mock is used on every system
+/// (MacosFileStorage has its own test).
 final FlutterSecureStorage kagoSecureStorage =
-    Platform.isMacOS ? MacosFileStorage() : const FlutterSecureStorage();
+    Platform.isMacOS && !Platform.environment.containsKey('FLUTTER_TEST')
+        ? MacosFileStorage()
+        : const FlutterSecureStorage();
 
 /// Keys brought over from the macOS login keychain of versions before 2.0.4
 /// (one last password prompt per item that exists). The controller secret is

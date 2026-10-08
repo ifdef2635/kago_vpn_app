@@ -1,7 +1,7 @@
 name: kago_vpn
 description: KaGo VPN client for Mihomo (Clash.Meta), usekago.net.
 publish_to: none
-version: 2.0.5+20005
+version: 2.0.6+20006
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:

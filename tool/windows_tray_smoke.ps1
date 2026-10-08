@@ -36,6 +36,7 @@ function Shown($hwnd) { [KagoWin]::IsWindowVisible($hwnd) -and -not [KagoWin]::I
 $exePath = (Resolve-Path $Exe).Path
 Get-Process kago_vpn -ErrorAction SilentlyContinue | Stop-Process -Force
 $app = Start-Process $exePath -PassThru
+$null = $app.Handle  # иначе ExitCode после выхода пустой
 try {
   Wait-Until { (Find-Kago) -ne [IntPtr]::Zero } 60 'окно приложения'
   $hwnd = Find-Kago
@@ -43,11 +44,25 @@ try {
   Start-Sleep -Seconds 3
 
   # 1. Закрытие окна (крестик / Alt+F4) прячет его в трей, приложение живо.
+  #    Без области уведомлений (нет Проводника) закрытие завершает приложение:
+  #    иначе из него нельзя было бы выйти.
+  $explorer = @(Get-Process explorer -ErrorAction SilentlyContinue).Count -gt 0
   [void][KagoWin]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
   Start-Sleep -Seconds 3
-  if ($app.HasExited) { throw 'WM_CLOSE завершил приложение' }
-  if (Shown $hwnd) { throw 'WM_CLOSE не спрятал окно' }
-  Write-Host 'OK: закрытие окна прячет его, приложение работает'
+  if ($app.HasExited) {
+    if ($explorer) { throw 'WM_CLOSE завершил приложение, хотя Проводник запущен' }
+    Write-Host 'OK: без Проводника закрытие окна завершает приложение'
+    $app = Start-Process $exePath -PassThru
+    $null = $app.Handle
+    Wait-Until { (Find-Kago) -ne [IntPtr]::Zero } 60 'окно после перезапуска'
+    $hwnd = Find-Kago
+    Wait-Until { Shown $hwnd } 60 'окно видно после перезапуска'
+    Start-Sleep -Seconds 3
+    # Второй запуск показывает видимое окно и не создаёт копию.
+  } else {
+    if (Shown $hwnd) { throw 'WM_CLOSE не спрятал окно' }
+    Write-Host 'OK: закрытие окна прячет его в трей, приложение работает'
+  }
 
   # 2. Второй запуск не создаёт копию, а показывает первое окно.
   $second = Start-Process $exePath -PassThru

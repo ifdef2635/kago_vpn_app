@@ -20,9 +20,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       DWORD process_id = 0;
       ::GetWindowThreadProcessId(existing, &process_id);
       ::AllowSetForegroundWindow(process_id);
-      ::PostMessageW(existing, KagoShowMessage(), 0, 0);
-      ::CloseHandle(instance_mutex);
-      return EXIT_SUCCESS;
+      DWORD_PTR shown = 0;
+      // Not answered (hung, or quitting): wait for that copy to end below.
+      if (::SendMessageTimeoutW(existing, KagoShowMessage(), 0, 0,
+                                SMTO_ABORTIFHUNG, 2000, &shown) &&
+          shown == 1) {
+        ::CloseHandle(instance_mutex);
+        return EXIT_SUCCESS;
+      }
     }
   }
   if (instance_mutex) {

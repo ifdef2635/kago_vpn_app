@@ -101,6 +101,12 @@ bool FlutterWindow::OnCreate() {
         }
       });
   taskbar_created_ = ::RegisterWindowMessageW(L"TaskbarCreated");
+  // Run as administrator, the window would not get these from a normal
+  // process (UIPI): a second launch, the installer, a restarted Explorer.
+  for (const UINT allowed :
+       {KagoShowMessage(), KagoQuitMessage(), taskbar_created_}) {
+    ::ChangeWindowMessageFilterEx(GetHandle(), allowed, MSGFLT_ALLOW, nullptr);
+  }
   AddTrayIcon();
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -165,9 +171,9 @@ void FlutterWindow::HideToTray() {
   if (!hwnd) return;
   if (!tray_added_) AddTrayIcon();
   if (!tray_added_) {
-    // No notification area (Explorer not running): keep a taskbar button,
-    // so the window can always be found again.
-    ::ShowWindow(hwnd, SW_MINIMIZE);
+    // No notification area (Explorer not running, another shell): there would
+    // be no «Выход», so the close button quits as before the tray.
+    RequestQuit(false);
     return;
   }
   ::ShowWindow(hwnd, SW_HIDE);
@@ -276,8 +282,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // Before Flutter: closing the window hides it to the tray instead of
   // quitting (the engine would otherwise start the app's exit).
   if (message == KagoShowMessage()) {
+    // 1: shown. 0 while quitting: the second copy then waits and starts.
+    if (quitting_) return 0;
     ShowFromTray();
-    return 0;
+    return 1;
   }
   if (message == KagoQuitMessage()) {
     RequestQuit(false);
@@ -291,11 +299,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
   switch (message) {
     case WM_CLOSE:
-      if (!quitting_) {
-        HideToTray();
-        return 0;
-      }
-      break;
+      // While quitting, FinishQuit closes the window; the engine must not
+      // start a second exit (and a second core stop) meanwhile.
+      if (!quitting_) HideToTray();
+      return 0;
     case kTrayMessage:
       switch (LOWORD(lparam)) {
         case WM_LBUTTONUP:

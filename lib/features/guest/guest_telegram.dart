@@ -38,10 +38,12 @@ abstract final class GuestTelegram {
   /// Checks the running guest connection through the core's controller.
   static Future<GuestCheck> check(
       Future<int?> Function(String url) delayThroughGuest) async {
-    if (await delayThroughGuest(checkUrl) == null) return GuestCheck.serverDown;
-    if (await delayThroughGuest(addressCheckUrl) == null) {
-      return GuestCheck.addressesBlocked;
-    }
+    // A second try, so one lost packet is not reported as a broken server.
+    Future<bool> answers(String url) async =>
+        await delayThroughGuest(url) != null ||
+        await delayThroughGuest(url) != null;
+    if (!await answers(checkUrl)) return GuestCheck.serverDown;
+    if (!await answers(addressCheckUrl)) return GuestCheck.addressesBlocked;
     return GuestCheck.ok;
   }
 

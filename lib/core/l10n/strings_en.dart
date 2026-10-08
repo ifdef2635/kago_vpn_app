@@ -140,6 +140,11 @@ const stringsEn = <String, String>{
   'Вы вошли. Подписка добавлена на это устройство.':
       'You are signed in. The subscription was added to this device.',
   'Вы вошли в аккаунт.': 'You are signed in.',
+  'панель отказала гостю: {message}': 'the panel refused the guest: {message}',
+  'панель выдала заглушку вместо серверов: «{message}»':
+      'the panel served a placeholder instead of servers: “{message}”',
+  '{reason}\nВойдите в аккаунт KAGO по email во вкладке «Кабинет» или попробуйте позже.':
+      '{reason}\nSign in to your KAGO account with email on the “Account” tab or try again later.',
   'KaGo VPN продолжает работать в трее. Чтобы выйти, нажмите на значок правой кнопкой → «Выход».':
       'KaGo VPN keeps running in the tray. To quit, right-click the icon → “Quit”.',
   'Открыть KaGo VPN': 'Open KaGo VPN',
@@ -479,8 +484,6 @@ const stringsEn = <String, String>{
   'до {date}': 'until {date}',
   'Версия {version} · usekago.net': 'Version {version} · usekago.net',
   'Войдите в аккаунт': 'Sign in to your account',
-  'Сначала войдите в аккаунт KAGO во вкладке «Кабинет».':
-      'First sign in to your KAGO account on the “Account” tab.',
   'Обновляем подписку…': 'Updating the subscription…',
   'Подписка обновлена.': 'Subscription updated.',
   'Не удалось обновить подписку: {error}':

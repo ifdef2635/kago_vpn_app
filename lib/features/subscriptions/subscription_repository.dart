@@ -248,13 +248,16 @@ class SubscriptionRepository {
   static Future<({Map<String, List<String>> headers, String body})> fetch(
       Dio dio, Uri uri,
       {required String method,
-      required Map<String, String> deviceHeaders}) async {
+      required Map<String, String> deviceHeaders,
+      bool headersOnEveryHost = false}) async {
     var current = uri;
     for (var hop = 0;; hop++) {
       final sameHost = current.scheme == uri.scheme &&
           current.host.toLowerCase() == uri.host.toLowerCase() &&
           current.port == uri.port;
-      final headers = sameHost
+      // [headersOnEveryHost]: only for headers with nothing about the device
+      // (the guest access, whose site redirects to the panel's domain).
+      final headers = sameHost || headersOnEveryHost
           ? deviceHeaders
           : <String, String>{
               if (deviceHeaders['User-Agent'] case final agent?)

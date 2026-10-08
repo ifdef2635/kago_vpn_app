@@ -434,7 +434,8 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
       ),
     );
     if (connect != true || !mounted) return false;
-    await DashboardScreen.toggleVpn(context, ref, false);
+    // A failed start has already said why; no point waiting for it.
+    if (!await DashboardScreen.toggleVpn(context, ref, false)) return false;
     if (await DashboardScreen.waitForVpn(ref, true)) return true;
     if (mounted) {
       showSnack(context,

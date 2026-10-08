@@ -105,6 +105,8 @@ proxies:
   group('download from a server that checks the User-Agent', () {
     late HttpServer server;
     late HttpServer panel;
+    var panelBody = '';
+    var panelHeaders = <String, String>{};
     final seen = <String, Map<String, String?>>{};
     const appAgent = 'mihomo/1.19.32 KaGoVPN/2.0.4 (Windows 24H2)';
     const yaml = '''
@@ -118,6 +120,8 @@ rules:
 
     setUp(() async {
       seen.clear();
+      panelBody = yaml;
+      panelHeaders = <String, String>{};
       // The panel on another host: only the User-Agent may reach it.
       panel = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       panel.listen((request) {
@@ -125,9 +129,10 @@ rules:
           'ua': request.headers.value('user-agent'),
           'hwid': request.headers.value('x-hwid'),
         };
+        request.response.headers.contentType = ContentType.text;
+        panelHeaders.forEach(request.response.headers.set);
         request.response
-          ..headers.contentType = ContentType.text
-          ..write(yaml)
+          ..write(panelBody)
           ..close();
       });
       // usekago.net: like the nginx rule in the README.
@@ -154,17 +159,37 @@ rules:
 
     Uri site() => Uri.parse('http://127.0.0.1:${server.port}/guest/telegram');
 
-    test('the app gets the servers through the redirect, without HWID',
+    test('the app gets the servers through the redirect, with the guest id',
         () async {
       final proxies =
           await GuestTelegram.download(source: site(), userAgent: appAgent);
       expect(proxies.single['name'], 'guest-de');
       expect(seen['site']!['ua'], appAgent);
       expect(seen['panel']!['ua'], appAgent);
-      expect(seen['panel']!['hwid'], isNull);
+      // Not the device's id: one id shared by every guest.
+      expect(seen['panel']!['hwid'], GuestTelegram.guestHwid);
       // And the config the core gets is valid for the app.
       final config = GuestTelegram.buildConfig(proxies);
       expect((config['rules'] as List).last, 'MATCH,DIRECT');
+    });
+
+    test('a panel placeholder is reported with its reason', () async {
+      panelBody = '''
+proxies:
+  - {name: "Устройство не поддерживается", type: ss, server: 0.0.0.0, port: 1, cipher: aes-128-gcm, password: p}
+''';
+      await expectLater(
+          GuestTelegram.download(source: site(), userAgent: appAgent),
+          throwsA(isA<FormatException>().having((e) => e.message, 'message',
+              contains('Устройство не поддерживается'))));
+    });
+
+    test('a panel HWID refusal is reported', () async {
+      panelHeaders = <String, String>{'x-hwid-not-supported': 'true'};
+      await expectLater(
+          GuestTelegram.download(source: site(), userAgent: appAgent),
+          throwsA(isA<FormatException>()
+              .having((e) => e.message, 'message', contains('HWID'))));
     });
 
     test('anyone else gets 404, reported in plain words', () async {

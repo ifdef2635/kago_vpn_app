@@ -60,7 +60,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 - HWID и заголовки устройства (`x-hwid`, `x-device-os`, `x-ver-os`, `x-device-model`) формируются как во FlClashX (`lib/core/device/device_identity.dart`): на Android — ANDROID_ID, на Windows — `SHA-256(MachineGuid)[0:16]` в верхнем регистре. User-Agent подписки: `mihomo/<ядро> KaGoVPN/<версия> (<система>)`; для API сайта — `KaGoVPN/<версия> (<система>)`.
 
 ### Гостевой доступ к Telegram
-- Без рабочей подписки (нет, истекла, трафик исчерпан) подключение идёт в гостевом режиме: через гостевой сервер KAGO только Telegram, остальное — `DIRECT` (запрошено 2026-10-07: «не быстрый, работает всегда, вне зависимости от статуса подписки»). Код — `lib/features/guest/guest_telegram.dart`, серверы — подписка по `https://usekago.net/guest/telegram`, без HWID. Ограничение «только Telegram» и скорость обязательно делаются на сервере (README).
+- Без рабочей подписки (нет, истекла, трафик исчерпан) подключение идёт в гостевом режиме: через гостевой сервер KAGO только Telegram, остальное — `DIRECT` (запрошено 2026-10-07: «не быстрый, работает всегда, вне зависимости от статуса подписки»). Код — `lib/features/guest/guest_telegram.dart`, серверы — подписка по `https://usekago.net/guest/telegram`, без данных устройства: общий `x-hwid: KAGO-GUEST` (`GuestTelegram.guestHwid`). Ограничение «только Telegram» и скорость обязательно делаются на сервере (README).
 - «Российские сайты — напрямую» на Windows/macOS показывается, только если в подписке нет своих правил для России (`russian_rules.dart`).
 
 ### Режимы подключения и данные

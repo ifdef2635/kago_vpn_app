@@ -63,6 +63,12 @@ abstract final class GuestTelegram {
     '2a0a:f280::/32',
   ];
 
+  /// The same for every guest, not the device's id: a panel that requires
+  /// an HWID (Remnawave with the device limit on) otherwise serves
+  /// placeholder servers instead of the guest ones. All guests count as one
+  /// device of the guest user.
+  static const guestHwid = 'KAGO-GUEST';
+
   /// At most this many guest servers are used.
   static const maxProxies = 16;
 
@@ -176,10 +182,28 @@ abstract final class GuestTelegram {
                 receiveTimeout: const Duration(seconds: 15))),
         source ?? Uri.parse(url),
         method: 'GET',
-        deviceHeaders: <String, String>{'User-Agent': agent});
+        deviceHeaders: <String, String>{
+          'User-Agent': agent,
+          'x-hwid': guestHwid,
+        },
+        headersOnEveryHost: true);
+    final hwidProblem = SubscriptionRepository.hwidNotice(response.headers);
+    if (hwidProblem != null) {
+      throw FormatException(tr('панель отказала гостю: {message}',
+          <String, Object?>{'message': hwidProblem}));
+    }
     final proxies = proxiesFrom(response.body);
     if (proxies.isEmpty) {
-      throw FormatException(tr('Гостевой сервер не найден.'));
+      // A panel placeholder names its reason in the server names.
+      String? stub;
+      try {
+        stub = SubscriptionRepository.panelStubMessage(
+            const SubscriptionContentParser().toMihomoConfig(response.body));
+      } catch (_) {}
+      throw FormatException(stub == null
+          ? tr('Гостевой сервер не найден.')
+          : tr('панель выдала заглушку вместо серверов: «{message}»',
+              <String, Object?>{'message': stub}));
     }
     return proxies;
   }

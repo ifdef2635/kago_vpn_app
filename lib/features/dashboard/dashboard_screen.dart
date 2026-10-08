@@ -175,15 +175,16 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   /// Starts or stops the VPN (desktop core or Android service). Also used by
-  /// the personal account screen.
-  static Future<void> toggleVpn(
+  /// the personal account screen. False when it failed (the user has already
+  /// been told why) or another start/stop is still running.
+  static Future<bool> toggleVpn(
       BuildContext context, WidgetRef ref, bool androidConnected) async {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       // One start or stop at a time: a second tap while the core starts would
       // start a second core, and a stop during the start would let the start
       // turn the system proxy on after the stop restored it.
       final busy = ref.read(desktopVpnBusyProvider.notifier);
-      if (busy.state) return;
+      if (busy.state) return false;
       busy.state = true;
       final manager = ref.read(mihomoProcessProvider);
       try {
@@ -194,7 +195,7 @@ class DashboardScreen extends ConsumerWidget {
           if (context.mounted) {
             _showMessage(context, tr('Ядро Mihomo остановлено.'));
           }
-          return;
+          return true;
         }
         final (config, guest) = await _connectConfig(ref);
         await manager.start(configPath: config.path);
@@ -216,6 +217,7 @@ class DashboardScreen extends ConsumerWidget {
                               <String, Object?>{'zone': zoneNote ?? ''})
                           : tr('Mihomo запущен и controller отвечает.')));
         }
+        return true;
       } on GuestUnavailable catch (error) {
         if (context.mounted) _showMessage(context, error.message);
       } catch (error) {
@@ -230,7 +232,7 @@ class DashboardScreen extends ConsumerWidget {
       } finally {
         busy.state = false;
       }
-      return;
+      return false;
     }
     if (Platform.isAndroid) {
       try {
@@ -262,6 +264,7 @@ class DashboardScreen extends ConsumerWidget {
                         'Запуск VPN запрошен. Подтвердите системное разрешение Android.'));
           }
         }
+        return true;
       } on MissingPluginException {
         if (context.mounted) {
           _showMessage(
@@ -284,10 +287,11 @@ class DashboardScreen extends ConsumerWidget {
       } on GuestUnavailable catch (error) {
         if (context.mounted) _showMessage(context, error.message);
       }
-      return;
+      return false;
     }
     try {
       await _vpnChannel.invokeMethod<void>('connect');
+      return true;
     } on MissingPluginException {
       if (context.mounted) {
         _showMessage(context,
@@ -298,6 +302,7 @@ class DashboardScreen extends ConsumerWidget {
         _showMessage(context, error.message ?? tr('Не удалось запустить VPN.'));
       }
     }
+    return false;
   }
 
   /// Waits until the VPN is [active] (or not); false after [timeout].
@@ -371,12 +376,14 @@ class DashboardScreen extends ConsumerWidget {
     }
     try {
       return (await GuestTelegram.prepare(), true);
-    } on Object {
-      // Guest access unavailable and nothing saved: sign in first.
+    } on GuestUnavailable catch (error) {
       if (await active.exists()) rethrow;
+      // Nothing saved either: say why the free access failed (the user may
+      // be on «Кабинет» trying to sign in through Telegram right now).
       ref.read(rootTabIndexProvider.notifier).state = 3;
-      throw GuestUnavailable(
-          tr('Сначала войдите в аккаунт KAGO во вкладке «Кабинет».'));
+      throw GuestUnavailable(tr(
+          '{reason}\nВойдите в аккаунт KAGO по email во вкладке «Кабинет» или попробуйте позже.',
+          <String, Object?>{'reason': error.message}));
     }
   }
 

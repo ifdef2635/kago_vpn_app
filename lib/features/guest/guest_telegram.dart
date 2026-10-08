@@ -27,6 +27,9 @@ abstract final class GuestTelegram {
   static const url = 'https://usekago.net/guest/telegram';
   static const groupName = 'KaGo Telegram';
 
+  /// File name of the guest profile (also how Android reports it running).
+  static const configName = 'guest_config.yaml';
+
   /// Telegram's own domains and address ranges (core.telegram.org/resources/cidr.txt).
   static const domains = <String>[
     'telegram.org',
@@ -170,7 +173,7 @@ abstract final class GuestTelegram {
       }
       proxies = saved;
     }
-    final file = await _file('guest_config.yaml');
+    final file = await _file(configName);
     await file.parent.create(recursive: true);
     await file.writeAsString(
         const MihomoConfigBuilder().encode(jsonEncode(buildConfig(proxies))),

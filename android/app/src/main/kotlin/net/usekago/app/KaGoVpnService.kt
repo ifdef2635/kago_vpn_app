@@ -133,6 +133,7 @@ class KaGoVpnService : VpnService() {
                 return
             }
             if (request != requests.get()) return
+            runningConfig = configPath
             isConnected = true
             isStarting = false
             KaGoTileService.requestUpdate(this)
@@ -163,6 +164,7 @@ class KaGoVpnService : VpnService() {
         stopCore()
         isConnected = false
         isStarting = false
+        runningConfig = null
         KaGoVpnEvents.emit(state, message)
         KaGoTileService.requestUpdate(this)
         removeForegroundNotification()
@@ -182,6 +184,7 @@ class KaGoVpnService : VpnService() {
     override fun onDestroy() {
         destroyed = true
         isConnected = false
+        runningConfig = null
         isStarting = false
         // On the core thread, after anything this instance queued, and before
         // the start of a new instance: start and stop never overlap.
@@ -267,6 +270,10 @@ class KaGoVpnService : VpnService() {
         private const val IPV6_DNS = "fdfe:dcba:9876::2"
         private const val TUN_MTU = 1500
         @Volatile var isConnected: Boolean = false
+            private set
+
+        /** The profile the running core was started with (for the app's labels). */
+        @Volatile var runningConfig: String? = null
             private set
 
         /**

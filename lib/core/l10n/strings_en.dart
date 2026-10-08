@@ -140,6 +140,9 @@ const stringsEn = <String, String>{
   'Вы вошли. Подписка добавлена на это устройство.':
       'You are signed in. The subscription was added to this device.',
   'Вы вошли в аккаунт.': 'You are signed in.',
+  'Неверный email или пароль.': 'Wrong email or password.',
+  'Вы вошли, но подписку не удалось добавить: {error}':
+      'You are signed in, but the subscription could not be added: {error}',
   'Забыли пароль?': 'Forgot your password?',
   'Аккаунт создан через Telegram': 'Account created via Telegram',
   'Войдите через Telegram — пароль не нужен, подписка подключится сама.':

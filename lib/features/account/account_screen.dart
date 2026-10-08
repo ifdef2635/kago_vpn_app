@@ -230,7 +230,7 @@ bool _vpnOn(WidgetRef ref) {
   final desktop = ref.watch(desktopCoreRunningProvider);
   final android = Platform.isAndroid &&
       ref.watch(androidVpnEventProvider
-          .select((event) => event.value?['state'] == 'connected'));
+          .select((event) => event.valueOrNull?['state'] == 'connected'));
   return desktop || android;
 }
 
@@ -361,8 +361,20 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
       final local = await SubscriptionRepository().latest();
       // Also replace a saved profile that has expired or used up its traffic.
       if (GuestTelegram.needed(local, DateTime.now())) {
-        await useOnThisDevice(ref, sub.url).catchError((Object _) {});
-        imported = true;
+        try {
+          await useOnThisDevice(ref, sub.url);
+          imported = true;
+        } catch (error) {
+          // Signed in anyway; say why the subscription was not added (for
+          // example the device limit).
+          if (!mounted) return;
+          showSnack(
+              context,
+              tr('Вы вошли, но подписку не удалось добавить: {error}',
+                  <String, Object?>{'error': _errorText(error)}));
+          refreshAccount(ref);
+          return;
+        }
       }
     }
     // Before refreshAccount: it replaces this card, and ref must stay usable.
@@ -685,8 +697,16 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
   Future<void> _connect(KagoSubscription sub) async {
     setState(() => _busy = true);
     try {
+      final current = await SubscriptionRepository().latest();
+      final switching = current?.url != sub.url;
       await useOnThisDevice(ref, sub.url);
       if (!mounted) return;
+      if (switching && ref.read(vpnActiveProvider)) {
+        // Another profile (or the guest one) is connected: switch to this
+        // subscription instead of turning the VPN off.
+        await DashboardScreen.reconnect(context, ref);
+        return;
+      }
       await DashboardScreen.toggleVpn(context, ref, _androidVpnOn(ref));
     } catch (error) {
       if (mounted) showSnack(context, _errorText(error));
@@ -709,7 +729,10 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
       final fresh = await api.subscription();
       if (usedHere && fresh != null && fresh.url.isNotEmpty) {
         await useOnThisDevice(ref, fresh.url);
+        // The running core still has the old key.
+        if (mounted) await DashboardScreen.reconnect(context, ref);
       }
+      if (!mounted) return;
       refreshAccount(ref);
       if (mounted) showSnack(context, tr('Ключ перевыпущен.'));
     } catch (error) {

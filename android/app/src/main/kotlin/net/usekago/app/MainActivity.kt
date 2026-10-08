@@ -268,6 +268,9 @@ object KaGoVpnEvents {
     fun emit(state: String, message: String? = null) {
         val event = mutableMapOf<String, Any>("state" to state)
         if (message != null) event["message"] = message
+        // The UI forgets the guest/anonymous label when the activity is
+        // recreated, and a tile start never had it: the file name tells.
+        if (state == "connected") KaGoVpnService.runningConfig?.let { event["config"] = java.io.File(it).name }
         mainHandler.post { sink?.success(event) }
     }
 }

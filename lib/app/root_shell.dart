@@ -5,6 +5,7 @@ import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/network/android_vpn_events.dart';
 import '../core/network/anonymous_mode.dart';
 import '../core/network/app_providers.dart';
 import '../core/theme/app_widgets.dart';
@@ -12,6 +13,7 @@ import '../core/theme/kago_theme.dart';
 import '../features/account/account_screen.dart';
 import '../features/connections/connections_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/guest/guest_telegram.dart';
 import '../features/proxies/proxies_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/update/update_flow.dart';
@@ -55,6 +57,19 @@ class RootShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(subscriptionUsageRefresherProvider);
+    if (Platform.isAndroid) {
+      // The VPN service outlives the UI and the tile starts it without the
+      // UI: which profile runs comes from the service.
+      ref.listen(androidVpnEventProvider, (_, next) {
+        final event = next.valueOrNull;
+        final config = event?['config'];
+        if (event?['state'] != 'connected' || config is! String) return;
+        ref.read(guestModeActiveProvider.notifier).state =
+            config == GuestTelegram.configName;
+        ref.read(anonymousActiveProvider.notifier).state =
+            config == AnonymousMode.configName;
+      });
+    }
     final index = ref.watch(rootTabIndexProvider);
     void select(int value) =>
         ref.read(rootTabIndexProvider.notifier).state = value;

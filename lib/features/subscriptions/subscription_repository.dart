@@ -218,10 +218,20 @@ class SubscriptionRepository {
     if (item['used'] != used ||
         item['total'] != total ||
         item['expire'] != newExpire) {
-      item['used'] = used;
-      item['total'] = total;
-      item['expire'] = newExpire;
-      await _storage.write(key: _key, value: jsonEncode(decoded));
+      // Read again: during the request the user may have signed out or
+      // imported a new link, and the old list must not come back.
+      final current = await _storage.read(key: _key);
+      final Object? now = current == null ? null : jsonDecode(current);
+      if (now is! List<dynamic>) return null;
+      final same =
+          now.whereType<Map<String, dynamic>>().where((p) => p['url'] == url);
+      if (same.isEmpty) return latest();
+      for (final profile in same) {
+        profile['used'] = used;
+        profile['total'] = total;
+        profile['expire'] = newExpire;
+      }
+      await _storage.write(key: _key, value: jsonEncode(now));
     }
     return latest();
   }

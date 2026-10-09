@@ -131,15 +131,11 @@ const stringsEn = <String, String>{
       'Manage your subscription, devices and account in one place.',
   'Выйти': 'Log out',
   'Вы вышли из аккаунта.': 'You have logged out.',
-  'Откройте {url}': 'Open {url}',
   'Отмена': 'Cancel',
   '{n} дн.': '{n} d.',
   'Введите корректный email.': 'Enter a valid email.',
   'Пароль — минимум 8 символов.': 'Password must be at least 8 characters.',
   'Введите пароль.': 'Enter your password.',
-  'Вы вошли. Подписка добавлена на это устройство.':
-      'You are signed in. The subscription was added to this device.',
-  'Вы вошли в аккаунт.': 'You are signed in.',
   'Не удалось загрузить кабинет. Попробуйте ещё раз.':
       'Could not load the account. Try again.',
   'Не удалось сохранить.': 'Could not save.',
@@ -148,18 +144,10 @@ const stringsEn = <String, String>{
       'You are signed in, but the subscription could not be added.',
   'Ваш IP (через VPN идёт только Telegram)':
       'Your IP (only Telegram goes through the VPN)',
-  'VPN отключён.': 'VPN disconnected.',
-  'VPN подключён, анонимный режим.': 'VPN connected, anonymous mode.',
-  'VPN подключён.': 'VPN connected.',
-  'Бесплатный доступ к Telegram включён.': 'Free Telegram access is on.',
   'Бесплатный доступ к Telegram сейчас недоступен.':
       'Free Telegram access is unavailable right now.',
   'Не удалось подключиться.': 'Could not connect.',
-  'VPN отключается…': 'Disconnecting VPN…',
-  'Включаем бесплатный доступ к Telegram…': 'Turning on free Telegram access…',
-  'Подключаемся…': 'Connecting…',
   'Не удалось обновить подписку.': 'Could not update the subscription.',
-  'Подробнее': 'Details',
   'Устройства появятся после оформления подписки.':
       'Devices will appear here once you have a subscription.',
   'Не удалось загрузить устройства. Попробуйте позже.':
@@ -170,7 +158,6 @@ const stringsEn = <String, String>{
   'Серверов пока нет. Войдите в аккаунт KAGO с активной подпиской во вкладке «Кабинет» — серверы появятся здесь.':
       'No servers yet. Sign in to a KAGO account with an active subscription on the “Account” tab and the servers will appear here.',
   'Не удалось выбрать сервер.': 'Could not select the server.',
-  'Не удалось проверить задержку.': 'Could not check latency.',
   'Бесплатный сервер Telegram сейчас не отвечает.':
       'The free Telegram server is not responding right now.',
   'Через гостевой сервер не открылся {url} за 5 секунд. Проверьте гостевой сервер, его ноду и подписку гостя в панели.':
@@ -179,10 +166,6 @@ const stringsEn = <String, String>{
       'Telegram may not connect through the free server.',
   'Сайт telegram.org открывается через гостевой сервер, а адрес Telegram ({url}) — нет. Приложения Telegram подключаются по адресам, поэтому в маршрутизации Xray гостевого inbound нужно разрешить geoip:telegram (README, «Гостевой доступ к Telegram»).':
       'telegram.org opens through the guest server but the Telegram address ({url}) does not. Telegram apps connect by address, so the Xray routing of the guest inbound must allow geoip:telegram (README, “Guest access to Telegram”).',
-  'Приложение Telegram может не подключиться без режима «Весь трафик через VPN».':
-      'The Telegram app may not connect without “All traffic through VPN”.',
-  'Включите «Весь трафик через VPN» в Настройках. Или в Telegram: Настройки → Продвинутые настройки → Тип соединения → «Использовать системный прокси».':
-      'Turn on “All traffic through VPN” in Settings. Or in Telegram: Settings → Advanced → Connection type → “Use system proxy”.',
   'панель отказала гостю: {message}': 'the panel refused the guest: {message}',
   'панель выдала заглушку вместо серверов: «{message}»':
       'the panel served a placeholder instead of servers: “{message}”',
@@ -224,7 +207,6 @@ const stringsEn = <String, String>{
   'Старая ссылка перестанет работать. На этом устройстве подписка обновится автоматически, на остальных её нужно добавить заново.':
       'The old link will stop working. On this device the subscription updates automatically; on other devices add it again.',
   'Перевыпустить': 'Re-issue',
-  'Ключ перевыпущен.': 'The key has been re-issued.',
   'Не удалось загрузить подписку': 'Could not load the subscription',
   'Повторить': 'Retry',
   'Подписка неактивна': 'Subscription inactive',
@@ -245,8 +227,6 @@ const stringsEn = <String, String>{
   'Отключиться': 'Disconnect',
   'Подключиться': 'Connect',
   'Скопировать ссылку': 'Copy link',
-  'Ссылка скопирована. Это ваш ключ — не передавайте её посторонним.':
-      'Link copied. This is your key — do not share it.',
   'Осталось': 'Left',
   'Устройств': 'Devices',
   'Безлимит': 'Unlimited',
@@ -257,8 +237,6 @@ const stringsEn = <String, String>{
   'Все устройства потеряют доступ, пока снова не подключатся по ссылке.':
       'All devices lose access until they connect again with the link.',
   'Отключить все': 'Disconnect all',
-  'Все устройства отключены.': 'All devices disconnected.',
-  'Устройство отключено.': 'Device disconnected.',
   'Устройства': 'Devices',
   'Устройств пока нет. Устройство появится здесь после первого подключения по ссылке подписки.':
       'No devices yet. A device appears here after its first connection with the subscription link.',
@@ -286,13 +264,10 @@ const stringsEn = <String, String>{
   'Новый пароль (мин. 8)': 'New password (min. 8)',
   'Новый пароль — минимум 8 символов.':
       'New password must be at least 8 characters.',
-  'Пароль изменён.': 'Password changed.',
   'Отправить код': 'Send code',
   'Новый email': 'New email',
   'Код отправлен на {email}': 'Code sent to {email}',
-  'Email обновлён.': 'Email updated.',
   'Код отправлен на email.': 'Code sent to your email.',
-  'Email подтверждён.': 'Email verified.',
   'Код из письма': 'Code from the email',
   'Подтвердить': 'Confirm',
   '6 цифр': '6 digits',
@@ -303,7 +278,6 @@ const stringsEn = <String, String>{
   'Приглашено': 'Invited',
   'Оплатили': 'Paid',
   'Копировать': 'Copy',
-  'Скопировано.': 'Copied.',
   'Реферальная программа доступна после подтверждения почты. Подтвердите email в разделе «Аккаунт» выше.':
       'The referral program is available after you verify your email. Verify it in the “Account” section above.',
   'Помощь': 'Help',
@@ -333,11 +307,6 @@ const stringsEn = <String, String>{
   'Контроллер недоступен — проверьте адрес в настройках.':
       'Controller unavailable — check the address in settings.',
   'Не подключено': 'Not connected',
-  'Android native bridge недоступен в этой сборке.':
-      'The Android native bridge is not available in this build.',
-  'Нативный VPN-мост ещё не подключён. REST-клиент Mihomo доступен после настройки контроллера.':
-      'The native VPN bridge is not connected yet. The Mihomo REST client is available after configuring the controller.',
-  'Не удалось запустить VPN.': 'Could not start the VPN.',
   '{used} использовано': '{used} used',
   'Узел не отвечает': 'Node does not respond',
   'IP через VPN': 'IP via VPN',
@@ -351,7 +320,6 @@ const stringsEn = <String, String>{
   'всего {v}': 'total {v}',
   'Отдача': 'Upload',
   'Проверить задержку': 'Test latency',
-  'Сортировка': 'Sort',
   'По порядку': 'By order',
   'По задержке': 'By latency',
   'По имени': 'By name',
@@ -390,10 +358,8 @@ const stringsEn = <String, String>{
   'Mihomo · внешний бинарник': 'Mihomo · external binary',
   'HTTPS или локальный HTTP. Secret создаётся автоматически.':
       'HTTPS or local HTTP. The secret is generated automatically.',
-  'Адрес контроллера сохранён.': 'Controller address saved.',
   'Полный путь к исполняемому файлу Mihomo.':
       'Full path to the Mihomo executable.',
-  'Путь к Mihomo сохранён.': 'Mihomo path saved.',
   'Логов пока нет. Они появятся при запуске или загрузке ядра.':
       'No logs yet. They appear when the core starts or downloads.',
   'Закрыть': 'Close',
@@ -436,11 +402,6 @@ const stringsEn = <String, String>{
   'Приложения и VPN': 'Apps and VPN',
   'Раздельное туннелирование доступно только на Android.':
       'Split tunneling is only available on Android.',
-  'Сохранено. Изменения применятся при следующем подключении VPN.':
-      'Saved. Changes apply the next time the VPN connects.',
-  'Российские сервисы из списка не установлены.':
-      'None of the listed Russian services are installed.',
-  'Добавлено приложений: {n}': 'Apps added: {n}',
   'Все': 'All',
   'Кроме выбранных': 'Except selected',
   'Только выбранные': 'Only selected',
@@ -497,8 +458,6 @@ const stringsEn = <String, String>{
   'до {date}': 'until {date}',
   'Версия {version} · usekago.net': 'Version {version} · usekago.net',
   'Войдите в аккаунт': 'Sign in to your account',
-  'Обновляем подписку…': 'Updating the subscription…',
-  'Подписка обновлена.': 'Subscription updated.',
   'Войдите в аккаунт KAGO — подписка подключится сама':
       'Sign in to your KAGO account and the subscription is added automatically',
   'Нет подписки': 'No subscription',
@@ -527,7 +486,6 @@ const stringsEn = <String, String>{
   'Весь трафик через VPN': 'All traffic through VPN',
   'Для Telegram и приложений, которые не используют системный прокси. Один раз спросит пароль администратора.':
       'For Telegram and apps that ignore the system proxy. Asks for the administrator password once.',
-  'Переподключитесь, чтобы применить.': 'Reconnect to apply.',
   'Не удалось узнать последнюю версию.':
       'Could not find out the latest version.',
   'В релизе нет контрольной суммы обновления.':
@@ -584,8 +542,6 @@ const stringsEn = <String, String>{
   'Выйти из аккаунта?': 'Sign out?',
   'VPN отключится, а подписка будет удалена с этого устройства. Чтобы подключиться снова, войдите в аккаунт.':
       'The VPN will disconnect and the subscription will be removed from this device. Sign in again to reconnect.',
-  'Вы вышли из аккаунта. Подписка удалена с этого устройства.':
-      'Signed out. The subscription was removed from this device.',
   'Анонимный режим': 'Anonymous mode',
   'DNS только через VPN, без IPv6, часовой пояс как у сервера. Выключите — обычный режим.':
       'DNS only through the VPN, no IPv6, the server\'s time zone. Turn off for normal mode.',
@@ -624,15 +580,10 @@ const stringsEn = <String, String>{
   'Цепочка': 'Chain',
   'Свернуть': 'Collapse',
   'Развернуть': 'Expand',
-  'Подключите VPN, чтобы выбрать сервер.':
-      'Connect the VPN to choose a server.',
-  'Сервер в этой группе выбирается автоматически.':
-      'This group picks its server automatically.',
   'Инструменты': 'Tools',
   'Какие сайты и приложения сейчас идут через ядро':
       'Sites and apps going through the core right now',
   'Ядро и адрес контроллера': 'Core and controller address',
-  'Не удалось закрыть соединение.': 'Could not close the connection.',
   'Режим': 'Mode',
   'По правилам': 'By rules',
   'Глобальный': 'Global',
@@ -649,4 +600,16 @@ const stringsEn = <String, String>{
   'Глобальный режим: весь трафик идёт через выбранный сервер, правила подписки не действуют.':
       'Global mode: all traffic goes through the chosen server; the subscription rules do not apply.',
   'Ничего не найдено.': 'Nothing found.',
+  'Введите 6 цифр из письма.': 'Enter the 6 digits from the email.',
+  'Изменения применяются при следующем подключении VPN.':
+      'Changes apply the next time the VPN connects.',
+  'Написать': 'Write',
+  'Напишите в поддержку KAGO — поможем разобраться. Приложите текст ошибки.':
+      'Write to KAGO support and we will help. Attach the error text.',
+  'Не удалось отключить устройство.': 'Could not disconnect the device.',
+  'Не удалось открыть настройки VPN.': 'Could not open the VPN settings.',
+  'Не удалось открыть ссылку.': 'Could not open the link.',
+  'Не удалось отправить код на email.': 'Could not send the code to the email.',
+  'Не удалось перевыпустить ключ.': 'Could not reissue the key.',
+  'Не удалось подключить это устройство.': 'Could not connect this device.',
 };

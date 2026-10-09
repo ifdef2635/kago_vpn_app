@@ -76,6 +76,7 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           _SubscriptionCard(
               profile: profile.valueOrNull,
+              busy: ref.watch(_subscriptionRefreshingProvider),
               onAction: () =>
                   refreshSubscription(context, ref, profile.valueOrNull)),
           const SizedBox(height: 10),
@@ -192,9 +193,6 @@ class DashboardScreen extends ConsumerWidget {
           await manager.stop();
           ref.read(desktopCoreRunningProvider.notifier).state = false;
           _refreshCoreData(ref);
-          if (context.mounted) {
-            _showMessage(context, tr('VPN отключён.'));
-          }
           return true;
         }
         final (config, guest) = await _connectConfig(ref);
@@ -205,23 +203,13 @@ class DashboardScreen extends ConsumerWidget {
         final anonymous = !guest && await AnonymousMode.enabled();
         ref.read(anonymousActiveProvider.notifier).state = anonymous;
         if (anonymous) await _matchTimeZone(ref);
-        if (context.mounted) {
-          _showMessage(
-              context,
-              manager.notice ??
-                  (guest
-                      ? tr('Бесплатный доступ к Telegram включён.')
-                      : anonymous
-                          ? tr('VPN подключён, анонимный режим.')
-                          : tr('VPN подключён.')));
-        }
-        if (guest && context.mounted) {
-          await _checkGuest(context, ref, allTraffic: manager.allTraffic);
-        }
+        // The power button shows the state; a declined TUN (manager.notice)
+        // is in the log.
+        if (guest && context.mounted) await _checkGuest(context, ref);
         return true;
       } on GuestUnavailable catch (error) {
         if (context.mounted) {
-          _showMessage(
+          _showError(
               context, tr('Бесплатный доступ к Telegram сейчас недоступен.'),
               details: error.message);
         }
@@ -229,7 +217,7 @@ class DashboardScreen extends ConsumerWidget {
         ref.read(desktopCoreRunningProvider.notifier).state = manager.isRunning;
         _refreshCoreData(ref);
         if (context.mounted) {
-          _showMessage(context, tr('Не удалось подключиться.'),
+          _showError(context, tr('Не удалось подключиться.'),
               details: '$error');
         }
       } finally {
@@ -241,9 +229,6 @@ class DashboardScreen extends ConsumerWidget {
       try {
         if (androidConnected) {
           await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>('disconnect');
-          if (context.mounted) {
-            _showMessage(context, tr('VPN отключается…'));
-          }
         } else {
           final (config, guest) = await _connectConfig(ref);
           ref.read(guestModeActiveProvider.notifier).state = guest;
@@ -257,45 +242,38 @@ class DashboardScreen extends ConsumerWidget {
           );
           await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>(
               'connect', <String, String>{'configPath': config.path});
-          if (context.mounted) {
-            _showMessage(
-                context,
-                guest
-                    ? tr('Включаем бесплатный доступ к Telegram…')
-                    : tr('Подключаемся…'));
-          }
           if (guest &&
               context.mounted &&
               await waitForVpn(ref, true,
                   timeout: const Duration(seconds: 20)) &&
               context.mounted) {
-            await _checkGuest(context, ref, allTraffic: true);
+            await _checkGuest(context, ref);
           }
         }
         return true;
       } on MissingPluginException {
         if (context.mounted) {
-          _showMessage(
-              context, tr('Android native bridge недоступен в этой сборке.'));
+          _showError(context, tr('Не удалось подключиться.'),
+              details: 'Android native bridge (MissingPluginException)');
         }
       } on PlatformException catch (error) {
         if (context.mounted) {
-          _showMessage(context, tr('Не удалось подключиться.'),
+          _showError(context, tr('Не удалось подключиться.'),
               details: error.message);
         }
       } on FormatException catch (error) {
         if (context.mounted) {
-          _showMessage(context, tr('Не удалось подключиться.'),
+          _showError(context, tr('Не удалось подключиться.'),
               details: error.message);
         }
       } on FileSystemException catch (error) {
         if (context.mounted) {
-          _showMessage(context, tr('Не удалось подключиться.'),
+          _showError(context, tr('Не удалось подключиться.'),
               details: error.message);
         }
       } on GuestUnavailable catch (error) {
         if (context.mounted) {
-          _showMessage(
+          _showError(
               context, tr('Бесплатный доступ к Telegram сейчас недоступен.'),
               details: error.message);
         }
@@ -307,22 +285,22 @@ class DashboardScreen extends ConsumerWidget {
       return true;
     } on MissingPluginException {
       if (context.mounted) {
-        _showMessage(context,
-            tr('Нативный VPN-мост ещё не подключён. REST-клиент Mihomo доступен после настройки контроллера.'));
+        _showError(context, tr('Не удалось подключиться.'),
+            details: 'Native VPN bridge (MissingPluginException)');
       }
     } on PlatformException catch (error) {
       if (context.mounted) {
-        _showMessage(context, error.message ?? tr('Не удалось запустить VPN.'));
+        _showError(context, tr('Не удалось подключиться.'),
+            details: error.message);
       }
     }
     return false;
   }
 
   /// After the free Telegram access starts: checks it through the guest
-  /// server and says, in one line, what will stop Telegram (details for
-  /// support behind «Подробнее»). Nothing when all is well.
-  static Future<void> _checkGuest(BuildContext context, WidgetRef ref,
-      {required bool allTraffic}) async {
+  /// server and reports, as a critical error, what will stop Telegram
+  /// (details for support behind «Поддержка»). Nothing when all is well.
+  static Future<void> _checkGuest(BuildContext context, WidgetRef ref) async {
     final controller = ref.read(mihomoControllerProvider);
     final GuestCheck result;
     try {
@@ -334,24 +312,19 @@ class DashboardScreen extends ConsumerWidget {
     if (!context.mounted) return;
     switch (result) {
       case GuestCheck.serverDown:
-        _showMessage(
+        _showError(
             context, tr('Бесплатный сервер Telegram сейчас не отвечает.'),
             details: tr(
                 'Через гостевой сервер не открылся {url} за 5 секунд. Проверьте гостевой сервер, его ноду и подписку гостя в панели.',
                 <String, Object?>{'url': GuestTelegram.checkUrl}));
       case GuestCheck.addressesBlocked:
-        _showMessage(context,
+        _showError(context,
             tr('Telegram может не подключиться через бесплатный сервер.'),
             details: tr(
                 'Сайт telegram.org открывается через гостевой сервер, а адрес Telegram ({url}) — нет. Приложения Telegram подключаются по адресам, поэтому в маршрутизации Xray гостевого inbound нужно разрешить geoip:telegram (README, «Гостевой доступ к Telegram»).',
                 <String, Object?>{'url': GuestTelegram.addressCheckUrl}));
       case GuestCheck.ok:
-        if (!allTraffic) {
-          _showMessage(context,
-              tr('Приложение Telegram может не подключиться без режима «Весь трафик через VPN».'),
-              details: tr(
-                  'Включите «Весь трафик через VPN» в Настройках. Или в Telegram: Настройки → Продвинутые настройки → Тип соединения → «Использовать системный прокси».'));
-        }
+        break;
     }
   }
 
@@ -442,26 +415,32 @@ class DashboardScreen extends ConsumerWidget {
       ref.read(rootTabIndexProvider.notifier).state = 2;
       return;
     }
-    _showMessage(context, tr('Обновляем подписку…'));
+    final busy = ref.read(_subscriptionRefreshingProvider.notifier);
+    if (busy.state) return;
+    busy.state = true;
     try {
       await SubscriptionRepository().import(profile.url);
       ref.invalidate(importedSubscriptionProvider);
       ref.invalidate(proxyGroupsProvider);
-      if (context.mounted) _showMessage(context, tr('Подписка обновлена.'));
     } catch (error) {
       if (context.mounted) {
-        _showMessage(context, tr('Не удалось обновить подписку.'),
+        _showError(context, tr('Не удалось обновить подписку.'),
             details: '$error');
       }
+    } finally {
+      busy.state = false;
     }
   }
 
-  /// A short line at the bottom; technical [details] (for support) only
-  /// behind «Подробнее».
-  static void _showMessage(BuildContext context, String value,
+  /// The only kind of message at the bottom of the screen (CLAUDE.md):
+  /// critical errors, with support and the technical [details].
+  static void _showError(BuildContext context, String value,
           {String? details}) =>
-      showShortMessage(context, value, details: details);
+      showCriticalError(context, value, details: details);
 }
+
+/// The subscription is being reloaded (the card's button shows progress).
+final _subscriptionRefreshingProvider = StateProvider<bool>((ref) => false);
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.label, required this.active});
@@ -491,8 +470,10 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard({required this.profile, required this.onAction});
+  const _SubscriptionCard(
+      {required this.profile, required this.busy, required this.onAction});
   final ImportedSubscription? profile;
+  final bool busy;
   final VoidCallback onAction;
   @override
   Widget build(BuildContext context) {
@@ -535,8 +516,13 @@ class _SubscriptionCard extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: context.kago.muted)),
               ])),
           TextButton(
-              onPressed: onAction,
-              child: Text(profile == null ? tr('Войти') : tr('Обновить'))),
+              onPressed: busy ? null : onAction,
+              child: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(profile == null ? tr('Войти') : tr('Обновить'))),
         ]));
   }
 }

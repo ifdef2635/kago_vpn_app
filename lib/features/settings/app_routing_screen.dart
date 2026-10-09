@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/l10n/l10n.dart';
+import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 
 /// Russian services that often refuse to work through a VPN (they detect it,
@@ -103,15 +104,11 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
         'packages': _selected.toList(),
       });
       _dirty = false;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(tr(
-                'Сохранено. Изменения применятся при следующем подключении VPN.'))));
-      }
+      if (mounted) setState(() {});
     } on PlatformException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
+        showCriticalError(context, tr('Не удалось сохранить.'),
+            details: error.message ?? '$error');
       }
     }
   }
@@ -127,11 +124,6 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
       if (_mode == 'off') _mode = 'exclude';
       _dirty = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(installed.isEmpty
-            ? tr('Российские сервисы из списка не установлены.')
-            : tr('Добавлено приложений: {n}',
-                <String, Object?>{'n': installed.length}))));
   }
 
   @override
@@ -213,6 +205,10 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
                                   _ => tr('Все приложения работают через VPN.'),
                                 },
                                 style: TextStyle(color: p.muted, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            Text(
+                                tr('Изменения применяются при следующем подключении VPN.'),
+                                style: TextStyle(color: p.muted, fontSize: 12)),
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
                                 onPressed: _addRussianServices,

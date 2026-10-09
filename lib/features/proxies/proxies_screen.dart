@@ -97,8 +97,7 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
                     tooltip: tr('Проверить задержку всех серверов'),
                     visualDensity: compact,
                     onPressed: online && pending.isEmpty && testNames.isNotEmpty
-                        ? () =>
-                            _testDelays(context, ref, testNames, guest: guest)
+                        ? () => _testDelays(ref, testNames, guest: guest)
                         : null,
                     icon: pending.isNotEmpty
                         ? const SizedBox(
@@ -403,7 +402,6 @@ class _GroupSection extends ConsumerWidget {
                           padding: EdgeInsets.zero,
                           onPressed: online && pending.isEmpty
                               ? () => _testDelays(
-                                  context,
                                   ref,
                                   group.nodes
                                       .where(_testable)
@@ -479,10 +477,16 @@ class _GroupSection extends ConsumerWidget {
                   delay: info.delay(node, delays),
                   testing: pending.contains(node.name),
                   onTest: online && _testable(node) && pending.isEmpty
-                      ? () => _testDelays(context, ref, <String>[node.name],
-                          guest: guest)
+                      ? () =>
+                          _testDelays(ref, <String>[node.name], guest: guest)
                       : null,
-                  onTap: () => _onNodeTap(context, ref, node))));
+                  // Without the core, and in automatic groups, there is
+                  // nothing to choose: the card does not react.
+                  onTap: online &&
+                          group.isSelectable &&
+                          node.name != group.selected
+                      ? () => _selectNode(context, ref, group, node.name)
+                      : null)));
         }
         if (rows.isNotEmpty) rows.add(const SizedBox(height: gap));
         rows.add(IntrinsicHeight(
@@ -499,18 +503,6 @@ class _GroupSection extends ConsumerWidget {
   String _nestedDetail(ProxyNode node) {
     final now = info.now(node.name);
     return now == null || now.isEmpty ? proxyGroupKind(node.type) : now;
-  }
-
-  void _onNodeTap(BuildContext context, WidgetRef ref, ProxyNode node) {
-    if (node.name == group.selected) return;
-    if (!online) {
-      showShortMessage(context, tr('Подключите VPN, чтобы выбрать сервер.'));
-    } else if (!group.isSelectable) {
-      showShortMessage(
-          context, tr('Сервер в этой группе выбирается автоматически.'));
-    } else {
-      _selectNode(context, ref, group, node.name);
-    }
   }
 }
 
@@ -549,7 +541,7 @@ Future<void> _selectNode(
     ref.invalidate(ipInfoProvider);
   } catch (error) {
     if (context.mounted) {
-      showShortMessage(context, tr('Не удалось выбрать сервер.'),
+      showCriticalError(context, tr('Не удалось выбрать сервер.'),
           details: '$error');
     }
   }
@@ -558,8 +550,7 @@ Future<void> _selectNode(
 /// Tests [names] with eight parallel workers. Each result is shown as soon as
 /// it arrives, and one slow node (up to the 5 s timeout) does not hold back
 /// the others.
-Future<void> _testDelays(
-    BuildContext context, WidgetRef ref, List<String> names,
+Future<void> _testDelays(WidgetRef ref, List<String> names,
     {required bool guest}) async {
   if (names.isEmpty) return;
   final controller = ref.read(mihomoControllerProvider);
@@ -586,11 +577,8 @@ Future<void> _testDelays(
     await Future.wait(<Future<void>>[
       for (var i = 0; i < 8 && i < names.length; i++) worker(),
     ]);
-  } catch (error) {
-    if (context.mounted) {
-      showShortMessage(context, tr('Не удалось проверить задержку.'),
-          details: '$error');
-    }
+  } catch (_) {
+    // A failed test shows as «Таймаут» on its card.
   } finally {
     pending.state = const <String>{};
   }
@@ -613,7 +601,7 @@ class _NodeCard extends StatelessWidget {
   final int? delay;
   final bool testing;
   final VoidCallback? onTest;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

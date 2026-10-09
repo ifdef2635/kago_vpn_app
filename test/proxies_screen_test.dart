@@ -38,7 +38,7 @@ const _groups = <ProxyGroup>[
       nodes: <ProxyNode>[ProxyNode(name: '🌍 VPN', type: 'Selector')]),
 ];
 
-Future<void> _pump(WidgetTester tester) async {
+Future<void> _pump(WidgetTester tester, {MihomoController? controller}) async {
   tester.view.physicalSize = const Size(390, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -46,15 +46,22 @@ Future<void> _pump(WidgetTester tester) async {
   await tester.pumpWidget(ProviderScope(overrides: <Override>[
     vpnActiveProvider.overrideWithValue(true),
     proxyGroupsProvider.overrideWith((ref) async => _groups),
+    if (controller != null)
+      mihomoControllerProvider.overrideWithValue(controller),
   ], child: const MaterialApp(home: Scaffold(body: ProxiesScreen()))));
   await tester.pumpAndSettle();
 }
 
 class _ModeController extends MihomoController {
   final modes = <String>[];
+  final selected = <String>[];
 
   @override
   Future<void> setMode(String mode) async => modes.add(mode);
+
+  @override
+  Future<void> selectProxy(String group, String node) async =>
+      selected.add('$group/$node');
 }
 
 void main() {
@@ -147,14 +154,21 @@ void main() {
 
   testWidgets('a server of an automatic group is not picked by hand',
       (tester) async {
-    await _pump(tester);
+    final controller = _ModeController();
+    await _pump(tester, controller: controller);
     await tester.tap(find.byTooltip('Развернуть'));
     await tester.pumpAndSettle();
 
+    // The card does not react and nothing pops up at the bottom.
     await tester.tap(find.text('Швеция'));
     await tester.pump();
-    expect(find.text('Сервер в этой группе выбирается автоматически.'),
-        findsOneWidget);
+    expect(controller.selected, isEmpty);
+    expect(find.byType(SnackBar), findsNothing);
+
+    // A server of a manual group is chosen.
+    await tester.tap(find.text('Нидерланды'));
+    await tester.pump();
+    expect(controller.selected, <String>['🌍 VPN/Нидерланды']);
   });
 
   testWidgets('search finds a server in a folded group', (tester) async {

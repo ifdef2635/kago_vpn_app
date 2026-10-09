@@ -30,11 +30,8 @@ class ConnectionsScreen extends ConsumerWidget {
           if (hasConnections)
             IconButton(
                 tooltip: tr('Закрыть все'),
-                onPressed: () => _close(
-                    context,
-                    () => ref
-                        .read(mihomoControllerProvider)
-                        .closeAllConnections()),
+                onPressed: () => _close(() =>
+                    ref.read(mihomoControllerProvider).closeAllConnections()),
                 icon: const Icon(Icons.clear_all_rounded)),
           IconButton(
               tooltip: tr('Обновить'),
@@ -75,26 +72,20 @@ class ConnectionsScreen extends ConsumerWidget {
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _ConnectionTile(
                                   item: item,
-                                  onClose: () => _close(
-                                      context,
-                                      () => ref
-                                          .read(mihomoControllerProvider)
-                                          .closeConnection(item.id)))))
+                                  onClose: () => _close(() => ref
+                                      .read(mihomoControllerProvider)
+                                      .closeConnection(item.id)))))
                           .toList(growable: false)),
             ),
           ]),
     );
   }
 
-  static Future<void> _close(
-      BuildContext context, Future<void> Function() action) async {
+  static Future<void> _close(Future<void> Function() action) async {
     try {
       await action();
-    } catch (error) {
-      if (context.mounted) {
-        showShortMessage(context, tr('Не удалось закрыть соединение.'),
-            details: '$error');
-      }
+    } catch (_) {
+      // The list shows whether it closed.
     }
   }
 }

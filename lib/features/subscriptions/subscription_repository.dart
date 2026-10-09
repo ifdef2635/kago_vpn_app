@@ -22,13 +22,34 @@ class ImportedSubscription {
       required this.usedBytes,
       required this.totalBytes,
       required this.expiresAt,
-      required this.groups});
+      required this.groups,
+      this.supportUrl,
+      this.updateInterval,
+      this.updatedAt});
   final String name;
   final String url;
   final int usedBytes;
   final int totalBytes;
   final DateTime? expiresAt;
   final List<String> groups;
+
+  /// `support-url` of the subscription (https only).
+  final String? supportUrl;
+
+  /// `profile-update-interval` of the subscription.
+  final Duration? updateInterval;
+
+  /// When the subscription (its servers and rules) was last downloaded.
+  final DateTime? updatedAt;
+
+  /// Re-download is due: the provider's interval (a day without one) has
+  /// passed since the last download. A profile saved before 2.0.8 has no
+  /// date and is due at once.
+  bool updateDue(DateTime now) {
+    final last = updatedAt;
+    if (last == null) return true;
+    return now.difference(last) >= (updateInterval ?? const Duration(days: 1));
+  }
 }
 
 class SubscriptionRepository {
@@ -58,10 +79,21 @@ class SubscriptionRepository {
       groups: (item['groups'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<String>()
           .toList(growable: false),
+      supportUrl: item['support'] as String?,
+      updateInterval: item['interval'] is int
+          ? Duration(minutes: item['interval'] as int)
+          : null,
+      updatedAt: item['updated'] is int
+          ? DateTime.fromMillisecondsSinceEpoch(item['updated'] as int)
+          : null,
     );
   }
 
-  Future<ImportedSubscription> import(String rawUrl) async {
+  /// Downloads the subscription and makes it the active profile. With
+  /// [onlyIfSaved] (the background update) nothing is written when the link
+  /// is no longer saved — the user signed out during the download.
+  Future<ImportedSubscription> import(String rawUrl,
+      {bool onlyIfSaved = false}) async {
     final uri = validateSubscriptionUrl(rawUrl);
     final response = await fetch(
         Dio(BaseOptions(
@@ -85,6 +117,15 @@ class SubscriptionRepository {
     }
     final metadata = SubscriptionMetadata.parse(
         yaml: normalized, responseHeaders: response.headers);
+    if (onlyIfSaved) {
+      final saved = await _storage.read(key: _key);
+      final Object? list = saved == null ? null : jsonDecode(saved);
+      final kept = list is List<dynamic> &&
+          list
+              .whereType<Map<String, dynamic>>()
+              .any((item) => item['url'] == uri.toString());
+      if (!kept) throw StateError('The subscription is no longer saved.');
+    }
     final configFile =
         await const MihomoConfigBuilder().writeConfig(normalized);
     if (Platform.isAndroid) {
@@ -111,6 +152,9 @@ class SubscriptionRepository {
           ? DateTime.fromMillisecondsSinceEpoch(fields['expire']! * 1000)
           : null,
       groups: metadata.proxyGroupNames,
+      supportUrl: metadata.supportUrl,
+      updateInterval: metadata.updateInterval,
+      updatedAt: DateTime.now(),
     );
     final stored = await _storage.read(key: _key);
     final profiles = stored == null
@@ -125,7 +169,11 @@ class SubscriptionRepository {
       'used': profile.usedBytes,
       'total': profile.totalBytes,
       'expire': profile.expiresAt?.millisecondsSinceEpoch,
-      'groups': profile.groups
+      'groups': profile.groups,
+      if (profile.supportUrl != null) 'support': profile.supportUrl,
+      if (profile.updateInterval != null)
+        'interval': profile.updateInterval!.inMinutes,
+      'updated': profile.updatedAt!.millisecondsSinceEpoch,
     });
     await _storage.write(key: _key, value: jsonEncode(profiles));
     return profile;

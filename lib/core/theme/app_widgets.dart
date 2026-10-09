@@ -5,8 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/l10n.dart';
 import 'kago_theme.dart';
 
-/// KAGO support in Telegram.
-const kagoSupportUrl = 'https://t.me/KaGoHelp';
+/// Where «Поддержка» leads: the subscription's `support-url` when it sends
+/// one (as FlClashX), otherwise KAGO support in Telegram.
+abstract final class SupportLink {
+  static const fallback = 'https://t.me/KaGoHelp';
+  static String current = fallback;
+}
 
 /// The only message at the bottom of the screen: a critical error (the VPN
 /// did not connect, an account action failed…). Successes, progress and tips
@@ -58,7 +62,7 @@ void showCriticalError(BuildContext context, String text, {String? details}) {
               FilledButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-                    launchUrl(Uri.parse(kagoSupportUrl),
+                    launchUrl(Uri.parse(SupportLink.current),
                             mode: LaunchMode.externalApplication)
                         .catchError((Object _) => false);
                   },

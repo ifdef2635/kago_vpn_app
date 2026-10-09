@@ -223,9 +223,6 @@ const stringsEn = <String, String>{
   'Активна': 'Active',
   'Активна до {date}': 'Active until {date}',
   'Пробный период': 'Trial period',
-  'Подключить это устройство': 'Connect this device',
-  'Отключиться': 'Disconnect',
-  'Подключиться': 'Connect',
   'Скопировать ссылку': 'Copy link',
   'Осталось': 'Left',
   'Устройств': 'Devices',
@@ -611,8 +608,10 @@ const stringsEn = <String, String>{
   'Не удалось открыть ссылку.': 'Could not open the link.',
   'Не удалось отправить код на email.': 'Could not send the code to the email.',
   'Не удалось перевыпустить ключ.': 'Could not reissue the key.',
-  'Не удалось подключить это устройство.': 'Could not connect this device.',
   'Напрямую по подписке · {package}': 'Direct by subscription · {package}',
   'Подписка KAGO уже пускает напрямую установленных приложений: {n} (банки, Госуслуги, маркетплейсы). Они отмечены в списке.':
       'Your KAGO subscription already sends {n} installed apps directly (banks, government services, marketplaces). They are marked in the list.',
+  'Добавить на это устройство': 'Add to this device',
+  'Не удалось добавить подписку на это устройство.':
+      'Could not add the subscription to this device.',
 };

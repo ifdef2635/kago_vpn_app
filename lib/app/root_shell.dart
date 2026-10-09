@@ -53,6 +53,7 @@ class RootShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(subscriptionUsageRefresherProvider);
+    ref.watch(subscriptionAutoUpdaterProvider);
     ref.watch(proxyModeSyncProvider);
     if (Platform.isAndroid) {
       // The VPN service outlives the UI and the tile starts it without the

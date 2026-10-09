@@ -37,6 +37,7 @@ void main() {
           ipInfoProvider
               .overrideWith((ref) async => const IpInfo(ip: '203.0.113.7')),
           subscriptionUsageRefresherProvider.overrideWith((ref) {}),
+          subscriptionAutoUpdaterProvider.overrideWith((ref) {}),
         ],
         child: const KaGoApp(),
       ),

@@ -22,7 +22,6 @@ import 'site_session_screen.dart';
 
 const _plansUrl = '$kagoSiteUrl/plans';
 const _cabinetUrl = '$kagoSiteUrl/my';
-const _supportUrl = 'https://t.me/KaGoHelp';
 const _botUrl = 'https://t.me/kagovpnbot';
 
 /// Personal account, the same as usekago.net/my: sign in with the site's
@@ -228,10 +227,6 @@ bool _vpnOn(WidgetRef ref) {
           .select((event) => event.valueOrNull?['state'] == 'connected'));
   return desktop || android;
 }
-
-bool _androidVpnOn(WidgetRef ref) =>
-    Platform.isAndroid &&
-    ref.read(androidVpnEventProvider).valueOrNull?['state'] == 'connected';
 
 // ─── Sign in / register ────────────────────────────────────────
 
@@ -468,7 +463,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
           TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
-                openUrl(context, _supportUrl);
+                openUrl(context, SupportLink.current);
               },
               child: Text(tr('Поддержка'))),
           FilledButton(
@@ -700,23 +695,23 @@ class _AccountHero extends ConsumerStatefulWidget {
 class _AccountHeroState extends ConsumerState<_AccountHero> {
   bool _busy = false;
 
-  Future<void> _connect(KagoSubscription sub) async {
+  /// Puts the account's subscription on this device. The VPN itself is
+  /// turned on by the one power button on the home tab; a VPN already on
+  /// (the free Telegram access or another profile) switches to it.
+  Future<void> _useHere(KagoSubscription sub) async {
     setState(() => _busy = true);
     try {
-      final current = await SubscriptionRepository().latest();
-      final switching = current?.url != sub.url;
       await useOnThisDevice(ref, sub.url);
       if (!mounted) return;
-      if (switching && ref.read(vpnActiveProvider)) {
-        // Another profile (or the guest one) is connected: switch to this
-        // subscription instead of turning the VPN off.
+      if (ref.read(vpnActiveProvider)) {
         await DashboardScreen.reconnect(context, ref);
-        return;
+      } else {
+        ref.read(rootTabIndexProvider.notifier).state = 0;
       }
-      await DashboardScreen.toggleVpn(context, ref, _androidVpnOn(ref));
     } catch (error) {
       if (mounted) {
-        showCriticalError(context, tr('Не удалось подключить это устройство.'),
+        showCriticalError(
+            context, tr('Не удалось добавить подписку на это устройство.'),
             details: _errorText(error));
       }
     } finally {
@@ -834,20 +829,17 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
                   style:
                       TextStyle(color: context.kago.heroMuted, fontSize: 13)),
               const SizedBox(height: 16),
+              // One power button in the app (home tab); here only putting
+              // the subscription on a device that does not have it yet.
               Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
-                _HeroButton(
-                  primary: true,
-                  busy: _busy,
-                  icon: vpnOn && onThisDevice
-                      ? Icons.stop_rounded
-                      : Icons.power_settings_new_rounded,
-                  label: !onThisDevice
-                      ? tr('Подключить это устройство')
-                      : vpnOn
-                          ? tr('Отключиться')
-                          : tr('Подключиться'),
-                  onPressed: _busy ? null : () => _connect(sub),
-                ),
+                if (!onThisDevice)
+                  _HeroButton(
+                    primary: true,
+                    busy: _busy,
+                    icon: Icons.add_to_home_screen_rounded,
+                    label: tr('Добавить на это устройство'),
+                    onPressed: _busy ? null : () => _useHere(sub),
+                  ),
                 _HeroButton(
                   icon: Icons.copy_rounded,
                   label: tr('Скопировать ссылку'),
@@ -1658,7 +1650,7 @@ class _HelpCard extends StatelessWidget {
         title: tr('Помощь'),
         child: Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
           OutlinedButton.icon(
-              onPressed: () => openUrl(context, _supportUrl),
+              onPressed: () => openUrl(context, SupportLink.current),
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
               label: Text(tr('Поддержка'))),
           OutlinedButton.icon(

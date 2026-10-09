@@ -262,6 +262,43 @@ final subscriptionUsageRefresherProvider = Provider<void>((ref) {
   }
 });
 
+/// Re-downloads the subscription (servers and rules) when its
+/// `profile-update-interval` has passed — a day without one — as FlClashX
+/// does. Checked at start, on return to the app and every 15 minutes; a
+/// failure is quiet (the next check retries). A running core keeps its config
+/// until the next connect, as after the «Обновить» button.
+final subscriptionAutoUpdaterProvider = Provider<void>((ref) {
+  if (!ref.watch(appForegroundProvider)) return;
+  var busy = false;
+
+  Future<void> check() async {
+    if (busy) return;
+    busy = true;
+    try {
+      final repository = SubscriptionRepository();
+      final profile = await repository.latest();
+      if (profile == null ||
+          profile.url.isEmpty ||
+          !profile.updateDue(DateTime.now())) {
+        return;
+      }
+      await repository.import(profile.url, onlyIfSaved: true);
+      ref.invalidate(importedSubscriptionProvider);
+      // Without the core the servers tab reads the saved config.
+      if (!ref.read(vpnActiveProvider)) ref.invalidate(proxyGroupsProvider);
+    } catch (_) {
+      // Offline, the panel is down or the user signed out: try later.
+    } finally {
+      busy = false;
+    }
+  }
+
+  final timer =
+      Timer.periodic(const Duration(minutes: 15), (_) => unawaited(check()));
+  ref.onDispose(timer.cancel);
+  unawaited(check());
+});
+
 /// Index of the selected root tab (0 = home, 1 = servers, 2 = account,
 /// 3 = settings), so any screen can jump to another tab. Connections live in
 /// Settings → Tools, as in FlClashX.

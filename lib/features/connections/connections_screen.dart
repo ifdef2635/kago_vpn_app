@@ -7,42 +7,49 @@ import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/l10n/l10n.dart';
 
+/// Live connections of the core: a page opened from Settings → Tools (as in
+/// FlClashX), not a main tab. It polls only while open.
 class ConnectionsScreen extends ConsumerWidget {
   const ConnectionsScreen({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // The tabs stay mounted in an IndexedStack. Rendering nothing while this tab
-    // is hidden stops the once-per-second poll and its rebuilds off-screen.
-    if (ref.watch(rootTabIndexProvider) != 2) return const SizedBox.shrink();
-    return _buildList(context, ref);
-  }
-
-  Widget _buildList(BuildContext context, WidgetRef ref) {
     final online = ref.watch(vpnActiveProvider);
-    return _list(context, ref, online);
-  }
-
-  Widget _list(BuildContext context, WidgetRef ref, bool online) => ListView(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+    // With the core off there is nothing to ask: show "no connections"
+    // instead of a controller error, and do not poll.
+    final snapshot = online
+        ? ref.watch(connectionsSnapshotProvider)
+        : const AsyncValue<ConnectionsSnapshot>.data(
+            ConnectionsSnapshot(connections: <ActiveConnection>[]));
+    final hasConnections =
+        snapshot.valueOrNull?.connections.isNotEmpty ?? false;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(tr('Соединения')),
+        actions: <Widget>[
+          if (hasConnections)
+            IconButton(
+                tooltip: tr('Закрыть все'),
+                onPressed: () => _close(
+                    context,
+                    () => ref
+                        .read(mihomoControllerProvider)
+                        .closeAllConnections()),
+                icon: const Icon(Icons.clear_all_rounded)),
+          IconButton(
+              tooltip: tr('Обновить'),
+              onPressed: () => ref.invalidate(connectionsSnapshotProvider),
+              icon: const Icon(Icons.refresh_rounded)),
+        ],
+      ),
+      body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: <Widget>[
-            Row(children: <Widget>[
-              Expanded(child: SectionTitle(tr('Соединения'))),
-              IconButton(
-                  onPressed: () => ref.invalidate(connectionsSnapshotProvider),
-                  icon: const Icon(Icons.refresh_rounded))
-            ]),
-            const SizedBox(height: 5),
             Text(
                 tr('Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.'),
                 style: TextStyle(color: context.kago.muted, fontSize: 13)),
-            const SizedBox(height: 18),
-            // With the core off there is nothing to ask: show "no connections"
-            // instead of a controller error, and do not poll.
-            (online
-                    ? ref.watch(connectionsSnapshotProvider)
-                    : const AsyncValue<ConnectionsSnapshot>.data(
-                        ConnectionsSnapshot(connections: <ActiveConnection>[])))
-                .when(
+            const SizedBox(height: 14),
+            snapshot.when(
               loading: () => const LoadingPanel(),
               error: (error, _) => ErrorPanel(
                   message: tr('Контроллер недоступен: {error}',
@@ -62,53 +69,34 @@ class ConnectionsScreen extends ConsumerWidget {
                                       'Ядро выключено — активных соединений нет.'),
                               style: TextStyle(color: context.kago.muted)))
                     ]))
-                  : Column(children: <Widget>[
-                      Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                              onPressed: () async {
-                                try {
-                                  await ref
-                                      .read(mihomoControllerProvider)
-                                      .closeAllConnections();
-                                } catch (error) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                            content: Text(tr(
-                                                'Ошибка: {error}',
-                                                <String, Object?>{
-                                          'error': error
-                                        }))));
-                                  }
-                                }
-                              },
-                              icon: const Icon(Icons.close_rounded),
-                              label: Text(tr('Закрыть все')))),
-                      ...snapshot.connections.map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _ConnectionTile(
-                              item: item,
-                              onClose: () async {
-                                try {
-                                  await ref
-                                      .read(mihomoControllerProvider)
-                                      .closeConnection(item.id);
-                                } catch (error) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                            content: Text(tr(
-                                                'Ошибка: {error}',
-                                                <String, Object?>{
-                                          'error': error
-                                        }))));
-                                  }
-                                }
-                              }))),
-                    ]),
+                  : Column(
+                      children: snapshot.connections
+                          .map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _ConnectionTile(
+                                  item: item,
+                                  onClose: () => _close(
+                                      context,
+                                      () => ref
+                                          .read(mihomoControllerProvider)
+                                          .closeConnection(item.id)))))
+                          .toList(growable: false)),
             ),
-          ]);
+          ]),
+    );
+  }
+
+  static Future<void> _close(
+      BuildContext context, Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      if (context.mounted) {
+        showShortMessage(context, tr('Не удалось закрыть соединение.'),
+            details: '$error');
+      }
+    }
+  }
 }
 
 class _ConnectionTile extends StatelessWidget {

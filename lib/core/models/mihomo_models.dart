@@ -37,12 +37,17 @@ class ProxyGroup {
       required this.type,
       required this.nodes,
       this.selected,
-      this.description});
+      this.description,
+      this.hidden = false});
   final String name;
   final String type;
   final List<ProxyNode> nodes;
   final String? selected;
   final String? description;
+
+  /// `hidden: true` in the config: the subscription keeps this group out of
+  /// the servers list (it is still used by rules and other groups).
+  final bool hidden;
 
   /// Mihomo only accepts a manual choice for `Selector` groups; url-test,
   /// fallback and load-balance groups pick their node themselves.
@@ -62,6 +67,7 @@ class ProxyGroup {
       }).toList(growable: false),
       selected: json['now'] as String?,
       description: json['description'] as String?,
+      hidden: json['hidden'] == true,
     );
   }
 }

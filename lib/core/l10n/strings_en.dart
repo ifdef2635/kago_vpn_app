@@ -164,7 +164,6 @@ const stringsEn = <String, String>{
       'Devices will appear here once you have a subscription.',
   'Не удалось загрузить устройства. Попробуйте позже.':
       'Could not load devices. Try again later.',
-  'Выберите сервер.': 'Choose a server.',
   'VPN выключен. Выбрать сервер и проверить задержку можно после подключения.':
       'VPN is off. You can choose a server and check latency after connecting.',
   'Не удалось загрузить список серверов.': 'Could not load the server list.',
@@ -322,7 +321,6 @@ const stringsEn = <String, String>{
   'Активных соединений нет.': 'No active connections.',
   'Ядро выключено — активных соединений нет.':
       'The core is off — no active connections.',
-  'Ошибка: {error}': 'Error: {error}',
   'Закрыть все': 'Close all',
   'Закрыть соединение': 'Close connection',
   'Интернет без границ': 'Internet without borders',
@@ -352,15 +350,11 @@ const stringsEn = <String, String>{
   'Загрузка': 'Download',
   'всего {v}': 'total {v}',
   'Отдача': 'Upload',
-  'Серверы и группы': 'Servers and groups',
   'Проверить задержку': 'Test latency',
   'Сортировка': 'Sort',
   'По порядку': 'By order',
   'По задержке': 'By latency',
   'По имени': 'By name',
-  '{type} · {length} шт.': '{type} · {length} nodes',
-  '{type} · узел выбирается автоматически':
-      '{type} · node is chosen automatically',
   'У этой группы нет доступных узлов.': 'This group has no available nodes.',
   'Таймаут': 'Timeout',
   '{value} мс': '{value} ms',
@@ -483,7 +477,6 @@ const stringsEn = <String, String>{
   'или по email': 'or with email',
   'Дополнительно': 'Advanced',
   'Для опытных пользователей': 'For advanced users',
-  'Ядро, логи и адрес контроллера': 'Core, logs and controller address',
   'Приложения без VPN': 'Apps without VPN',
   'Например, Яндекс Музыка, VK и банки':
       'For example Yandex Music, VK and banks',
@@ -624,4 +617,36 @@ const stringsEn = <String, String>{
   'После установки защиту можно снова включить там же (Windows 11 с обновлением от апреля 2026 года; в более старых версиях включить её обратно можно только переустановкой Windows).':
       'After the update you can turn the protection back on in the same place (Windows 11 with the April 2026 update; on older versions it can only be turned back on by reinstalling Windows).',
   'Открыть настройки': 'Open settings',
+  'Ручной выбор': 'Manual',
+  'Самый быстрый': 'Fastest',
+  'Резервный': 'Fallback',
+  'Балансировка': 'Load balance',
+  'Цепочка': 'Chain',
+  'Свернуть': 'Collapse',
+  'Развернуть': 'Expand',
+  'Подключите VPN, чтобы выбрать сервер.':
+      'Connect the VPN to choose a server.',
+  'Сервер в этой группе выбирается автоматически.':
+      'This group picks its server automatically.',
+  'Инструменты': 'Tools',
+  'Какие сайты и приложения сейчас идут через ядро':
+      'Sites and apps going through the core right now',
+  'Ядро и адрес контроллера': 'Core and controller address',
+  'Не удалось закрыть соединение.': 'Could not close the connection.',
+  'Режим': 'Mode',
+  'По правилам': 'By rules',
+  'Глобальный': 'Global',
+  'Как задано в подписке: российские сайты напрямую, остальное через VPN':
+      'As the subscription sets it: Russian sites directly, the rest through the VPN',
+  'Весь трафик через сервер, выбранный в GLOBAL':
+      'All traffic through the server chosen in GLOBAL',
+  'Проверить задержку всех серверов': 'Test latency of all servers',
+  'Свернуть все': 'Collapse all',
+  'Развернуть все': 'Expand all',
+  'Поиск': 'Search',
+  'Ещё': 'More',
+  'Название сервера': 'Server name',
+  'Глобальный режим: весь трафик идёт через выбранный сервер, правила подписки не действуют.':
+      'Global mode: all traffic goes through the chosen server; the subscription rules do not apply.',
+  'Ничего не найдено.': 'Nothing found.',
 };

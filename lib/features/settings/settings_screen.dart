@@ -17,6 +17,7 @@ import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/update/app_updater.dart';
+import '../connections/connections_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../guest/guest_telegram.dart';
 import '../subscriptions/russian_rules.dart';
@@ -140,11 +141,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ]),
           _SettingsGroup(
               title: tr('Подключение'), children: _connectionTiles()),
+          _SettingsGroup(title: tr('Инструменты'), children: <Widget>[
+            _SettingsTile(
+                icon: Icons.swap_horiz_rounded,
+                title: tr('Соединения'),
+                subtitle: tr('Какие сайты и приложения сейчас идут через ядро'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const ConnectionsScreen()))),
+            _SettingsTile(
+                icon: Icons.receipt_long_outlined,
+                title: tr('Логи Mihomo'),
+                onTap: _showLogs),
+          ]),
           _SettingsGroup(title: tr('Дополнительно'), children: <Widget>[
             _SettingsTile(
                 icon: Icons.build_outlined,
                 title: tr('Для опытных пользователей'),
-                subtitle: tr('Ядро, логи и адрес контроллера'),
+                subtitle: tr('Ядро и адрес контроллера'),
                 trailing: AnimatedRotation(
                     turns: _advanced ? .5 : 0,
                     duration: const Duration(milliseconds: 200),
@@ -153,10 +166,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () => setState(() => _advanced = !_advanced)),
             if (_advanced) ...<Widget>[
               ..._coreTiles(coreRunning, androidUpdate),
-              _SettingsTile(
-                  icon: Icons.receipt_long_outlined,
-                  title: tr('Логи Mihomo'),
-                  onTap: _showLogs),
               _SettingsTile(
                   icon: Icons.hub_outlined,
                   title: tr('Адрес контроллера'),

@@ -427,7 +427,7 @@ class DashboardScreen extends ConsumerWidget {
       if (await active.exists()) rethrow;
       // Nothing saved either: say why the free access failed (the user may
       // be on «Кабинет» trying to sign in through Telegram right now).
-      ref.read(rootTabIndexProvider.notifier).state = 3;
+      ref.read(rootTabIndexProvider.notifier).state = 2;
       throw GuestUnavailable(tr(
           '{reason}\nВойдите в аккаунт KAGO по email во вкладке «Кабинет» или попробуйте позже.',
           <String, Object?>{'reason': error.message}));
@@ -439,7 +439,7 @@ class DashboardScreen extends ConsumerWidget {
   static Future<void> refreshSubscription(BuildContext context, WidgetRef ref,
       ImportedSubscription? profile) async {
     if (profile == null || profile.url.isEmpty) {
-      ref.read(rootTabIndexProvider.notifier).state = 3;
+      ref.read(rootTabIndexProvider.notifier).state = 2;
       return;
     }
     _showMessage(context, tr('Обновляем подписку…'));

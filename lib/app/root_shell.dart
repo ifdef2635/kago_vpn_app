@@ -12,10 +12,10 @@ import '../core/network/app_providers.dart';
 import '../core/theme/app_widgets.dart';
 import '../core/theme/kago_theme.dart';
 import '../features/account/account_screen.dart';
-import '../features/connections/connections_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/guest/guest_telegram.dart';
 import '../features/proxies/proxies_screen.dart';
+import '../features/proxies/proxy_mode.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/update/update_flow.dart';
 import '../core/l10n/l10n.dart';
@@ -27,7 +27,6 @@ class RootShell extends ConsumerWidget {
   static const _screens = <Widget>[
     RepaintBoundary(child: DashboardScreen()),
     RepaintBoundary(child: ProxiesScreen()),
-    RepaintBoundary(child: ConnectionsScreen()),
     RepaintBoundary(child: AccountScreen()),
     RepaintBoundary(child: SettingsScreen()),
   ];
@@ -42,10 +41,6 @@ class RootShell extends ConsumerWidget {
             selectedIcon: const Icon(Icons.hub),
             label: tr('Серверы')),
         NavigationDestination(
-            icon: const Icon(Icons.swap_horiz_rounded),
-            selectedIcon: const Icon(Icons.swap_horiz_rounded),
-            label: tr('Трафик')),
-        NavigationDestination(
             icon: const Icon(Icons.person_outline_rounded),
             selectedIcon: const Icon(Icons.person_rounded),
             label: tr('Кабинет')),
@@ -58,6 +53,7 @@ class RootShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(subscriptionUsageRefresherProvider);
+    ref.watch(proxyModeSyncProvider);
     if (Platform.isAndroid) {
       // The VPN service outlives the UI and the tile starts it without the
       // UI: which profile runs comes from the service.
@@ -103,10 +99,6 @@ class RootShell extends ConsumerWidget {
                     icon: const Icon(Icons.hub_outlined),
                     selectedIcon: const Icon(Icons.hub),
                     label: Text(tr('Серверы'))),
-                NavigationRailDestination(
-                    icon: const Icon(Icons.swap_horiz_rounded),
-                    selectedIcon: const Icon(Icons.swap_horiz_rounded),
-                    label: Text(tr('Трафик'))),
                 NavigationRailDestination(
                     icon: const Icon(Icons.person_outline_rounded),
                     selectedIcon: const Icon(Icons.person_rounded),

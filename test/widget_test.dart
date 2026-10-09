@@ -46,6 +46,9 @@ void main() {
     expect(find.text('KaGo VPN'), findsOneWidget);
     expect(find.text('Серверы'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
+    // Connections moved to Settings → Tools, as in FlClashX.
+    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    expect(find.text('Трафик'), findsNothing);
   });
 }
 

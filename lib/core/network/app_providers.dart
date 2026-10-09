@@ -96,8 +96,8 @@ final connectionsSnapshotProvider =
 
 enum ProxySort { config, delay, name }
 
-/// Group tab chosen on the servers screen (null: the first group).
-final selectedProxyGroupProvider = StateProvider<String?>((ref) => null);
+/// Groups unfolded on the servers screen (null: only the first group).
+final expandedProxyGroupsProvider = StateProvider<Set<String>?>((ref) => null);
 final proxySortProvider = StateProvider<ProxySort>((ref) => ProxySort.config);
 
 /// Latency measured from this app, node name -> ms (-1: test failed).
@@ -262,6 +262,7 @@ final subscriptionUsageRefresherProvider = Provider<void>((ref) {
   }
 });
 
-/// Index of the selected root tab (0 = home, 1 = servers, 2 = traffic,
-/// 3 = account, 4 = settings), so any screen can jump to another tab.
+/// Index of the selected root tab (0 = home, 1 = servers, 2 = account,
+/// 3 = settings), so any screen can jump to another tab. Connections live in
+/// Settings → Tools, as in FlClashX.
 final rootTabIndexProvider = StateProvider<int>((ref) => 0);

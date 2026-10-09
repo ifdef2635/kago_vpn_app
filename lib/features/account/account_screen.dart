@@ -40,7 +40,7 @@ class AccountScreen extends ConsumerWidget {
     final signedIn = user.valueOrNull;
     return _AutoRefresh(
       enabled: signedIn != null &&
-          ref.watch(rootTabIndexProvider) == 3 &&
+          ref.watch(rootTabIndexProvider) == 2 &&
           ref.watch(appForegroundProvider),
       child: RefreshIndicator(
         onRefresh: () async {

@@ -173,6 +173,12 @@ class MihomoController {
         data: <String, String>{'name': node});
   }
 
+  /// Switches the running core between `rule` and `global` routing.
+  Future<void> setMode(String mode) async {
+    final client = await _client();
+    await client.patch<void>('/configs', data: <String, String>{'mode': mode});
+  }
+
   Future<int?> testDelay(String proxy,
       {String url = 'https://www.gstatic.com/generate_204'}) async {
     final client = await _client();

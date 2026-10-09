@@ -37,12 +37,26 @@ class ProxyGroup {
       required this.type,
       required this.nodes,
       this.selected,
-      this.description});
+      this.description,
+      this.hidden = false,
+      this.icon,
+      this.testUrl});
   final String name;
   final String type;
   final List<ProxyNode> nodes;
   final String? selected;
   final String? description;
+
+  /// `hidden: true` in the config: the subscription keeps this group out of
+  /// the servers list (it is still used by rules and other groups).
+  final bool hidden;
+
+  /// `icon` of the group in the config: an image URL shown next to its name
+  /// (as FlClashX). Only https addresses are used.
+  final String? icon;
+
+  /// `url` of an url-test/fallback group: its servers are tested against it.
+  final String? testUrl;
 
   /// Mihomo only accepts a manual choice for `Selector` groups; url-test,
   /// fallback and load-balance groups pick their node themselves.
@@ -62,6 +76,9 @@ class ProxyGroup {
       }).toList(growable: false),
       selected: json['now'] as String?,
       description: json['description'] as String?,
+      hidden: json['hidden'] == true,
+      icon: _httpsUrl(json['icon']),
+      testUrl: _httpsUrl(json['testUrl']),
     );
   }
 }
@@ -175,3 +192,14 @@ String formatBytes(int bytes) {
   } while (value >= 1024 && unit < units.length - 1);
   return '${value.toStringAsFixed(value >= 100 ? 0 : 1)} ${units[unit]}';
 }
+
+/// [value] when it is an absolute http(s) URL; null otherwise.
+String? _httpsUrl(Object? value) {
+  if (value is! String) return null;
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || !uri.hasAuthority) return null;
+  return uri.scheme == 'https' || uri.scheme == 'http' ? uri.toString() : null;
+}
+
+/// [value] when it is an absolute http(s) URL (a config's `icon` or `url`).
+String? proxyGroupUrl(Object? value) => _httpsUrl(value);

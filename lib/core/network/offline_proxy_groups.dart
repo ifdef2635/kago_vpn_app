@@ -67,6 +67,9 @@ List<ProxyGroup> proxyGroupsFromConfig(Map<String, dynamic> config) {
               type: groupTypes[node] ?? proxyTypes[node] ?? 'Proxy'))
           .toList(growable: false),
       description: item['description'] as String?,
+      hidden: item['hidden'] == true,
+      icon: proxyGroupUrl(item['icon']),
+      testUrl: proxyGroupUrl(item['url']),
     ));
   }
   return groups;

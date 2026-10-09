@@ -17,6 +17,7 @@ import '../../core/theme/app_widgets.dart';
 import '../../core/theme/appearance.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/update/app_updater.dart';
+import '../connections/connections_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../guest/guest_telegram.dart';
 import '../subscriptions/russian_rules.dart';
@@ -140,11 +141,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ]),
           _SettingsGroup(
               title: tr('Подключение'), children: _connectionTiles()),
+          _SettingsGroup(title: tr('Инструменты'), children: <Widget>[
+            _SettingsTile(
+                icon: Icons.swap_horiz_rounded,
+                title: tr('Соединения'),
+                subtitle: tr('Какие сайты и приложения сейчас идут через ядро'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const ConnectionsScreen()))),
+            _SettingsTile(
+                icon: Icons.receipt_long_outlined,
+                title: tr('Логи Mihomo'),
+                onTap: _showLogs),
+          ]),
           _SettingsGroup(title: tr('Дополнительно'), children: <Widget>[
             _SettingsTile(
                 icon: Icons.build_outlined,
                 title: tr('Для опытных пользователей'),
-                subtitle: tr('Ядро, логи и адрес контроллера'),
+                subtitle: tr('Ядро и адрес контроллера'),
                 trailing: AnimatedRotation(
                     turns: _advanced ? .5 : 0,
                     duration: const Duration(milliseconds: 200),
@@ -153,10 +166,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () => setState(() => _advanced = !_advanced)),
             if (_advanced) ...<Widget>[
               ..._coreTiles(coreRunning, androidUpdate),
-              _SettingsTile(
-                  icon: Icons.receipt_long_outlined,
-                  title: tr('Логи Mihomo'),
-                  onTap: _showLogs),
               _SettingsTile(
                   icon: Icons.hub_outlined,
                   title: tr('Адрес контроллера'),
@@ -276,8 +285,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       opened = false;
     }
     if (!opened) {
-      _snack(tr(
-          'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».'));
+      _error(tr('Не удалось открыть настройки VPN.'),
+          details: tr(
+              'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».'));
     }
   }
 
@@ -382,16 +392,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await MihomoWindowsSystemProxy().setBypassRussian(value);
       }
     } catch (error) {
-      _snack(tr('Не удалось сохранить.'), details: '$error');
+      _error(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 
   Future<void> _setWindowsTun(bool value) async {
     setState(() => _windowsTun = value);
     await MihomoWindowsTun.setEnabled(value);
-    if (ref.read(desktopCoreRunningProvider)) {
-      _snack(tr('Переподключитесь, чтобы применить.'));
-    }
+    await _reconnect();
   }
 
   Future<void> _setMacTun(bool value) async {
@@ -403,21 +411,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (error != null) {
           await MihomoMacosCore.setTunEnabled(false);
           if (mounted) setState(() => _macTun = false);
-          _snack(tr('Режим не включён.'), details: error);
+          _error(tr('Режим не включён.'), details: error);
           return;
         }
       }
-      if (ref.read(desktopCoreRunningProvider)) {
-        _snack(tr('Переподключитесь, чтобы применить.'));
-      }
+      await _reconnect();
     } catch (error) {
-      _snack(tr('Не удалось сохранить.'), details: '$error');
+      _error(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 
-  void _snack(String text, {String? details}) {
+  /// A running VPN picks up the new mode right away (instead of asking the
+  /// user to reconnect).
+  Future<void> _reconnect() async {
+    if (!mounted || !ref.read(desktopCoreRunningProvider)) return;
+    await DashboardScreen.reconnect(context, ref);
+  }
+
+  /// Critical errors only (CLAUDE.md): successes are not announced.
+  void _error(String text, {String? details}) {
     if (!mounted) return;
-    showShortMessage(context, text, details: details);
+    showCriticalError(context, text, details: details);
   }
 
   Future<void> _editEndpoint() async {
@@ -438,9 +452,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(proxyGroupsProvider);
       ref.invalidate(connectionsSnapshotProvider);
       if (mounted) setState(() => _endpoint = saved);
-      _snack(tr('Адрес контроллера сохранён.'));
     } catch (error) {
-      _snack(tr('Не удалось сохранить.'), details: '$error');
+      _error(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 
@@ -456,9 +469,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await ref.read(mihomoProcessProvider).saveExecutable(value);
       if (mounted) setState(() => _binary = value.trim());
-      _snack(tr('Путь к Mihomo сохранён.'));
     } catch (error) {
-      _snack(tr('Не удалось сохранить.'), details: '$error');
+      _error(tr('Не удалось сохранить.'), details: '$error');
     }
   }
 

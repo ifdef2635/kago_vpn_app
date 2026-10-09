@@ -22,7 +22,6 @@ import 'site_session_screen.dart';
 
 const _plansUrl = '$kagoSiteUrl/plans';
 const _cabinetUrl = '$kagoSiteUrl/my';
-const _supportUrl = 'https://t.me/KaGoHelp';
 const _botUrl = 'https://t.me/kagovpnbot';
 
 /// Personal account, the same as usekago.net/my: sign in with the site's
@@ -40,7 +39,7 @@ class AccountScreen extends ConsumerWidget {
     final signedIn = user.valueOrNull;
     return _AutoRefresh(
       enabled: signedIn != null &&
-          ref.watch(rootTabIndexProvider) == 3 &&
+          ref.watch(rootTabIndexProvider) == 2 &&
           ref.watch(appForegroundProvider),
       child: RefreshIndicator(
         onRefresh: () async {
@@ -160,29 +159,20 @@ class AccountScreen extends ConsumerWidget {
     ref.invalidate(importedSubscriptionProvider);
     ref.invalidate(proxyGroupsProvider);
     refreshAccount(ref);
-    if (context.mounted) {
-      showSnack(context,
-          tr('Вы вышли из аккаунта. Подписка удалена с этого устройства.'));
-    }
   }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
 
-void showSnack(BuildContext context, String text) =>
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-
 String _errorText(Object error) =>
     error is KagoApiException ? error.message : '$error';
 
 Future<void> openUrl(BuildContext context, String url) async {
-  final messenger = ScaffoldMessenger.of(context);
   final ok =
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)
           .catchError((Object _) => false);
-  if (!ok) {
-    messenger.showSnackBar(SnackBar(
-        content: Text(tr('Откройте {url}', <String, Object?>{'url': url}))));
+  if (!ok && context.mounted) {
+    showCriticalError(context, tr('Не удалось открыть ссылку.'), details: url);
   }
 }
 
@@ -237,10 +227,6 @@ bool _vpnOn(WidgetRef ref) {
           .select((event) => event.valueOrNull?['state'] == 'connected'));
   return desktop || android;
 }
-
-bool _androidVpnOn(WidgetRef ref) =>
-    Platform.isAndroid &&
-    ref.read(androidVpnEventProvider).valueOrNull?['state'] == 'connected';
 
 // ─── Sign in / register ────────────────────────────────────────
 
@@ -317,6 +303,10 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   bool _busy = false;
   bool _hidden = true;
 
+  /// Why the last sign-in did not work, shown under the form (no messages at
+  /// the bottom of the screen for mistakes in the form).
+  String? _error;
+
   @override
   void dispose() {
     _email.dispose();
@@ -328,19 +318,22 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
   Future<void> _submit() async {
     final email = _email.text.trim();
     final password = _password.text;
+    String? invalid;
     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      showSnack(context, tr('Введите корректный email.'));
+      invalid = tr('Введите корректный email.');
+    } else if (_register && password.length < 8) {
+      invalid = tr('Пароль — минимум 8 символов.');
+    } else if (password.isEmpty) {
+      invalid = tr('Введите пароль.');
+    }
+    if (invalid != null) {
+      setState(() => _error = invalid);
       return;
     }
-    if (_register && password.length < 8) {
-      showSnack(context, tr('Пароль — минимум 8 символов.'));
-      return;
-    }
-    if (password.isEmpty) {
-      showSnack(context, tr('Введите пароль.'));
-      return;
-    }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     final api = ref.read(kagoApiProvider);
     try {
       if (_register) {
@@ -350,7 +343,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
       }
       await _afterSignIn();
     } catch (error) {
-      if (mounted) showSnack(context, _errorText(error));
+      if (mounted) setState(() => _error = _errorText(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -372,7 +365,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
           // Signed in anyway; say why the subscription was not added (for
           // example the device limit).
           if (!mounted) return;
-          showShortMessage(
+          showCriticalError(
               context, tr('Вы вошли, но подписку не удалось добавить.'),
               details: _errorText(error));
           refreshAccount(ref);
@@ -387,17 +380,13 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
     }
     if (!mounted) return;
     refreshAccount(ref);
-    if (mounted) {
-      showSnack(
-          context,
-          imported
-              ? tr('Вы вошли. Подписка добавлена на это устройство.')
-              : tr('Вы вошли в аккаунт.'));
-    }
   }
 
   Future<void> _telegram() async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       if (!await _telegramAvailable()) return;
       if (!mounted) return;
@@ -405,7 +394,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
           api: ref.read(kagoApiProvider));
       if (ok) await _afterSignIn();
     } catch (error) {
-      if (mounted) showSnack(context, _errorText(error));
+      if (mounted) setState(() => _error = _errorText(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -441,7 +430,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
     if (!await DashboardScreen.toggleVpn(context, ref, false)) return false;
     if (await DashboardScreen.waitForVpn(ref, true)) return true;
     if (mounted) {
-      showSnack(context,
+      setState(() => _error =
           tr('VPN не подключился. Попробуйте ещё раз или войдите по email.'));
     }
     return false;
@@ -474,7 +463,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
           TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
-                openUrl(context, _supportUrl);
+                openUrl(context, SupportLink.current);
               },
               child: Text(tr('Поддержка'))),
           FilledButton(
@@ -571,6 +560,11 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                           ? Icons.visibility_rounded
                           : Icons.visibility_off_rounded)),
                 )),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(_error!,
+                  style: TextStyle(color: p.danger, fontSize: 13, height: 1.3)),
+            ],
             const SizedBox(height: 16),
             FilledButton(
                 style: FilledButton.styleFrom(
@@ -594,7 +588,10 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                   TextButton(
                       onPressed: _busy
                           ? null
-                          : () => setState(() => _register = !_register),
+                          : () => setState(() {
+                                _register = !_register;
+                                _error = null;
+                              }),
                       child: Text(
                           _register ? tr('Войти') : tr('Зарегистрироваться'))),
                 ]),
@@ -698,22 +695,25 @@ class _AccountHero extends ConsumerStatefulWidget {
 class _AccountHeroState extends ConsumerState<_AccountHero> {
   bool _busy = false;
 
-  Future<void> _connect(KagoSubscription sub) async {
+  /// Puts the account's subscription on this device. The VPN itself is
+  /// turned on by the one power button on the home tab; a VPN already on
+  /// (the free Telegram access or another profile) switches to it.
+  Future<void> _useHere(KagoSubscription sub) async {
     setState(() => _busy = true);
     try {
-      final current = await SubscriptionRepository().latest();
-      final switching = current?.url != sub.url;
       await useOnThisDevice(ref, sub.url);
       if (!mounted) return;
-      if (switching && ref.read(vpnActiveProvider)) {
-        // Another profile (or the guest one) is connected: switch to this
-        // subscription instead of turning the VPN off.
+      if (ref.read(vpnActiveProvider)) {
         await DashboardScreen.reconnect(context, ref);
-        return;
+      } else {
+        ref.read(rootTabIndexProvider.notifier).state = 0;
       }
-      await DashboardScreen.toggleVpn(context, ref, _androidVpnOn(ref));
     } catch (error) {
-      if (mounted) showSnack(context, _errorText(error));
+      if (mounted) {
+        showCriticalError(
+            context, tr('Не удалось добавить подписку на это устройство.'),
+            details: _errorText(error));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -738,9 +738,11 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
       }
       if (!mounted) return;
       refreshAccount(ref);
-      if (mounted) showSnack(context, tr('Ключ перевыпущен.'));
     } catch (error) {
-      if (mounted) showSnack(context, _errorText(error));
+      if (mounted) {
+        showCriticalError(context, tr('Не удалось перевыпустить ключ.'),
+            details: _errorText(error));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -827,29 +829,22 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
                   style:
                       TextStyle(color: context.kago.heroMuted, fontSize: 13)),
               const SizedBox(height: 16),
+              // One power button in the app (home tab); here only putting
+              // the subscription on a device that does not have it yet.
               Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
-                _HeroButton(
-                  primary: true,
-                  busy: _busy,
-                  icon: vpnOn && onThisDevice
-                      ? Icons.stop_rounded
-                      : Icons.power_settings_new_rounded,
-                  label: !onThisDevice
-                      ? tr('Подключить это устройство')
-                      : vpnOn
-                          ? tr('Отключиться')
-                          : tr('Подключиться'),
-                  onPressed: _busy ? null : () => _connect(sub),
-                ),
+                if (!onThisDevice)
+                  _HeroButton(
+                    primary: true,
+                    busy: _busy,
+                    icon: Icons.add_to_home_screen_rounded,
+                    label: tr('Добавить на это устройство'),
+                    onPressed: _busy ? null : () => _useHere(sub),
+                  ),
                 _HeroButton(
                   icon: Icons.copy_rounded,
                   label: tr('Скопировать ссылку'),
                   onPressed: () async {
                     await Clipboard.setData(ClipboardData(text: sub.url));
-                    if (context.mounted) {
-                      showSnack(context,
-                          tr('Ссылка скопирована. Это ваш ключ — не передавайте её посторонним.'));
-                    }
                   },
                 ),
               ]),
@@ -1134,15 +1129,11 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
         await api.deleteDevice(device.hwid);
       }
       ref.invalidate(accountDevicesProvider);
-      if (mounted) {
-        showSnack(
-            context,
-            device == null
-                ? tr('Все устройства отключены.')
-                : tr('Устройство отключено.'));
-      }
     } catch (error) {
-      if (mounted) showSnack(context, _errorText(error));
+      if (mounted) {
+        showCriticalError(context, tr('Не удалось отключить устройство.'),
+            details: _errorText(error));
+      }
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -1264,6 +1255,10 @@ class _PromoCardState extends ConsumerState<_PromoCard> {
   final _code = TextEditingController();
   bool _busy = false;
 
+  /// The result under the field: an error, or that the code worked.
+  String? _error;
+  bool _done = false;
+
   @override
   void dispose() {
     _code.dispose();
@@ -1272,14 +1267,18 @@ class _PromoCardState extends ConsumerState<_PromoCard> {
 
   Future<void> _activate() async {
     if (_code.text.trim().isEmpty) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+      _done = false;
+    });
     try {
       await ref.read(kagoApiProvider).activatePromocode(_code.text);
       _code.clear();
       ref.invalidate(accountSubscriptionProvider);
-      if (mounted) showSnack(context, tr('Промокод активирован.'));
+      if (mounted) setState(() => _done = true);
     } catch (error) {
-      if (mounted) showSnack(context, _errorText(error));
+      if (mounted) setState(() => _error = _errorText(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1303,7 +1302,13 @@ class _PromoCardState extends ConsumerState<_PromoCard> {
                       textCapitalization: TextCapitalization.characters,
                       onSubmitted: (_) => _activate(),
                       decoration: InputDecoration(
-                          hintText: tr('Введите код'), isDense: true)),
+                          hintText: tr('Введите код'),
+                          isDense: true,
+                          errorText: _error,
+                          errorMaxLines: 3,
+                          helperText:
+                              _done ? tr('Промокод активирован.') : null,
+                          helperStyle: TextStyle(color: context.kago.success))),
                 ),
                 const SizedBox(width: 10),
                 FilledButton(
@@ -1430,7 +1435,7 @@ class _ProfileCard extends ConsumerWidget {
 
   static Future<void> _changePassword(
       BuildContext context, WidgetRef ref) async {
-    final values = await showDialog<List<String>>(
+    await showDialog<bool>(
       context: context,
       builder: (_) => _FormDialog(
         title: tr('Сменить пароль'),
@@ -1439,47 +1444,50 @@ class _ProfileCard extends ConsumerWidget {
           _Field(tr('Текущий пароль'), obscure: true),
           _Field(tr('Новый пароль (мин. 8)'), obscure: true),
         ],
+        submit: (values) async {
+          if (values[1].length < 8) {
+            return tr('Новый пароль — минимум 8 символов.');
+          }
+          try {
+            await ref
+                .read(kagoApiProvider)
+                .changePassword(values[0], values[1]);
+            return null;
+          } catch (error) {
+            return _errorText(error);
+          }
+        },
       ),
     );
-    if (values == null || !context.mounted) return;
-    if (values[1].length < 8) {
-      showSnack(context, tr('Новый пароль — минимум 8 символов.'));
-      return;
-    }
-    try {
-      await ref.read(kagoApiProvider).changePassword(values[0], values[1]);
-      if (context.mounted) showSnack(context, tr('Пароль изменён.'));
-    } catch (error) {
-      if (context.mounted) showSnack(context, _errorText(error));
-    }
   }
 
   static Future<void> _changeEmail(BuildContext context, WidgetRef ref) async {
-    final values = await showDialog<List<String>>(
+    String? pending;
+    final sent = await showDialog<bool>(
       context: context,
       builder: (_) => _FormDialog(
         title: tr('Сменить email'),
         action: tr('Отправить код'),
         fields: <_Field>[_Field(tr('Новый email'), email: true)],
+        submit: (values) async {
+          if (values.first.trim().isEmpty) {
+            return tr('Введите корректный email.');
+          }
+          final api = ref.read(kagoApiProvider);
+          try {
+            pending = await api.changeEmail(values.first);
+            await api.requestEmailVerification(pending);
+            ref.invalidate(accountUserProvider);
+            return null;
+          } catch (error) {
+            return _errorText(error);
+          }
+        },
       ),
     );
-    if (values == null || values.first.trim().isEmpty || !context.mounted) {
-      return;
-    }
-    final api = ref.read(kagoApiProvider);
-    try {
-      final pending = await api.changeEmail(values.first);
-      await api.requestEmailVerification(pending);
-      ref.invalidate(accountUserProvider);
-      if (context.mounted) {
-        showSnack(
-            context,
-            tr('Код отправлен на {email}',
-                <String, Object?>{'email': pending}));
-        await _enterCode(context, ref, tr('Email обновлён.'));
-      }
-    } catch (error) {
-      if (context.mounted) showSnack(context, _errorText(error));
+    if (sent == true && context.mounted) {
+      await _enterCode(context, ref,
+          tr('Код отправлен на {email}', <String, Object?>{'email': pending}));
     }
   }
 
@@ -1487,36 +1495,43 @@ class _ProfileCard extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String? email) async {
     try {
       await ref.read(kagoApiProvider).requestEmailVerification(email);
-      if (context.mounted) {
-        showSnack(context, tr('Код отправлен на email.'));
-        await _enterCode(context, ref,
-            email == null ? tr('Email подтверждён.') : tr('Email обновлён.'));
-      }
     } catch (error) {
-      if (context.mounted) showSnack(context, _errorText(error));
+      if (context.mounted) {
+        showCriticalError(context, tr('Не удалось отправить код на email.'),
+            details: _errorText(error));
+      }
+      return;
+    }
+    if (context.mounted) {
+      await _enterCode(context, ref, tr('Код отправлен на email.'));
     }
   }
 
+  /// Asks for the code from the letter ([note] says where it went); a wrong
+  /// code is shown in the dialog.
   static Future<void> _enterCode(
-      BuildContext context, WidgetRef ref, String done) async {
-    final values = await showDialog<List<String>>(
+      BuildContext context, WidgetRef ref, String note) async {
+    await showDialog<bool>(
       context: context,
       builder: (_) => _FormDialog(
         title: tr('Код из письма'),
+        note: note,
         action: tr('Подтвердить'),
         fields: <_Field>[_Field(tr('6 цифр'), numeric: true)],
+        submit: (values) async {
+          if (values.first.trim().length != 6) {
+            return tr('Введите 6 цифр из письма.');
+          }
+          try {
+            await ref.read(kagoApiProvider).confirmEmail(values.first);
+            refreshAccount(ref);
+            return null;
+          } catch (error) {
+            return _errorText(error);
+          }
+        },
       ),
     );
-    if (values == null || values.first.trim().length != 6 || !context.mounted) {
-      return;
-    }
-    try {
-      await ref.read(kagoApiProvider).confirmEmail(values.first);
-      refreshAccount(ref);
-      if (context.mounted) showSnack(context, done);
-    } catch (error) {
-      if (context.mounted) showSnack(context, _errorText(error));
-    }
   }
 }
 
@@ -1576,9 +1591,6 @@ class _ReferralCard extends ConsumerWidget {
                           onPressed: () async {
                             await Clipboard.setData(
                                 ClipboardData(text: referral.link));
-                            if (context.mounted) {
-                              showSnack(context, tr('Скопировано.'));
-                            }
                           },
                           icon: Icon(Icons.copy_rounded, color: p.accent)),
                     ]),
@@ -1638,7 +1650,7 @@ class _HelpCard extends StatelessWidget {
         title: tr('Помощь'),
         child: Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
           OutlinedButton.icon(
-              onPressed: () => openUrl(context, _supportUrl),
+              onPressed: () => openUrl(context, SupportLink.current),
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
               label: Text(tr('Поддержка'))),
           OutlinedButton.icon(
@@ -1698,13 +1710,25 @@ class _Field {
   final bool numeric;
 }
 
-/// A small form in a dialog; returns the entered values, or null on cancel.
+/// A small form in a dialog that runs [submit] itself: an error it returns
+/// is shown in the dialog (which stays open); on success the dialog closes
+/// with true. Null on cancel.
 class _FormDialog extends StatefulWidget {
   const _FormDialog(
-      {required this.title, required this.action, required this.fields});
+      {required this.title,
+      required this.action,
+      required this.fields,
+      required this.submit,
+      this.note});
   final String title;
   final String action;
   final List<_Field> fields;
+
+  /// Returns the error to show, or null when done.
+  final Future<String?> Function(List<String> values) submit;
+
+  /// A line above the fields (where the code was sent).
+  final String? note;
 
   @override
   State<_FormDialog> createState() => _FormDialogState();
@@ -1714,6 +1738,8 @@ class _FormDialogState extends State<_FormDialog> {
   late final List<TextEditingController> _controllers = <TextEditingController>[
     for (final _ in widget.fields) TextEditingController(),
   ];
+  bool _busy = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -1723,39 +1749,79 @@ class _FormDialogState extends State<_FormDialog> {
     super.dispose();
   }
 
-  void _done() => Navigator.of(context)
-      .pop(_controllers.map((controller) => controller.text).toList());
+  Future<void> _done() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final error = await widget
+        .submit(_controllers.map((controller) => controller.text).toList());
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
         title: Text(widget.title),
-        content: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
-          for (var i = 0; i < widget.fields.length; i++) ...<Widget>[
-            if (i > 0) const SizedBox(height: 12),
-            TextField(
-              controller: _controllers[i],
-              autofocus: i == 0,
-              obscureText: widget.fields[i].obscure,
-              maxLength: widget.fields[i].numeric ? 6 : null,
-              keyboardType: widget.fields[i].numeric
-                  ? TextInputType.number
-                  : widget.fields[i].email
-                      ? TextInputType.emailAddress
-                      : TextInputType.text,
-              inputFormatters: widget.fields[i].numeric
-                  ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
-                  : null,
-              onSubmitted:
-                  i == widget.fields.length - 1 ? (_) => _done() : null,
-              decoration: InputDecoration(labelText: widget.fields[i].label),
-            ),
-          ],
-        ]),
+        content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (widget.note != null) ...<Widget>[
+                Text(widget.note!,
+                    style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                const SizedBox(height: 12),
+              ],
+              for (var i = 0; i < widget.fields.length; i++) ...<Widget>[
+                if (i > 0) const SizedBox(height: 12),
+                TextField(
+                  controller: _controllers[i],
+                  autofocus: i == 0,
+                  obscureText: widget.fields[i].obscure,
+                  maxLength: widget.fields[i].numeric ? 6 : null,
+                  keyboardType: widget.fields[i].numeric
+                      ? TextInputType.number
+                      : widget.fields[i].email
+                          ? TextInputType.emailAddress
+                          : TextInputType.text,
+                  inputFormatters: widget.fields[i].numeric
+                      ? <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly
+                        ]
+                      : null,
+                  onSubmitted:
+                      i == widget.fields.length - 1 ? (_) => _done() : null,
+                  enabled: !_busy,
+                  decoration:
+                      InputDecoration(labelText: widget.fields[i].label),
+                ),
+              ],
+              if (_error != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(_error!,
+                    style: TextStyle(color: context.kago.danger, fontSize: 13)),
+              ],
+            ]),
         actions: <Widget>[
           TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(tr('Отмена'))),
-          FilledButton(onPressed: _done, child: Text(widget.action)),
+          FilledButton(
+              onPressed: _busy ? null : _done,
+              child: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(widget.action)),
         ],
       );
 }

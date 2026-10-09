@@ -1,33 +1,77 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/l10n.dart';
 import 'kago_theme.dart';
 
-/// A short message at the bottom of the screen. Technical [details] (an
-/// exception, a server answer) are not shown in it, only behind «Подробнее».
-void showShortMessage(BuildContext context, String text, {String? details}) {
+/// Where «Поддержка» leads: the subscription's `support-url` when it sends
+/// one (as FlClashX), otherwise KAGO support in Telegram.
+abstract final class SupportLink {
+  static const fallback = 'https://t.me/KaGoHelp';
+  static String current = fallback;
+}
+
+/// The only message at the bottom of the screen: a critical error (the VPN
+/// did not connect, an account action failed…). Successes, progress and tips
+/// are not announced (requested 2026-10-09). «Поддержка» opens the technical
+/// [details] (to copy for support) and the support chat.
+void showCriticalError(BuildContext context, String text, {String? details}) {
   final messenger = ScaffoldMessenger.of(context);
+  // The messenger sits above the app's Navigator: the dialog needs the root
+  // navigator (taken now — [context] may be gone when «Поддержка» is pressed).
+  final navigator = Navigator.of(context, rootNavigator: true);
   final more = details?.trim() ?? '';
-  messenger.showSnackBar(SnackBar(
-    content: Text(text),
-    action: more.isEmpty || more == text
-        ? null
-        : SnackBarAction(
-            label: tr('Подробнее'),
-            onPressed: () => showDialog<void>(
-              context: messenger.context,
-              builder: (dialogContext) => AlertDialog(
-                title: Text(text),
-                content: SingleChildScrollView(child: SelectableText(more)),
-                actions: <Widget>[
-                  TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: Text(tr('Закрыть'))),
-                ],
-              ),
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      duration: const Duration(seconds: 8),
+      content: Text(text),
+      action: SnackBarAction(
+        label: tr('Поддержка'),
+        onPressed: () => showDialog<void>(
+          context: navigator.context,
+          builder: (dialogContext) => AlertDialog(
+            icon: Icon(Icons.support_agent_rounded,
+                color: dialogContext.kago.accent),
+            title: Text(text),
+            content: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(tr(
+                        'Напишите в поддержку KAGO — поможем разобраться. Приложите текст ошибки.')),
+                    if (more.isNotEmpty && more != text) ...<Widget>[
+                      const SizedBox(height: 12),
+                      SelectableText(more,
+                          style: TextStyle(
+                              fontSize: 12, color: dialogContext.kago.muted)),
+                    ],
+                  ]),
             ),
+            actions: <Widget>[
+              if (more.isNotEmpty && more != text)
+                TextButton(
+                    onPressed: () =>
+                        Clipboard.setData(ClipboardData(text: '$text\n$more')),
+                    child: Text(tr('Копировать'))),
+              TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(tr('Закрыть'))),
+              FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    launchUrl(Uri.parse(SupportLink.current),
+                            mode: LaunchMode.externalApplication)
+                        .catchError((Object _) => false);
+                  },
+                  child: Text(tr('Написать'))),
+            ],
           ),
-  ));
+        ),
+      ),
+    ));
 }
 
 class SurfaceCard extends StatelessWidget {

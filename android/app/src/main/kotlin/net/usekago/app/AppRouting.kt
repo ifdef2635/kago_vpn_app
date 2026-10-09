@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.VpnService
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Split tunneling. `exclude`: the chosen apps bypass the VPN (Russian services
@@ -43,20 +45,51 @@ object AppRouting {
             .sortedBy { it["label"]?.lowercase() }
     }
 
-    /** Applies the saved choice to the VPN being built. Missing apps are skipped. */
-    fun apply(context: Context, builder: VpnService.Builder) {
+    /**
+     * Applies the user's choice together with the subscription's lists
+     * (`tun.include-package` / `tun.exclude-package` of the config, as
+     * FlClashX does): a KAGO subscription sends ~500 Russian apps (banks,
+     * Gosuslugi…) that must bypass the VPN. The lists are merged; Android
+     * takes either an allow-list or a deny-list, so when anything must be
+     * included only the allow-list applies (with this app in it, so its own
+     * requests and IP check go through the VPN). Missing apps are skipped.
+     */
+    fun apply(context: Context, builder: VpnService.Builder, tun: JSONObject?) {
         val (mode, packages) = load(context)
-        if (mode == "off") return
-        for (name in packages) {
-            try {
-                if (mode == "exclude") {
-                    builder.addDisallowedApplication(name)
-                } else {
+        val include = linkedSetOf<String>()
+        val exclude = linkedSetOf<String>()
+        when (mode) {
+            "include" -> include.addAll(packages)
+            "exclude" -> exclude.addAll(packages)
+        }
+        include.addAll(strings(tun?.optJSONArray("include-package")))
+        exclude.addAll(strings(tun?.optJSONArray("exclude-package")))
+        // This app is never sent around its own VPN.
+        exclude.remove(context.packageName)
+        if (include.isNotEmpty()) {
+            include.add(context.packageName)
+            for (name in include) {
+                try {
                     builder.addAllowedApplication(name)
+                } catch (_: PackageManager.NameNotFoundException) {
+                    // Not installed.
                 }
-            } catch (_: PackageManager.NameNotFoundException) {
-                // Uninstalled since it was chosen.
+            }
+        } else {
+            for (name in exclude) {
+                try {
+                    builder.addDisallowedApplication(name)
+                } catch (_: PackageManager.NameNotFoundException) {
+                    // Not installed.
+                }
             }
         }
+    }
+
+    private fun strings(array: JSONArray?): List<String> {
+        if (array == null) return emptyList()
+        return (0 until array.length())
+            .map { array.optString(it).trim() }
+            .filter { it.isNotEmpty() }
     }
 }

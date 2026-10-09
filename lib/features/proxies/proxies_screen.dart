@@ -276,6 +276,8 @@ List<ProxyGroup> filterProxyGroups(List<ProxyGroup> groups, String query) {
             selected: group.selected,
             description: group.description,
             hidden: group.hidden,
+            icon: group.icon,
+            testUrl: group.testUrl,
             nodes: group.nodes
                 .where((node) => node.name.toLowerCase().contains(text))
                 .toList(growable: false)),
@@ -373,6 +375,11 @@ class _GroupSection extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
             child: Row(children: <Widget>[
+              if (group.icon != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _GroupIcon(url: group.icon!),
+                ),
               Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,7 +414,8 @@ class _GroupSection extends ConsumerWidget {
                                       .where(_testable)
                                       .map((node) => node.name)
                                       .toList(growable: false),
-                                  guest: guest)
+                                  guest: guest,
+                                  url: group.testUrl)
                               : null,
                           icon:
                               const Icon(Icons.network_ping_rounded, size: 21)),
@@ -477,8 +485,8 @@ class _GroupSection extends ConsumerWidget {
                   delay: info.delay(node, delays),
                   testing: pending.contains(node.name),
                   onTest: online && _testable(node) && pending.isEmpty
-                      ? () =>
-                          _testDelays(ref, <String>[node.name], guest: guest)
+                      ? () => _testDelays(ref, <String>[node.name],
+                          guest: guest, url: group.testUrl)
                       : null,
                   // Without the core, and in automatic groups, there is
                   // nothing to choose: the card does not react.
@@ -551,7 +559,7 @@ Future<void> _selectNode(
 /// it arrives, and one slow node (up to the 5 s timeout) does not hold back
 /// the others.
 Future<void> _testDelays(WidgetRef ref, List<String> names,
-    {required bool guest}) async {
+    {required bool guest, String? url}) async {
   if (names.isEmpty) return;
   final controller = ref.read(mihomoControllerProvider);
   final pending = ref.read(proxyDelayTestingProvider.notifier);
@@ -562,10 +570,12 @@ Future<void> _testDelays(WidgetRef ref, List<String> names,
     Future<void> worker() async {
       while (queue.isNotEmpty) {
         final name = queue.removeLast();
-        // The guest server lets only Telegram through.
-        final delay = guest
-            ? await controller.testDelay(name, url: GuestTelegram.checkUrl)
-            : await controller.testDelay(name);
+        // The guest server lets only Telegram through; a group's servers are
+        // tested against the group's own `url` (as FlClashX).
+        final target = guest ? GuestTelegram.checkUrl : url;
+        final delay = target == null
+            ? await controller.testDelay(name)
+            : await controller.testDelay(name, url: target);
         ref.read(proxyDelaysProvider.notifier).state = <String, int>{
           ...ref.read(proxyDelaysProvider),
           name: delay ?? -1,
@@ -719,4 +729,28 @@ class _DelayLabel extends StatelessWidget {
               child: label)),
     );
   }
+}
+
+/// The group's `icon` from the config (FlClashX shows it the same way).
+/// Nothing while it loads or when it does not load.
+class _GroupIcon extends StatelessWidget {
+  const _GroupIcon({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 36,
+        height: 36,
+        child: Image.network(url,
+            fit: BoxFit.contain,
+            // Icons are small; do not keep a full-size image in memory.
+            cacheWidth: (36 * MediaQuery.devicePixelRatioOf(context)).round(),
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+                AnimatedOpacity(
+                    opacity: wasSynchronouslyLoaded || frame != null ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: child),
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox.shrink()),
+      );
 }

@@ -612,4 +612,7 @@ const stringsEn = <String, String>{
   'Не удалось отправить код на email.': 'Could not send the code to the email.',
   'Не удалось перевыпустить ключ.': 'Could not reissue the key.',
   'Не удалось подключить это устройство.': 'Could not connect this device.',
+  'Напрямую по подписке · {package}': 'Direct by subscription · {package}',
+  'Подписка KAGO уже пускает напрямую установленных приложений: {n} (банки, Госуслуги, маркетплейсы). Они отмечены в списке.':
+      'Your KAGO subscription already sends {n} installed apps directly (banks, government services, marketplaces). They are marked in the list.',
 };

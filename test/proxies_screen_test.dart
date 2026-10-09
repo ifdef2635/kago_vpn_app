@@ -112,6 +112,49 @@ void main() {
     sync.close();
   });
 
+  test('group icon and test address come from the core', () {
+    final group = ProxyGroup.fromJson('⚡️ Самый быстрый', <String, dynamic>{
+      'type': 'URLTest',
+      'all': <String>['A'],
+      'icon':
+          'https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Auto.png',
+      'testUrl': 'https://captive.apple.com/generate_204',
+    });
+    expect(group.icon, endsWith('/Auto.png'));
+    expect(group.testUrl, 'https://captive.apple.com/generate_204');
+    // Mihomo sends '' when there is none; other schemes are not loaded.
+    for (final icon in <String>['', 'file:///etc/passwd', 'javascript:x']) {
+      expect(
+          ProxyGroup.fromJson(
+              'G', <String, dynamic>{'all': <String>[], 'icon': icon}).icon,
+          isNull,
+          reason: icon);
+    }
+  });
+
+  testWidgets('a group with an icon shows it next to its name', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(overrides: <Override>[
+      vpnActiveProvider.overrideWithValue(true),
+      proxyGroupsProvider.overrideWith((ref) async => const <ProxyGroup>[
+            ProxyGroup(
+                name: '▶️ YouTube',
+                type: 'Selector',
+                icon: 'https://example.com/YouTube.png',
+                nodes: <ProxyNode>[ProxyNode(name: 'A', type: 'Vless')]),
+          ]),
+    ], child: const MaterialApp(home: Scaffold(body: ProxiesScreen()))));
+    await tester.pump();
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+        (image.image as ResizeImage).imageProvider,
+        isA<NetworkImage>()
+            .having((i) => i.url, 'url', 'https://example.com/YouTube.png'));
+  });
+
   test('hidden groups and GLOBAL are not listed', () {
     expect(visibleProxyGroups(_groups).map((group) => group.name),
         <String>['🌍 VPN', '⚡️ Самый быстрый']);

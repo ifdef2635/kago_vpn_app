@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:yaml/yaml.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
+import '../subscriptions/config_builder.dart';
 
 /// Russian services that often refuse to work through a VPN (they detect it,
 /// or work only with a Russian IP). Offered as a one-tap preset; only the
@@ -40,6 +44,36 @@ const russianServicePackages = <String>{
   'ru.tele2.mytele2',
 };
 
+/// Apps the subscription itself sends around the VPN on Android
+/// (`tun.exclude-package` of the active config; the VPN service merges them
+/// with the user's choice). Empty without a config.
+Future<Set<String>> subscriptionBypassPackages() async {
+  try {
+    final file = await const MihomoConfigBuilder().activeConfigFile();
+    if (!await file.exists()) return const <String>{};
+    return bypassPackagesOf(await file.readAsString());
+  } catch (_) {
+    return const <String>{};
+  }
+}
+
+/// `tun.exclude-package` of a config (JSON, as the app saves it, or YAML).
+Set<String> bypassPackagesOf(String config) {
+  Object? root;
+  try {
+    root = jsonDecode(config);
+  } on FormatException {
+    root = loadYaml(config);
+  }
+  final tun = root is Map ? root['tun'] : null;
+  final list = tun is Map ? tun['exclude-package'] : null;
+  return <String>{
+    if (list is List)
+      for (final item in list)
+        if (item is String && item.trim().isNotEmpty) item.trim(),
+  };
+}
+
 class _App {
   const _App(this.package, this.label);
   final String package;
@@ -64,6 +98,9 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
   String? _error;
   bool _dirty = false;
 
+  /// Installed apps the subscription already sends around the VPN.
+  Set<String> _bySubscription = const <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +112,7 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
       final routing =
           await _channel.invokeMapMethod<String, dynamic>('getAppRouting');
       final raw = await _channel.invokeListMethod<dynamic>('installedApps');
+      final bypass = await subscriptionBypassPackages();
       if (!mounted) return;
       setState(() {
         _mode = routing?['mode'] as String? ?? 'off';
@@ -86,6 +124,10 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
           for (final item in raw ?? const <dynamic>[])
             if (item is Map) _App('${item['package']}', '${item['label']}'),
         ];
+        _bySubscription = <String>{
+          for (final app in _apps!)
+            if (bypass.contains(app.package)) app.package,
+        };
       });
     } on MissingPluginException {
       if (mounted) {
@@ -209,6 +251,18 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
                             Text(
                                 tr('Изменения применяются при следующем подключении VPN.'),
                                 style: TextStyle(color: p.muted, fontSize: 12)),
+                            if (_bySubscription.isNotEmpty &&
+                                _mode != 'include') ...<Widget>[
+                              const SizedBox(height: 4),
+                              Text(
+                                  tr(
+                                      'Подписка KAGO уже пускает напрямую установленных приложений: {n} (банки, Госуслуги, маркетплейсы). Они отмечены в списке.',
+                                      <String, Object?>{
+                                        'n': _bySubscription.length
+                                      }),
+                                  style:
+                                      TextStyle(color: p.muted, fontSize: 12)),
+                            ],
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
                                 onPressed: _addRussianServices,
@@ -251,7 +305,12 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
                         ),
                         title: Text(app.label,
                             maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(app.package,
+                        subtitle: Text(
+                            _bySubscription.contains(app.package) &&
+                                    _mode != 'include'
+                                ? tr('Напрямую по подписке · {package}',
+                                    <String, Object?>{'package': app.package})
+                                : app.package,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 11, color: p.muted)),

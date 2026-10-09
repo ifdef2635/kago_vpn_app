@@ -43,7 +43,7 @@ class ImportedSubscription {
   final DateTime? updatedAt;
 
   /// Re-download is due: the provider's interval (a day without one) has
-  /// passed since the last download. A profile saved before 2.0.8 has no
+  /// passed since the last download. A profile saved before 2.1.0 has no
   /// date and is due at once.
   bool updateDue(DateTime now) {
     final last = updatedAt;

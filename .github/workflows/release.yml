@@ -217,7 +217,7 @@ jobs:
           cat dist/release.json
 
       - name: GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
           tag_name: ${{ steps.version.outputs.tag }}

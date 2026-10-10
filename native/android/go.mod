@@ -139,5 +139,3 @@ require (
 	golang.org/x/tools v0.24.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 )
-
-replace github.com/metacubex/mihomo => ../mihomo

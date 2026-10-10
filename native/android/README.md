@@ -1,6 +1,6 @@
 # Встроенный мост Mihomo для Android
 
-Android-сборка использует официальный Go-модуль Mihomo, закреплённый на `v1.19.32` (та же стабильная версия, что и у обновления ядра на Windows). `go.mod` подменяет модуль закреплёнными исходниками из `native/mihomo`; версия и контрольная сумма модуля записаны в `native/CORE_PIN.md`.
+Android-сборка использует официальный Go-модуль Mihomo, закреплённый на `v1.19.32` (та же стабильная версия, что и у обновления ядра на Windows). Модуль скачивается при сборке как обычная зависимость (`proxy.golang.org`), версию закрепляют `go.mod` и контрольная сумма в `go.sum` (она же — в `native/CORE_PIN.md`); копии исходников ядра в репозитории нет. Обновление ядра: `go get github.com/metacubex/mihomo@vX.Y.Z && go mod tidy` в `native/android`, затем `MIHOMO_VERSION` в `tool/build_android_native.sh`, версия ядра Windows/macOS и `native/CORE_PIN.md`.
 
 ## Как это работает
 

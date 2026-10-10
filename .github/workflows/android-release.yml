@@ -123,9 +123,14 @@ jobs:
           VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
           NAME="${VERSION%%+*}"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
-            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
-            exit 1
+          # У предварительного релиза тег с суффиксом (v2.0.4-pre.1), версия
+          # приложения та же — 2.0.4, поэтому сравнивается часть до суффикса.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            BASE="${GITHUB_REF#refs/tags/v}"; BASE="${BASE%%-*}"
+            if [[ "$BASE" != "$NAME" ]]; then
+              echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+              exit 1
+            fi
           fi
 
       # Один APK для arm64 (почти все телефоны) с versionCode из pubspec: так
@@ -172,6 +177,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ steps.dist.outputs.name }}
+          overwrite: true
           path: dist/android/*
           retention-days: 30
 
@@ -179,5 +185,6 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: symbols-${{ steps.dist.outputs.name }}
+          overwrite: true
           path: build/symbols/android
           retention-days: 90

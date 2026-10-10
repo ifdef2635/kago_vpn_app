@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Подписка, оплата и аккаунт / Subscription, payment and account
+    url: https://usekago.net/my
+    about: Вопросы по подписке и оплате решаются в личном кабинете на сайте, а не в issue / Subscription and payment questions belong on the website, not here
+  - name: Поддержка и общение / Support and chat
+    url: https://usekago.net
+    about: Общие вопросы по использованию / General questions about using the app

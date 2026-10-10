@@ -7,9 +7,9 @@ _Обновлено: 2026-10-09 (версия 2.1.0)._ Строка «Платф
 ## 2026-10-10 — после 2.1.0 (версия не менялась)
 
 Для разработчиков:
-- Удалена копия исходников Mihomo `native/mihomo` (~1000 файлов, 8 МБ) и `replace github.com/metacubex/mihomo => ../mihomo` в `native/android/go.mod`. Копия совпадала с тегом v1.19.32 (`88dcbf7`) без собственных правок (не было только `test/` и `.github/`). Теперь сборка Android берёт официальный модуль `github.com/metacubex/mihomo v1.19.32`, `go.sum` проверяет его по сумме `h1:uD7ZC3P77…` (совпадает с `sum.golang.org` и `native/CORE_PIN.md`). `go mod tidy` убрал из `go.sum` неиспользуемые старые записи `golang.org/x/*`.
-- Проверено: `go vet` и `go test` моста с `-mod=readonly -tags cmfa`, ядро компилируется для `android/arm64`; полная сборка APK — в CI. Из путей `android-release.yml` убран `native/mihomo/**`.
-- Обновление ядра Android: `go get github.com/metacubex/mihomo@vX.Y.Z && go mod tidy` в `native/android` (подробности — `native/android/README.md`).
+- `native/mihomo` — теперь git submodule (`https://github.com/MetaCubeX/mihomo`, закреплён на коммите `88dcbf7` = тег v1.19.32) вместо копии ~1000 файлов. Копия совпадала с тегом без собственных правок (не было только `test/` и `.github/`), так что сборка не меняется: `replace github.com/metacubex/mihomo => ../mihomo`, `go.mod` и `go.sum` — как были. Версия ядра теперь видна и меняется средствами git (`git submodule status`, `git checkout <тег>` в submodule).
+- После клонирования: `git submodule update --init` (или `git clone --recurse-submodules`). `tool/build_android_native.sh` без загруженного submodule останавливается с этой подсказкой. CI: `submodules: true` в checkout `android-release.yml` (Windows и macOS submodule не грузят — им он не нужен); сборка ветки запускается и при смене коммита submodule или `.gitmodules`.
+- Проверено: `go vet` и `go test` моста с `-mod=readonly -tags cmfa`, ядро из submodule компилируется для `android/arm64`; полная сборка APK — в CI.
 
 ## 2026-10-09 — версия 2.1.0 (2.1.0+20100)
 

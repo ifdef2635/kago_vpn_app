@@ -177,6 +177,7 @@ lib/
   features/subscriptions/  # импорт и разбор подписок, генерация конфига
 android/              # Kotlin: VpnService, JNI-мост, jniLibs
 native/android/       # Go/cgo-адаптер ядра для Android
+native/mihomo/        # submodule: MetaCubeX/mihomo на коммите v1.19.32
 tool/                 # скрипты сборки
 ```
 

@@ -1,6 +1,20 @@
 # Встроенный мост Mihomo для Android
 
-Android-сборка использует официальный Go-модуль Mihomo, закреплённый на `v1.19.32` (та же стабильная версия, что и у обновления ядра на Windows). Модуль скачивается при сборке как обычная зависимость (`proxy.golang.org`), версию закрепляют `go.mod` и контрольная сумма в `go.sum` (она же — в `native/CORE_PIN.md`); копии исходников ядра в репозитории нет. Обновление ядра: `go get github.com/metacubex/mihomo@vX.Y.Z && go mod tidy` в `native/android`, затем `MIHOMO_VERSION` в `tool/build_android_native.sh`, версия ядра Windows/macOS и `native/CORE_PIN.md`.
+Android-сборка использует официальный Go-модуль Mihomo, закреплённый на `v1.19.32` (та же стабильная версия, что и у обновления ядра на Windows). Исходники ядра — git submodule `native/mihomo` (`https://github.com/MetaCubeX/mihomo`), закреплённый на коммите тега; `go.mod` подменяет модуль этой папкой (`replace github.com/metacubex/mihomo => ../mihomo`). После клонирования: `git submodule update --init` (или `git clone --recurse-submodules`); CI загружает submodule сам (`submodules: true` в `android-release.yml`).
+
+Обновление ядра:
+
+```bash
+cd native/mihomo
+git fetch --tags origin && git checkout vX.Y.Z
+cd ../android
+# require github.com/metacubex/mihomo vX.Y.Z в go.mod, затем
+go mod tidy
+cd ../..
+git add native/mihomo native/android/go.mod native/android/go.sum
+```
+
+Затем `MIHOMO_VERSION` в `tool/build_android_native.sh`, версия ядра Windows/macOS (и `MihomoPinnedCore.exeSha256Hex`) и `native/CORE_PIN.md`. Свои патчи ядра — в форк, и `url` submodule в `.gitmodules` на него.
 
 ## Как это работает
 

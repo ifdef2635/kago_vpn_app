@@ -1,0 +1,3 @@
+[submodule "native/mihomo"]
+	path = native/mihomo
+	url = https://github.com/MetaCubeX/mihomo.git

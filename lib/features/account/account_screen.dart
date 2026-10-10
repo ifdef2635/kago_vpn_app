@@ -449,13 +449,13 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(tr('Аккаунт создан через Telegram'),
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                  style: const TextStyle(fontWeight: KaGoWeight.extraBold)),
               const SizedBox(height: 4),
               Text(tr(
                   'Войдите через Telegram — пароль не нужен, подписка подключится сама.')),
               const SizedBox(height: 14),
               Text(tr('Пароль был, но вы его забыли'),
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                  style: const TextStyle(fontWeight: KaGoWeight.extraBold)),
               const SizedBox(height: 4),
               Text(tr('Напишите в поддержку — поможем восстановить доступ.')),
             ]),
@@ -504,7 +504,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                     minimumSize: const Size.fromHeight(50),
                     shape: const StadiumBorder(),
                     textStyle: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
+                        fontSize: 15, fontWeight: KaGoWeight.extraBold)),
                 onPressed: _busy ? null : _telegram,
                 icon: const Icon(Icons.telegram, size: 22),
                 label: Text(tr('Войти через Telegram')),
@@ -619,7 +619,7 @@ class _HeroFrame extends StatelessWidget {
     final light = Theme.of(context).brightness == Brightness.light;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(KaGoRadius.xl),
         gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -815,7 +815,7 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
                   style: TextStyle(
                       color: context.kago.heroText,
                       fontSize: 24,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: KaGoWeight.heading,
                       letterSpacing: -.4)),
               const SizedBox(height: 4),
               Text(
@@ -938,7 +938,7 @@ class _HeroMessage extends StatelessWidget {
               style: TextStyle(
                   color: context.kago.heroText,
                   fontSize: 22,
-                  fontWeight: FontWeight.w800)),
+                  fontWeight: KaGoWeight.heading)),
           const SizedBox(height: 6),
           Text(text,
               style: TextStyle(color: context.kago.heroMuted, fontSize: 13.5)),
@@ -1010,7 +1010,7 @@ class _HeroStat extends StatelessWidget {
           color: warn
               ? const Color(0xFFF59E0B).withValues(alpha: .14)
               : Colors.white.withValues(alpha: .07),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(KaGoRadius.md),
           border: Border.all(
               color: warn
                   ? const Color(0xFFF59E0B).withValues(alpha: .4)
@@ -1036,7 +1036,7 @@ class _HeroStat extends StatelessWidget {
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
-                        fontWeight: FontWeight.w800)),
+                        fontWeight: KaGoWeight.heading)),
               ),
             ),
           ],
@@ -1070,7 +1070,8 @@ class _Card extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                  color: p.accentSoft, borderRadius: BorderRadius.circular(12)),
+                  color: p.accentSoft,
+                  borderRadius: BorderRadius.circular(KaGoRadius.md)),
               child: Icon(icon, color: p.accent, size: 21),
             ),
             const SizedBox(width: 12),
@@ -1095,12 +1096,12 @@ class _Chip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
             color: context.kago.accentSoft,
-            borderRadius: BorderRadius.circular(20)),
+            borderRadius: BorderRadius.circular(KaGoRadius.pill)),
         child: Text(text,
             style: TextStyle(
                 color: context.kago.accent,
                 fontSize: 12,
-                fontWeight: FontWeight.w700)),
+                fontWeight: KaGoWeight.extraBold)),
       );
 }
 
@@ -1185,7 +1186,7 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
                 padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
                 decoration: BoxDecoration(
                     color: p.surfaceRaised,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(KaGoRadius.md),
                     border: Border.all(color: p.border)),
                 child: Row(children: <Widget>[
                   Icon(_icon(device), color: p.accent, size: 22),
@@ -1198,8 +1199,8 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
                               device.model?.isNotEmpty == true
                                   ? device.model!
                                   : device.platform ?? tr('Устройство'),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
+                              style: const TextStyle(
+                                  fontWeight: KaGoWeight.extraBold)),
                           Text(
                               [device.platform, device.osVersion]
                                       .whereType<String>()
@@ -1334,7 +1335,7 @@ class _ProfileCard extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
           decoration: BoxDecoration(
               color: p.surfaceRaised,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(KaGoRadius.md),
               border: Border.all(color: p.border)),
           child: Row(children: <Widget>[
             Icon(icon, color: p.muted, size: 19),
@@ -1345,7 +1346,7 @@ class _ProfileCard extends ConsumerWidget {
                   children: <Widget>[
                     Text(label, style: TextStyle(color: p.muted, fontSize: 12)),
                     Text(value,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontWeight: KaGoWeight.bold)),
                   ]),
             ),
             if (badge != null) badge,
@@ -1355,14 +1356,14 @@ class _ProfileCard extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(
               color: ok ? p.successSoft : p.surface,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(KaGoRadius.pill),
               border: Border.all(
                   color: ok ? p.success.withValues(alpha: .35) : p.border)),
           child: Text(ok ? '✓ $yes' : no,
               style: TextStyle(
                   color: ok ? p.success : p.muted,
                   fontSize: 11,
-                  fontWeight: FontWeight.w700)),
+                  fontWeight: KaGoWeight.extraBold)),
         );
     return _Card(
       icon: Icons.person_outline_rounded,
@@ -1580,7 +1581,7 @@ class _ReferralCard extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
                     decoration: BoxDecoration(
                         color: p.surfaceRaised,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(KaGoRadius.md),
                         border: Border.all(color: p.border)),
                     child: Row(children: <Widget>[
                       Expanded(
@@ -1600,7 +1601,7 @@ class _ReferralCard extends ConsumerWidget {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                         color: p.accentSoft,
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(KaGoRadius.md)),
                     child: Text(
                         tr('Реферальная программа доступна после подтверждения почты. Подтвердите email в разделе «Аккаунт» выше.'),
                         style: TextStyle(color: p.text, fontSize: 13)),
@@ -1626,14 +1627,14 @@ class _Counter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
           color: success ? p.successSoft : p.surfaceRaised,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(KaGoRadius.md),
           border: Border.all(
               color: success ? p.success.withValues(alpha: .3) : p.border)),
       child: Column(children: <Widget>[
         Text('$value',
             style: TextStyle(
                 fontSize: 22,
-                fontWeight: FontWeight.w800,
+                fontWeight: KaGoWeight.heading,
                 color: success ? p.success : p.text)),
         Text(label, style: TextStyle(color: p.muted, fontSize: 12)),
       ]),
@@ -1685,7 +1686,7 @@ class _Pill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(KaGoRadius.pill),
           border: border == null ? null : Border.all(color: border!),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
@@ -1696,7 +1697,9 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 7),
           Text(label,
               style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: KaGoWeight.extraBold)),
         ]),
       );
 }

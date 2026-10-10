@@ -7,10 +7,10 @@
     android:viewportWidth="120"
     android:viewportHeight="120">
     <group
-        android:scaleX="1.206"
-        android:scaleY="1.206"
-        android:translateX="-13.75"
-        android:translateY="-12.35">
+        android:scaleX="1.2112"
+        android:scaleY="1.2112"
+        android:translateX="-14.05"
+        android:translateY="-12.69">
         <group
             android:scaleX="0.48"
             android:scaleY="0.48"

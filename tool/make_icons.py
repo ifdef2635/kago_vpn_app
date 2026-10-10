@@ -103,8 +103,13 @@ def square(size, pad=None, radius=None, bg=BG):
     return img
 
 
-def foreground(size, safe=0.62):
-    """Android adaptive foreground: glyph centred in the safe zone, no background."""
+def foreground(size, safe=0.44):
+    """Android adaptive foreground: the glyph centred in the 108dp canvas.
+
+    A launcher shows only the middle 72dp of it and crops that to its own
+    shape, so the glyph takes `safe` of the whole canvas (about two thirds of
+    the visible circle) — otherwise its edges run under the mask.
+    """
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     s = size * safe
     box = ((size - s) / 2, (size - s) / 2, (size + s) / 2, (size + s) / 2)

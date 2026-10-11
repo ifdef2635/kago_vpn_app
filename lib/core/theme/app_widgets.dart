@@ -369,3 +369,58 @@ class KagoWordmark extends StatelessWidget {
     ]);
   }
 }
+
+/// The Telegram mark drawn like the app's outlined Material icons (a 2 px
+/// line on a 24 px grid, one colour): a circle with the paper plane.
+/// `Icons.telegram` is a filled logo and looks foreign next to them.
+class TelegramIcon extends StatelessWidget {
+  const TelegramIcon({super.key, this.size, this.color});
+  final double? size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = IconTheme.of(context);
+    final side = size ?? theme.size ?? 24;
+    return Semantics(
+      label: 'Telegram',
+      child: SizedBox.square(
+        dimension: side,
+        child: CustomPaint(
+            painter: _TelegramPainter(
+                color ?? theme.color ?? const Color(0xFF000000))),
+      ),
+    );
+  }
+}
+
+class _TelegramPainter extends CustomPainter {
+  const _TelegramPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 24, size.height / 24);
+    final line = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawCircle(const Offset(12, 12), 9, line);
+    // The paper plane (a kite from the left tip to the top right) and its
+    // fold line.
+    final plane = Path()
+      ..moveTo(6.4, 11.6)
+      ..lineTo(16.8, 7.4)
+      ..lineTo(14.9, 16.6)
+      ..lineTo(10.8, 13.6)
+      ..close()
+      ..moveTo(10.8, 13.6)
+      ..lineTo(14.2, 10.3);
+    canvas.drawPath(plane, line..strokeWidth = 1.8);
+  }
+
+  @override
+  bool shouldRepaint(_TelegramPainter old) => old.color != color;
+}

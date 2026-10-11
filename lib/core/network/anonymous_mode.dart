@@ -55,6 +55,24 @@ abstract final class AnonymousMode {
     final filter = old is Map<String, dynamic> && old['fake-ip-filter'] is List
         ? old['fake-ip-filter']
         : const <String>['*.lan', '+.local'];
+    // The subscription's DNS blocking (`rule-set:ads-all: rcode://refused`)
+    // stays: it sends no query anywhere. Other policies name their own
+    // servers, which may be outside the VPN.
+    final policy = <String, dynamic>{};
+    final oldPolicy =
+        old is Map<String, dynamic> ? old['nameserver-policy'] : null;
+    if (oldPolicy is Map<String, dynamic>) {
+      for (final entry in oldPolicy.entries) {
+        final servers = entry.value is List<dynamic>
+            ? entry.value as List<dynamic>
+            : <dynamic>[entry.value];
+        if (servers.isNotEmpty &&
+            servers.every((server) =>
+                server is String && server.startsWith('rcode://'))) {
+          policy[entry.key] = entry.value;
+        }
+      }
+    }
     config['dns'] = <String, dynamic>{
       'enable': true,
       'ipv6': false,
@@ -66,25 +84,31 @@ abstract final class AnonymousMode {
       'default-nameserver': bootstrapNameservers,
       'proxy-server-nameserver': bootstrapNameservers,
       'nameserver': nameservers,
+      if (policy.isNotEmpty) 'nameserver-policy': policy,
     };
     // Apps that connect to bare IPs: the real host name is read from the
     // TLS/HTTP handshake and sent to the VPN server instead.
+    // The subscription's own sniffer settings (skip lists, ports) are kept.
+    final oldSniffer = config['sniffer'];
     config['sniffer'] = <String, dynamic>{
+      if (oldSniffer is Map<String, dynamic>) ...oldSniffer,
       'enable': true,
       'force-dns-mapping': true,
       'parse-pure-ip': true,
       'override-destination': true,
-      'sniff': <String, dynamic>{
-        'HTTP': <String, dynamic>{
-          'ports': <Object>[80, '8080-8880'],
+      if (oldSniffer is! Map<String, dynamic> ||
+          oldSniffer['sniff'] is! Map<String, dynamic>)
+        'sniff': <String, dynamic>{
+          'HTTP': <String, dynamic>{
+            'ports': <Object>[80, '8080-8880'],
+          },
+          'TLS': <String, dynamic>{
+            'ports': <Object>[443, 8443],
+          },
+          'QUIC': <String, dynamic>{
+            'ports': <Object>[443, 8443],
+          },
         },
-        'TLS': <String, dynamic>{
-          'ports': <Object>[443, 8443],
-        },
-        'QUIC': <String, dynamic>{
-          'ports': <Object>[443, 8443],
-        },
-      },
     };
   }
 

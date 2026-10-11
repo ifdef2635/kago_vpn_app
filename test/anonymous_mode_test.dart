@@ -28,6 +28,40 @@ void main() {
     expect((config['sniffer'] as Map)['enable'], true);
   });
 
+  test('the subscription\'s DNS blocking and sniffer settings are kept', () {
+    final config = <String, dynamic>{
+      'dns': <String, dynamic>{
+        'enable': true,
+        'nameserver-policy': <String, dynamic>{
+          'rule-set:ads-all': <String>['rcode://refused'],
+          // Its own servers (outside the VPN): not in the anonymous profile.
+          'rule-set:geosite-ru': <String>['tls://77.88.8.8'],
+          'rule-set:youtube': <String>['https://8.8.8.8/dns-query#🌍 VPN'],
+        },
+      },
+      'sniffer': <String, dynamic>{
+        'enable': false,
+        'skip-domain': <String>['+.push.apple.com'],
+        'sniff': <String, dynamic>{
+          'TLS': <String, dynamic>{
+            'ports': <Object>[443],
+          },
+        },
+      },
+      'proxies': <Object>[],
+    };
+    AnonymousMode.apply(config);
+    final dns = config['dns'] as Map<String, dynamic>;
+    expect(dns['nameserver-policy'], <String, dynamic>{
+      'rule-set:ads-all': <String>['rcode://refused'],
+    });
+    final sniffer = config['sniffer'] as Map<String, dynamic>;
+    expect(sniffer['enable'], true);
+    expect(sniffer['parse-pure-ip'], true);
+    expect(sniffer['skip-domain'], <String>['+.push.apple.com']);
+    expect((sniffer['sniff'] as Map).keys, <String>['TLS']);
+  });
+
   test(
       'the anonymous profile still passes the usual lock-down and the '
       'macOS TUN filter', () {

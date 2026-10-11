@@ -14,7 +14,6 @@ import 'mihomo_process_manager.dart';
 import 'mihomo_release_api.dart';
 import 'offline_proxy_groups.dart';
 import 'mihomo_windows_core_updater.dart';
-import '../l10n/l10n.dart';
 
 final mihomoControllerProvider =
     Provider<MihomoController>((ref) => MihomoController());
@@ -24,7 +23,23 @@ final mihomoControllerProvider =
 /// is not an error just because the core is off.
 final proxyGroupsProvider = FutureProvider<List<ProxyGroup>>((ref) async {
   if (!ref.watch(vpnActiveProvider)) return loadOfflineProxyGroups();
-  return ref.watch(mihomoControllerProvider).proxies();
+  final groups = await ref.watch(mihomoControllerProvider).proxies();
+  final descriptions = await ref.watch(profileDescriptionsProvider.future);
+  return groups
+      .map((group) => group.withDescriptions(descriptions))
+      .toList(growable: false);
+});
+
+/// Descriptions of groups and servers from the saved profile (the core does
+/// not report them); read again when the subscription changes.
+final profileDescriptionsProvider =
+    FutureProvider<ProfileDescriptions>((ref) async {
+  await ref.watch(importedSubscriptionProvider.future).catchError((_) => null);
+  try {
+    return await loadProfileDescriptions();
+  } catch (_) {
+    return const ProfileDescriptions();
+  }
 });
 
 /// False while the app is hidden (minimized, in the background, screen off):
@@ -119,8 +134,6 @@ final coreVersionProvider = FutureProvider<String>((ref) async {
 });
 final mihomoReleaseApiProvider =
     Provider<MihomoReleaseApi>((ref) => MihomoReleaseApi());
-final latestMihomoReleaseProvider = FutureProvider<MihomoReleaseInfo>(
-    (ref) => ref.watch(mihomoReleaseApiProvider).latestStable());
 final androidNativeCoreVersionProvider = FutureProvider<String?>((ref) async {
   if (!Platform.isAndroid) return null;
   try {
@@ -131,30 +144,6 @@ final androidNativeCoreVersionProvider = FutureProvider<String?>((ref) async {
   } on PlatformException {
     return null;
   }
-});
-final androidCoreUpdateStatusProvider = FutureProvider<String>((ref) async {
-  if (!Platform.isAndroid) {
-    return tr('Проверка Android core доступна только на Android.');
-  }
-  final latest = await ref.watch(latestMihomoReleaseProvider.future);
-  final installed = await ref.watch(androidNativeCoreVersionProvider.future);
-  if (installed == null || installed.trim().isEmpty) {
-    return tr(
-        'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.');
-  }
-  final match = RegExp(r'v?\d+\.\d+\.\d+').firstMatch(installed);
-  if (match == null) {
-    return tr('Версия встроенного Mihomo не распознана: {installed}',
-        <String, Object?>{'installed': installed});
-  }
-  if (MihomoReleaseApi.compareStableVersions(latest.version, match.group(0)!) >
-      0) {
-    return tr(
-        'Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.',
-        <String, Object?>{'version': latest.version});
-  }
-  return tr('Встроенный Mihomo {installed} актуален.',
-      <String, Object?>{'installed': installed});
 });
 final mihomoWindowsCoreUpdaterProvider = Provider<MihomoWindowsCoreUpdater>(
     (ref) => MihomoWindowsCoreUpdater(

@@ -10,7 +10,6 @@ import '../../core/device/device_identity.dart';
 import '../../core/network/anonymous_mode.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_macos.dart';
-import '../../core/network/mihomo_windows_core_updater.dart';
 import '../../core/network/mihomo_windows_system_proxy.dart';
 import '../../core/network/mihomo_windows_tun.dart';
 import '../../core/theme/app_widgets.dart';
@@ -32,16 +31,9 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  String _endpoint = 'http://127.0.0.1:9090';
-  String _binary = '';
-  bool _coreUpdating = false;
-  String _windowsCoreStatus = tr('Проверяется…');
   bool _bypassRussian = false;
   bool _macTun = true;
   bool _windowsTun = true;
-
-  /// Technical rows (core, logs, controller) stay folded away by default.
-  bool _advanced = false;
 
   @override
   void initState() {
@@ -57,29 +49,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       }).catchError((Object _) {});
     }
-    final manager = ref.read(mihomoProcessProvider);
-    ref.read(mihomoControllerProvider).endpoint.then((value) async {
-      final binary = await manager.executable;
-      final core = await manager.installedCore();
-      if (!mounted) return;
-      setState(() {
-        _endpoint = value;
-        _binary = binary ?? '';
-        _windowsCoreStatus = core == null
-            ? tr(
-                'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.')
-            : tr('Установлен Mihomo {version}.',
-                <String, Object?>{'version': core.version});
-      });
-    }).catchError((Object _) {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final coreRunning = ref.watch(desktopCoreRunningProvider);
     final appearance = ref.watch(appearanceProvider);
-    final androidUpdate =
-        Platform.isAndroid ? ref.watch(androidCoreUpdateStatusProvider) : null;
     return ListView(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
         children: <Widget>[
@@ -152,34 +126,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.receipt_long_outlined,
                 title: tr('Логи Mihomo'),
                 onTap: _showLogs),
-          ]),
-          _SettingsGroup(title: tr('Дополнительно'), children: <Widget>[
-            _SettingsTile(
-                icon: Icons.build_outlined,
-                title: tr('Для опытных пользователей'),
-                subtitle: tr('Ядро и адрес контроллера'),
-                trailing: AnimatedRotation(
-                    turns: _advanced ? .5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.expand_more_rounded,
-                        color: context.kago.muted)),
-                onTap: () => setState(() => _advanced = !_advanced)),
-            if (_advanced) ...<Widget>[
-              ..._coreTiles(coreRunning, androidUpdate),
-              _SettingsTile(
-                  icon: Icons.hub_outlined,
-                  title: tr('Адрес контроллера'),
-                  subtitle: _endpoint,
-                  onTap: _editEndpoint),
-              if (Platform.isLinux)
-                _SettingsTile(
-                    icon: Icons.terminal_rounded,
-                    title: tr('Путь к Mihomo'),
-                    subtitle: _binary.isEmpty
-                        ? tr('Не задан. Укажите путь к бинарнику Mihomo.')
-                        : _binary,
-                    onTap: _editBinary),
-            ],
           ]),
           _SettingsGroup(title: tr('О приложении'), children: <Widget>[
             if (AppUpdater.supported) _updateTile(),
@@ -291,63 +237,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  List<Widget> _coreTiles(bool coreRunning, AsyncValue<String>? androidUpdate) {
-    if (Platform.isWindows) {
-      return <Widget>[
-        _SettingsTile(
-            icon: Icons.memory_rounded,
-            title: 'Mihomo · Windows x64',
-            subtitle: coreRunning
-                ? tr('{windowsCoreStatus} Остановите ядро, чтобы обновить.',
-                    <String, Object?>{'windowsCoreStatus': _windowsCoreStatus})
-                : _windowsCoreStatus,
-            trailing: _coreUpdating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(Icons.system_update_alt_rounded,
-                    color:
-                        coreRunning ? context.kago.muted : context.kago.accent),
-            onTap: _coreUpdating || coreRunning ? null : _checkWindowsCore),
-      ];
-    }
-    if (Platform.isAndroid) {
-      final status = androidUpdate?.when(
-              data: (value) => value,
-              loading: () => tr('Проверка версии встроенного Mihomo…'),
-              error: (error, _) => tr(
-                  'Не удалось проверить upstream release: {error}',
-                  <String, Object?>{'error': error})) ??
-          '';
-      return <Widget>[
-        _SettingsTile(
-            icon: Icons.memory_rounded,
-            title: 'Mihomo · Android',
-            subtitle: status,
-            trailing: Icon(Icons.refresh_rounded, color: context.kago.accent),
-            onTap: () => ref.invalidate(androidCoreUpdateStatusProvider)),
-      ];
-    }
-    if (Platform.isMacOS) {
-      return <Widget>[
-        _SettingsTile(
-            icon: Icons.memory_rounded,
-            title: 'Mihomo · macOS',
-            subtitle: tr(
-                'Встроено в приложение: {version}. Обновляется вместе с KaGo VPN.',
-                <String, Object?>{'version': MihomoPinnedCore.version})),
-      ];
-    }
-    return <Widget>[
-      _SettingsTile(
-          icon: Icons.memory_rounded,
-          title: tr('Mihomo · внешний бинарник'),
-          subtitle: tr(
-              'На Linux пока нужен внешний Mihomo. Встроенное ядро есть в версиях для Windows, macOS и Android.')),
-    ];
-  }
-
   /// Two connection profiles: "Normal" (the subscription as is) and
   /// "Anonymous" (AnonymousMode).
   Widget _anonymousTile() {
@@ -434,46 +323,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showCriticalError(context, text, details: details);
   }
 
-  Future<void> _editEndpoint() async {
-    final value = await showDialog<String>(
-        context: context,
-        builder: (_) => _TextPromptDialog(
-            title: tr('Адрес контроллера'),
-            initial: _endpoint,
-            hint: 'http://127.0.0.1:9090',
-            helper: tr(
-                'HTTPS или локальный HTTP. Secret создаётся автоматически.')));
-    if (value == null) return;
-    try {
-      final controller = ref.read(mihomoControllerProvider);
-      await controller.saveSettings(endpoint: value);
-      final saved = await controller.endpoint;
-      ref.invalidate(coreVersionProvider);
-      ref.invalidate(proxyGroupsProvider);
-      ref.invalidate(connectionsSnapshotProvider);
-      if (mounted) setState(() => _endpoint = saved);
-    } catch (error) {
-      _error(tr('Не удалось сохранить.'), details: '$error');
-    }
-  }
-
-  Future<void> _editBinary() async {
-    final value = await showDialog<String>(
-        context: context,
-        builder: (_) => _TextPromptDialog(
-            title: tr('Путь к Mihomo'),
-            initial: _binary,
-            hint: '/usr/local/bin/mihomo',
-            helper: tr('Полный путь к исполняемому файлу Mihomo.')));
-    if (value == null) return;
-    try {
-      await ref.read(mihomoProcessProvider).saveExecutable(value);
-      if (mounted) setState(() => _binary = value.trim());
-    } catch (error) {
-      _error(tr('Не удалось сохранить.'), details: '$error');
-    }
-  }
-
   Future<void> _showLogs() {
     final manager = ref.read(mihomoProcessProvider);
     return showDialog<void>(
@@ -506,37 +355,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Text(tr('Закрыть'))),
               ],
             ));
-  }
-
-  Future<void> _checkWindowsCore() async {
-    setState(() {
-      _coreUpdating = true;
-      _windowsCoreStatus =
-          tr('Проверяются и загружаются данные релиза Mihomo…');
-    });
-    try {
-      final install = await ref.read(mihomoProcessProvider).updateCore();
-      if (mounted) {
-        setState(() => _windowsCoreStatus = install.note == null
-            ? tr('Установлен Mihomo {version}.',
-                <String, Object?>{'version': install.version})
-            : tr(
-                'Установлен Mihomo {version}. Проверить обновление не удалось ({note}).',
-                <String, Object?>{
-                    'version': install.version,
-                    'note': install.note
-                  }));
-      }
-    } catch (error) {
-      if (mounted) {
-        setState(() => _windowsCoreStatus = error is MihomoCoreNetworkException
-            ? error.message
-            : tr('Обновление не выполнено: {error}',
-                <String, Object?>{'error': error}));
-      }
-    } finally {
-      if (mounted) setState(() => _coreUpdating = false);
-    }
   }
 }
 
@@ -640,54 +458,4 @@ class _SettingsTile extends StatelessWidget {
                 Padding(padding: const EdgeInsets.only(left: 8), child: end),
             ])));
   }
-}
-
-/// Single-field edit dialog that owns (and disposes) its controller.
-class _TextPromptDialog extends StatefulWidget {
-  const _TextPromptDialog(
-      {required this.title,
-      required this.initial,
-      required this.hint,
-      required this.helper});
-  final String title;
-  final String initial;
-  final String hint;
-  final String helper;
-
-  @override
-  State<_TextPromptDialog> createState() => _TextPromptDialogState();
-}
-
-class _TextPromptDialogState extends State<_TextPromptDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: Text(widget.title),
-        content: SizedBox(
-            width: 480,
-            child: TextField(
-                controller: _controller,
-                autofocus: true,
-                onSubmitted: (value) => Navigator.pop(context, value),
-                decoration: InputDecoration(
-                    hintText: widget.hint,
-                    helperText: widget.helper,
-                    helperMaxLines: 3))),
-        actions: <Widget>[
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(tr('Отмена'))),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, _controller.text),
-              child: Text(tr('Сохранить'))),
-        ],
-      );
 }

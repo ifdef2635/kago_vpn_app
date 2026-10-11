@@ -97,14 +97,14 @@ class KaGoVpnService : VpnService() {
                 .setSession("KaGo VPN")
                 .setMtu(TUN_MTU)
                 .addAddress(IPV4_ADDRESS, 30)
-                .addRoute("0.0.0.0", 0)
                 .addDnsServer(IPV4_DNS)
             if (ipv6Enabled) {
                 builder.addAddress(IPV6_ADDRESS, 126)
-                    .addRoute("::", 0)
                     .addDnsServer(IPV6_DNS)
             }
-            AppRouting.apply(this, builder, root.optJSONObject("tun"))
+            val tun = root.optJSONObject("tun")
+            addRoutes(builder, tun, ipv6Enabled)
+            AppRouting.apply(this, builder, tun)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setBlocking(false)
             descriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_no_tun))
 
@@ -146,6 +146,34 @@ class KaGoVpnService : VpnService() {
                 stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopStartId = -1)
             }
         }
+    }
+
+    /**
+     * The subscription's routes (`route-address` without
+     * `route-exclude-address`, computed by the app: `AndroidRoutes` in
+     * lib/core/network/android_routes.dart), so local networks bypass the
+     * VPN; everything when the subscription sets none or a route is invalid.
+     */
+    private fun addRoutes(builder: Builder, tun: JSONObject?, ipv6Enabled: Boolean) {
+        val list = tun?.optJSONArray(ROUTES_KEY)
+        val routes = mutableListOf<Pair<String, Int>>()
+        if (list != null) {
+            for (i in 0 until list.length()) {
+                val parts = list.optString(i).split('/')
+                val prefix = parts.getOrNull(1)?.toIntOrNull()
+                if (parts.size != 2 || prefix == null) {
+                    routes.clear()
+                    break
+                }
+                if (!parts[0].contains(':') || ipv6Enabled) routes.add(parts[0] to prefix)
+            }
+        }
+        if (routes.none { !it.first.contains(':') }) {
+            builder.addRoute("0.0.0.0", 0)
+            if (ipv6Enabled) builder.addRoute("::", 0)
+            return
+        }
+        for ((address, prefix) in routes) builder.addRoute(address, prefix)
     }
 
     private fun stopCore() {
@@ -262,6 +290,7 @@ class KaGoVpnService : VpnService() {
         private const val NOTIFICATION_ID = 7401
         private const val PREFS = "kago_vpn_service"
         private const val KEY_CONFIG_PATH = "config_path"
+        // The tunnel networks are also in AndroidRoutes (Dart): keep them equal.
         private const val IPV4_ADDRESS = "172.19.0.1"
         private const val IPV4_CIDR = "172.19.0.1/30"
         private const val IPV4_DNS = "172.19.0.2"
@@ -269,6 +298,7 @@ class KaGoVpnService : VpnService() {
         private const val IPV6_CIDR = "fdfe:dcba:9876::1/126"
         private const val IPV6_DNS = "fdfe:dcba:9876::2"
         private const val TUN_MTU = 1500
+        private const val ROUTES_KEY = "kago-android-routes"
         @Volatile var isConnected: Boolean = false
             private set
 

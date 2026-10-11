@@ -1,9 +1,14 @@
 import '../l10n/l10n.dart';
 
 class ProxyNode {
-  const ProxyNode({required this.name, required this.type, this.delay});
+  const ProxyNode(
+      {required this.name, required this.type, this.delay, this.description});
   final String name;
   final String type;
+
+  /// `server-description` of the server in the config (as FlClashX): a line
+  /// the subscription shows on its card instead of the protocol.
+  final String? description;
 
   /// Last latency (ms) the core measured for this node. Null: never tested,
   /// 0: the last test failed.
@@ -29,6 +34,10 @@ class ProxyNode {
     return ProxyNode(
         name: name, type: json?['type'] as String? ?? 'Proxy', delay: delay);
   }
+
+  ProxyNode withDescription(String? text) => text == null
+      ? this
+      : ProxyNode(name: name, type: type, delay: delay, description: text);
 }
 
 class ProxyGroup {
@@ -45,6 +54,9 @@ class ProxyGroup {
   final String type;
   final List<ProxyNode> nodes;
   final String? selected;
+
+  /// `description` of the group in the config (as FlClashX). The core does
+  /// not report it: it is read from the saved profile.
   final String? description;
 
   /// `hidden: true` in the config: the subscription keeps this group out of
@@ -81,6 +93,68 @@ class ProxyGroup {
       testUrl: _httpsUrl(json['testUrl']),
     );
   }
+
+  /// This group with the descriptions of the profile ([ProfileDescriptions]).
+  ProxyGroup withDescriptions(ProfileDescriptions descriptions) {
+    if (descriptions.isEmpty) return this;
+    return ProxyGroup(
+      name: name,
+      type: type,
+      selected: selected,
+      description: description ?? descriptions.groups[name],
+      hidden: hidden,
+      icon: icon,
+      testUrl: testUrl,
+      nodes: nodes
+          .map((node) => node.withDescription(
+              node.description ?? descriptions.servers[node.name]))
+          .toList(growable: false),
+    );
+  }
+}
+
+/// Lines of the profile the core does not report through `/proxies`:
+/// `description` of groups and `server-description` of servers.
+class ProfileDescriptions {
+  const ProfileDescriptions(
+      {this.groups = const <String, String>{},
+      this.servers = const <String, String>{}});
+
+  /// Read from a Mihomo config (as FlClashX: `server-description` or
+  /// `serverDescription`).
+  factory ProfileDescriptions.of(Map<String, dynamic> config) {
+    String? text(Object? value) {
+      if (value is! String) return null;
+      final line = value.trim();
+      return line.isEmpty ? null : line;
+    }
+
+    final groups = <String, String>{};
+    final rawGroups = config['proxy-groups'];
+    if (rawGroups is List<dynamic>) {
+      for (final item in rawGroups) {
+        if (item is! Map<String, dynamic> || item['name'] is! String) continue;
+        final line = text(item['description']);
+        if (line != null) groups[item['name'] as String] = line;
+      }
+    }
+    final servers = <String, String>{};
+    final proxies = config['proxies'];
+    if (proxies is List<dynamic>) {
+      for (final item in proxies) {
+        if (item is! Map<String, dynamic> || item['name'] is! String) continue;
+        final line =
+            text(item['server-description']) ?? text(item['serverDescription']);
+        if (line != null) servers[item['name'] as String] = line;
+      }
+    }
+    return ProfileDescriptions(groups: groups, servers: servers);
+  }
+
+  final Map<String, String> groups;
+  final Map<String, String> servers;
+
+  bool get isEmpty => groups.isEmpty && servers.isEmpty;
 }
 
 class ActiveConnection {

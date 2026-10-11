@@ -24,7 +24,23 @@ final mihomoControllerProvider =
 /// is not an error just because the core is off.
 final proxyGroupsProvider = FutureProvider<List<ProxyGroup>>((ref) async {
   if (!ref.watch(vpnActiveProvider)) return loadOfflineProxyGroups();
-  return ref.watch(mihomoControllerProvider).proxies();
+  final groups = await ref.watch(mihomoControllerProvider).proxies();
+  final descriptions = await ref.watch(profileDescriptionsProvider.future);
+  return groups
+      .map((group) => group.withDescriptions(descriptions))
+      .toList(growable: false);
+});
+
+/// Descriptions of groups and servers from the saved profile (the core does
+/// not report them); read again when the subscription changes.
+final profileDescriptionsProvider =
+    FutureProvider<ProfileDescriptions>((ref) async {
+  await ref.watch(importedSubscriptionProvider.future).catchError((_) => null);
+  try {
+    return await loadProfileDescriptions();
+  } catch (_) {
+    return const ProfileDescriptions();
+  }
 });
 
 /// False while the app is hidden (minimized, in the background, screen off):

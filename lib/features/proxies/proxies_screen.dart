@@ -398,6 +398,14 @@ class _GroupSection extends ConsumerWidget {
                                   fontWeight: KaGoWeight.heading,
                                   letterSpacing: -.2,
                                   color: p.text)),
+                          if (group.description != null) ...<Widget>[
+                            const SizedBox(height: 2),
+                            Text(group.description!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12, height: 1.3, color: p.muted)),
+                          ],
                           const SizedBox(height: 3),
                           Text(_groupDetail(group.type, selected),
                               maxLines: 1,
@@ -490,7 +498,7 @@ class _GroupSection extends ConsumerWidget {
                   node: node,
                   detail: node.isGroup
                       ? _nestedDetail(node)
-                      : node.type.toUpperCase(),
+                      : node.description ?? node.type.toUpperCase(),
                   selected: node.name == group.selected,
                   delay: info.delay(node, delays),
                   testing: pending.contains(node.name),

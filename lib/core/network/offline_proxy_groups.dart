@@ -19,12 +19,23 @@ Future<List<ProxyGroup>> loadOfflineProxyGroups() async {
   return proxyGroupsFromConfig(decoded);
 }
 
+/// Descriptions of the saved profile (none without one).
+Future<ProfileDescriptions> loadProfileDescriptions() async {
+  final file = await const MihomoConfigBuilder().activeConfigFile();
+  if (!await file.exists()) return const ProfileDescriptions();
+  final Object? decoded = jsonDecode(await file.readAsString());
+  return decoded is Map<String, dynamic>
+      ? ProfileDescriptions.of(decoded)
+      : const ProfileDescriptions();
+}
+
 /// Builds the same group/node model the controller returns, from a Mihomo config.
 /// Which node is selected is unknown without the core, so `selected` is null.
 List<ProxyGroup> proxyGroupsFromConfig(Map<String, dynamic> config) {
   final rawGroups = config['proxy-groups'];
   if (rawGroups is! List<dynamic>) return const <ProxyGroup>[];
 
+  final descriptions = ProfileDescriptions.of(config);
   final proxyTypes = <String, String>{'DIRECT': 'Direct', 'REJECT': 'Reject'};
   final proxyNames = <String>[];
   final proxies = config['proxies'];
@@ -54,8 +65,11 @@ List<ProxyGroup> proxyGroupsFromConfig(Map<String, dynamic> config) {
           .whereType<String>(),
     ];
     if (item['include-all'] == true || item['include-all-proxies'] == true) {
-      final extra =
-          _filtered(proxyNames, item).where((n) => !names.contains(n)).toList();
+      // The core adds all servers sorted by name, then applies the filters.
+      final all = List<String>.of(proxyNames)..sort(compareCodePoints);
+      final extra = _filtered(all, item, proxyTypes)
+          .where((n) => !names.contains(n))
+          .toList();
       names.addAll(extra);
     }
     groups.add(ProxyGroup(
@@ -66,13 +80,25 @@ List<ProxyGroup> proxyGroupsFromConfig(Map<String, dynamic> config) {
               name: node,
               type: groupTypes[node] ?? proxyTypes[node] ?? 'Proxy'))
           .toList(growable: false),
-      description: item['description'] as String?,
       hidden: item['hidden'] == true,
       icon: proxyGroupUrl(item['icon']),
       testUrl: proxyGroupUrl(item['url']),
-    ));
+    ).withDescriptions(descriptions));
   }
   return groups;
+}
+
+/// Go's string order (by code points, as the core sorts names); Dart's
+/// [String.compareTo] compares UTF-16 units and puts flag emoji elsewhere.
+int compareCodePoints(String a, String b) {
+  final x = a.runes.iterator;
+  final y = b.runes.iterator;
+  while (true) {
+    final hasX = x.moveNext();
+    final hasY = y.moveNext();
+    if (!hasX || !hasY) return hasX == hasY ? 0 : (hasX ? 1 : -1);
+    if (x.current != y.current) return x.current.compareTo(y.current);
+  }
 }
 
 /// A subscription's filter regex runs on the UI thread with Dart's
@@ -87,26 +113,52 @@ RegExp? safeGroupFilter(String pattern) {
   return RegExp(pattern);
 }
 
-Iterable<String> _filtered(List<String> names, Map<String, dynamic> group) {
-  Iterable<String> result = names;
-  final filter = group['filter'];
-  final exclude = group['exclude-filter'];
-  try {
-    if (filter is String && filter.isNotEmpty) {
-      final pattern = safeGroupFilter(filter);
-      if (pattern != null) result = result.where(pattern.hasMatch);
+/// The patterns of a `filter` / `exclude-filter`: Mihomo takes several,
+/// separated by a backtick (`Россия`Авто`). One Dart cannot parse or refuses
+/// as unsafe is skipped (Mihomo uses Go regular expressions).
+List<RegExp> _patterns(Object? raw) {
+  if (raw is! String) return const <RegExp>[];
+  final result = <RegExp>[];
+  for (final part in raw.split('`')) {
+    if (part.isEmpty) continue;
+    try {
+      final pattern = safeGroupFilter(part);
+      if (pattern != null) result.add(pattern);
+    } on FormatException {
+      // Skipped.
     }
-    if (exclude is String && exclude.isNotEmpty) {
-      final pattern = safeGroupFilter(exclude);
-      if (pattern != null) {
-        result = result.where((name) => !pattern.hasMatch(name));
-      }
-    }
-  } on FormatException {
-    // Mihomo uses Go regular expressions; keep the unfiltered list if Dart
-    // cannot parse one.
   }
-  return result.toList(growable: false);
+  return result;
+}
+
+/// Servers of an `include-all` group, as the core picks them: those that
+/// match any `filter` pattern (in the order of the patterns), without those
+/// that match an `exclude-filter` pattern or have an `exclude-type`.
+Iterable<String> _filtered(
+    List<String> names, Map<String, dynamic> group, Map<String, String> types) {
+  var result = names;
+  final filters = _patterns(group['filter']);
+  if (filters.isNotEmpty) {
+    final picked = <String>{};
+    for (final pattern in filters) {
+      picked.addAll(result.where(pattern.hasMatch));
+    }
+    result = picked.toList();
+  }
+  final excludes = _patterns(group['exclude-filter']);
+  final excludeType = group['exclude-type'];
+  final excludedTypes = excludeType is String
+      ? excludeType
+          .split('|')
+          .map((type) => type.trim().toLowerCase())
+          .where((type) => type.isNotEmpty)
+          .toSet()
+      : const <String>{};
+  return result
+      .where((name) => !excludes.any((pattern) => pattern.hasMatch(name)))
+      .where(
+          (name) => !excludedTypes.contains(types[name]?.toLowerCase() ?? ''))
+      .toList(growable: false);
 }
 
 String _groupType(Object? raw) => switch (raw?.toString().toLowerCase()) {

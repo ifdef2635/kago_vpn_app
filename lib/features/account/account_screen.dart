@@ -1329,7 +1329,8 @@ class _ProfileCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.kago;
-    Widget row(IconData icon, String label, String value, Widget? badge) =>
+    Widget row(IconData icon, String label, String value, Widget? badge,
+            {Color? iconColor}) =>
         Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
@@ -1338,7 +1339,7 @@ class _ProfileCard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(KaGoRadius.md),
               border: Border.all(color: p.border)),
           child: Row(children: <Widget>[
-            Icon(icon, color: p.muted, size: 19),
+            Icon(icon, color: iconColor ?? p.muted, size: 19),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1386,13 +1387,14 @@ class _ProfileCard extends ConsumerWidget {
                 user.pendingEmail!,
                 null),
           row(
-              Icons.send_rounded,
+              Icons.telegram,
               'Telegram',
               user.telegramId != null
                   ? (user.username != null ? '@${user.username}' : user.name)
                   : '—',
-              badge(user.telegramId != null, tr('Подключен'),
-                  tr('Не подключен'))),
+              badge(
+                  user.telegramId != null, tr('Подключен'), tr('Не подключен')),
+              iconColor: p.telegram),
           const SizedBox(height: 8),
           Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
             OutlinedButton.icon(
@@ -1646,26 +1648,83 @@ class _HelpCard extends StatelessWidget {
   const _HelpCard();
 
   @override
-  Widget build(BuildContext context) => _Card(
-        icon: Icons.support_agent_rounded,
-        title: tr('Помощь'),
-        child: Wrap(spacing: 10, runSpacing: 10, children: <Widget>[
-          OutlinedButton.icon(
-              onPressed: () => openUrl(context, SupportLink.current),
-              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-              label: Text(tr('Поддержка'))),
-          OutlinedButton.icon(
-              onPressed: () => openUrl(context, _botUrl),
-              icon: const Icon(Icons.send_rounded, size: 18),
-              label: Text(tr('Telegram-бот'))),
-          OutlinedButton.icon(
-              onPressed: () => openUrl(context, _plansUrl),
-              icon: const Icon(Icons.sell_outlined, size: 18),
-              label: Text(tr('Тарифы'))),
-          OutlinedButton.icon(
-              onPressed: () => openUrl(context, '$kagoSiteUrl/faq'),
-              icon: const Icon(Icons.help_outline_rounded, size: 18),
-              label: const Text('FAQ')),
+  Widget build(BuildContext context) {
+    final p = context.kago;
+    // Support is a Telegram chat unless the subscription points elsewhere.
+    final supportInTelegram = Uri.tryParse(SupportLink.current)?.host == 't.me';
+    final tiles = <Widget>[
+      _HelpTile(
+          icon: supportInTelegram
+              ? Icons.telegram
+              : Icons.chat_bubble_outline_rounded,
+          color: supportInTelegram ? p.telegram : null,
+          label: tr('Поддержка'),
+          onTap: () => openUrl(context, SupportLink.current)),
+      _HelpTile(
+          icon: Icons.telegram,
+          color: p.telegram,
+          label: tr('Telegram-бот'),
+          onTap: () => openUrl(context, _botUrl)),
+      _HelpTile(
+          icon: Icons.sell_outlined,
+          label: tr('Тарифы'),
+          onTap: () => openUrl(context, _plansUrl)),
+      _HelpTile(
+          icon: Icons.help_outline_rounded,
+          label: 'FAQ',
+          onTap: () => openUrl(context, '$kagoSiteUrl/faq')),
+    ];
+    // Two equal tiles per row.
+    return _Card(
+      icon: Icons.support_agent_rounded,
+      title: tr('Помощь'),
+      child: Column(children: <Widget>[
+        for (var i = 0; i < tiles.length; i += 2) ...<Widget>[
+          if (i > 0) const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Expanded(child: tiles[i]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: i + 1 < tiles.length
+                          ? tiles[i + 1]
+                          : const SizedBox()),
+                ]),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+/// One tile of «Помощь»: an icon and a label, half the card wide.
+class _HelpTile extends StatelessWidget {
+  const _HelpTile(
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      this.color});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  /// Icon colour (Telegram blue for Telegram links); the accent otherwise.
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => InsetTile(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(children: <Widget>[
+          Icon(icon, size: 22, color: color ?? context.kago.accent),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: KaGoWeight.bold))),
         ]),
       );
 }

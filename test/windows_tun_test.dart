@@ -22,6 +22,8 @@ void main() {
     MihomoWindowsTun.enableTun(config);
     final tun = config['tun'] as Map<String, dynamic>;
     expect(tun['enable'], true);
+    // The adapter is «KAGO» in Windows network connections, not «Meta».
+    expect(tun['device'], 'KAGO');
     expect(tun['stack'], 'gvisor');
     expect(tun['auto-route'], true);
     expect(tun['strict-route'], true);

@@ -63,11 +63,16 @@ abstract final class MihomoWindowsTun {
   static const taskName = 'KaGo VPN TUN';
   static String get serviceFile => '$coreHome\\kago-tun.ps1';
 
+  /// Name of the virtual adapter in Windows network connections (Mihomo
+  /// calls it «Meta» when the config names none).
+  static const adapterName = 'KAGO';
+
   /// TUN settings for the Windows core (in place).
   static void enableTun(Map<String, dynamic> config) {
     final value = config['tun'];
     final tun = value is Map<String, dynamic> ? value : <String, dynamic>{};
     tun['enable'] = true;
+    tun['device'] = adapterName;
     // gVisor (built into the Windows core): no Windows Firewall prompt, as
     // the "system" stack would need for its local listener.
     tun['stack'] = 'gvisor';

@@ -27,6 +27,12 @@ if [[ ! -d "$TOOLCHAIN/bin" ]]; then
 fi
 
 MIHOMO_VERSION="v1.19.32"
+# The core sources are the git submodule native/mihomo (MetaCubeX/mihomo at
+# the commit of MIHOMO_VERSION); go.mod points the module at that folder.
+if [[ ! -f "$PROJECT_ROOT/native/mihomo/go.mod" ]]; then
+  echo "native/mihomo is empty: run 'git submodule update --init' first." >&2
+  exit 2
+fi
 TEMP_DIR="$CORE_DIR/build/android-native"
 mkdir -p "$TEMP_DIR"
 cd "$CORE_DIR"

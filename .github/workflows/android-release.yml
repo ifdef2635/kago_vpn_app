@@ -27,7 +27,8 @@ on:
       - 'lib/**'
       - 'android/**'
       - 'native/android/**'
-      - 'native/mihomo/**'
+      - 'native/mihomo'
+      - '.gitmodules'
       - 'tool/build_android_native.sh'
       - 'assets/**'
       - 'test/**'
@@ -53,8 +54,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          # native/mihomo — submodule с исходниками ядра (MetaCubeX/mihomo
+          # на закреплённом коммите); go.mod подменяет модуль этой папкой.
+          submodules: true
 
-      - uses: actions/setup-java@v5 # v4
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '17'

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:yaml/yaml.dart';
 import '../../core/l10n/l10n.dart';
+import '../../core/network/android_routes.dart';
 
 class MihomoConfigBuilder {
   const MihomoConfigBuilder();
@@ -89,6 +90,9 @@ class MihomoConfigBuilder {
     // `mixed` would fail with "gVisor is not included in this build".
     tun['stack'] = 'system';
     ensureDns(decoded);
+    // The subscription's route-address / route-exclude-address, for the
+    // VpnService (after ensureDns: the fake-IP range stays routed).
+    AndroidRoutes.apply(decoded);
     _performanceDefaults(decoded);
     _hardenAndroid(decoded);
     _lockToLoopback(decoded);

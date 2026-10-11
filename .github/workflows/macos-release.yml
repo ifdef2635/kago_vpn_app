@@ -20,6 +20,14 @@ on:
         required: false
       KAGO_APPLE_APP_PASSWORD:
         required: false
+      # Ключ App Store Connect — замена пароля приложения для нотаризации
+      # (у пароля приложения срок жизни и привязка к Apple ID, у ключа — нет).
+      KAGO_APPLE_API_KEY_BASE64:
+        required: false
+      KAGO_APPLE_API_KEY_ID:
+        required: false
+      KAGO_APPLE_API_ISSUER:
+        required: false
   push:
     branches:
       - 'claude/**'
@@ -84,9 +92,14 @@ jobs:
           VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
           NAME="${VERSION%%+*}"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$NAME" ]]; then
-            echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
-            exit 1
+          # У предварительного релиза тег с суффиксом (v2.0.4-pre.1), версия
+          # приложения та же — 2.0.4, поэтому сравнивается часть до суффикса.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            BASE="${GITHUB_REF#refs/tags/v}"; BASE="${BASE%%-*}"
+            if [[ "$BASE" != "$NAME" ]]; then
+              echo "::error::Тег ${GITHUB_REF#refs/tags/} не совпадает с версией pubspec.yaml ($NAME)."
+              exit 1
+            fi
           fi
 
       # Ядро Mihomo для Apple Silicon и Intel из официального релиза. SHA-256
@@ -145,12 +158,24 @@ jobs:
           APPLE_ID: ${{ inputs.release && secrets.KAGO_APPLE_ID || '' }}
           APPLE_TEAM_ID: ${{ inputs.release && secrets.KAGO_APPLE_TEAM_ID || '' }}
           APPLE_APP_PASSWORD: ${{ inputs.release && secrets.KAGO_APPLE_APP_PASSWORD || '' }}
+          API_KEY_BASE64: ${{ inputs.release && secrets.KAGO_APPLE_API_KEY_BASE64 || '' }}
+          API_KEY_ID: ${{ inputs.release && secrets.KAGO_APPLE_API_KEY_ID || '' }}
+          API_ISSUER: ${{ inputs.release && secrets.KAGO_APPLE_API_ISSUER || '' }}
         run: |
           set -euo pipefail
           APP="build/macos/Build/Products/Release/KaGo VPN.app"
           cp core/mihomo "$APP/Contents/Resources/mihomo"
           cp core/kago-tun "$APP/Contents/Resources/kago-tun"
-          if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_PASSWORD" ]]; then
+          # Нотаризация — ключом App Store Connect (приоритет: не истекает и
+          # не зависит от Apple ID) либо, как раньше, паролем приложения.
+          if [[ -n "$API_KEY_BASE64" && -n "$API_KEY_ID" && -n "$API_ISSUER" ]]; then
+            NOTARY_MODE=key
+          elif [[ -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_PASSWORD" ]]; then
+            NOTARY_MODE=password
+          else
+            NOTARY_MODE=
+          fi
+          if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$NOTARY_MODE" ]]; then
             KEYCHAIN="$RUNNER_TEMP/kago-signing.keychain-db"
             KEYCHAIN_PASSWORD="$(uuidgen)"
             security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
@@ -175,15 +200,37 @@ jobs:
             codesign --force --options runtime --timestamp \
               --entitlements macos/Runner/Release.entitlements --sign "$IDENTITY" "$APP"
             codesign --verify --deep --strict --verbose=2 "$APP"
+            if [[ "$NOTARY_MODE" == key ]]; then
+              # Профиль в той же временной связке ключей: пароль приложения
+              # не нужен, .p8 удаляется сразу после сохранения профиля.
+              (umask 077; echo "$API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/kago-notary.p8")
+              xcrun notarytool store-credentials kago-notarization \
+                --key "$RUNNER_TEMP/kago-notary.p8" --key-id "$API_KEY_ID" \
+                --issuer "$API_ISSUER" --keychain "$KEYCHAIN"
+              rm -f "$RUNNER_TEMP/kago-notary.p8"
+              echo 'Нотаризация ключом App Store Connect.'
+            else
+              echo 'Нотаризация паролем приложения (Apple ID).'
+            fi
+            echo "KAGO_NOTARY_MODE=$NOTARY_MODE" >> "$GITHUB_ENV"
+            echo "KAGO_SIGN_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+            notarize() {
+              if [[ "$NOTARY_MODE" == key ]]; then
+                xcrun notarytool submit "$1" \
+                  --keychain-profile kago-notarization --keychain "$KEYCHAIN" --wait
+              else
+                xcrun notarytool submit "$1" \
+                  --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+              fi
+            }
             ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/kago-app.zip"
-            xcrun notarytool submit "$RUNNER_TEMP/kago-app.zip" \
-              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            notarize "$RUNNER_TEMP/kago-app.zip"
             xcrun stapler staple "$APP"
             spctl --assess --type execute --verbose=4 "$APP"
             echo "kind=notarized" >> "$GITHUB_OUTPUT"
           else
             if [[ "$GITHUB_REF" == refs/tags/v* || "${{ inputs.release }}" == "true" ]]; then
-              echo "::warning::Нет секретов Apple Developer ID: .dmg подписан ad-hoc, macOS покажет «Apple не удалось подтвердить…»."
+              echo "::warning::Нет секретов Apple Developer ID (сертификат + ключ App Store Connect или пароль приложения): .dmg подписан ad-hoc, macOS покажет «Apple не удалось подтвердить…»."
             fi
             # Ad-hoc подпись всего бандла (ядро внутри входит в печать подписи).
             codesign --force --deep --sign - "$APP"
@@ -209,8 +256,13 @@ jobs:
           hdiutil create -volname "KaGo VPN" -srcfolder dmgroot -ov -format UDZO "$DMG"
           if [[ "${{ steps.sign.outputs.kind }}" == notarized ]]; then
             codesign --force --timestamp --sign "$KAGO_MAC_IDENTITY" "$DMG"
-            xcrun notarytool submit "$DMG" \
-              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            if [[ "${KAGO_NOTARY_MODE:-password}" == key ]]; then
+              xcrun notarytool submit "$DMG" \
+                --keychain-profile kago-notarization --keychain "$KAGO_SIGN_KEYCHAIN" --wait
+            else
+              xcrun notarytool submit "$DMG" \
+                --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            fi
             xcrun stapler staple "$DMG"
             spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
           fi
@@ -220,5 +272,6 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ steps.dist.outputs.name }}
+          overwrite: true
           path: dist/macos/*
           retention-days: 30

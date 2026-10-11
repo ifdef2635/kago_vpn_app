@@ -106,7 +106,7 @@ class _ConnectionTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                   Text(item.host,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                      style: const TextStyle(fontWeight: KaGoWeight.extraBold)),
                   const SizedBox(height: 4),
                   Text('${item.destination} · ${item.network} · ${item.rule}',
                       style:

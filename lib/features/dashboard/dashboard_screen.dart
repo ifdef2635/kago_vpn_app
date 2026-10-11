@@ -44,22 +44,27 @@ class DashboardScreen extends ConsumerWidget {
     final p = context.kago;
     final width = MediaQuery.sizeOf(context).width;
     final side = width > 760 ? 44.0 : 16.0;
+    final state = starting
+        ? tr('Подключение…')
+        : connected
+            ? tr('Подключено')
+            : tr('Не подключено');
+    final hint = guestNeeded || (connected && guestActive)
+        ? (connected
+            ? tr('Бесплатный доступ: через VPN работает только Telegram')
+            : tr('Без подписки — бесплатный доступ к Telegram'))
+        : connected && ref.watch(anonymousActiveProvider)
+            ? tr('Анонимный режим')
+            : connected
+                ? tr('Весь трафик идёт через выбранный сервер')
+                : tr('Нажмите, чтобы включить защиту');
     return ListView(
-        padding: EdgeInsets.fromLTRB(side, 12, side, 16),
+        padding: EdgeInsets.fromLTRB(side, 14, side, 18),
         children: <Widget>[
           Row(children: <Widget>[
-            const KagoLogo(size: 36),
-            const SizedBox(width: 10),
             Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                  const Text('KaGo VPN',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                  Text(tr('Интернет без границ'),
-                      style: TextStyle(color: p.muted, fontSize: 12))
-                ])),
+                child: KagoWordmark(
+                    size: 38, subtitle: tr('Интернет без границ'))),
             IconButton(
                 tooltip: tr('Обновить'),
                 onPressed: () {
@@ -67,21 +72,56 @@ class DashboardScreen extends ConsumerWidget {
                   ref.invalidate(proxyGroupsProvider);
                   ref.invalidate(ipInfoProvider);
                 },
-                icon: const Icon(Icons.refresh_rounded)),
+                icon: Icon(Icons.refresh_rounded, color: p.muted)),
           ]),
           if (problem != null) ...<Widget>[
-            const SizedBox(height: 8),
-            _StatusPill(label: problem, active: false),
+            const SizedBox(height: 12),
+            KagoPill(problem, color: p.danger, dot: true),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
+          // The hero of usekago.net: state, the power button and the live
+          // counters in one card.
+          SurfaceCard(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(children: <Widget>[
+                Row(children: <Widget>[
+                  StatusDot(
+                      color: starting
+                          ? p.warning
+                          : connected
+                              ? p.success
+                              : p.hint),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                        Text(state,
+                            style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: KaGoWeight.heading,
+                                color: p.text)),
+                        Text(hint,
+                            style: TextStyle(fontSize: 12, color: p.muted)),
+                      ])),
+                ]),
+                const SizedBox(height: 20),
+                _PowerButton(
+                    connected: connected,
+                    busy: starting || ref.watch(desktopVpnBusyProvider),
+                    onPressed: () => toggleVpn(context, ref, androidConnected)),
+                const SizedBox(height: 20),
+                _TrafficMetrics(active: connected),
+              ])),
+          const SizedBox(height: 12),
           _SubscriptionCard(
               profile: profile.valueOrNull,
               busy: ref.watch(_subscriptionRefreshingProvider),
               onAction: () =>
                   refreshSubscription(context, ref, profile.valueOrNull)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SurfaceCard(
-              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
               onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
               child: groups.when(
                 data: (items) {
@@ -90,8 +130,8 @@ class DashboardScreen extends ConsumerWidget {
                   final delay = _delayText(
                       items, ref.watch(proxyDelaysProvider), connected);
                   return Row(children: <Widget>[
-                    const _CardIcon(icon: Icons.public_rounded),
-                    const SizedBox(width: 12),
+                    const IconChip(Icons.public_rounded),
+                    const SizedBox(width: 14),
                     Expanded(
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,8 +142,10 @@ class DashboardScreen extends ConsumerWidget {
                           Text(node ?? group?.name ?? tr('Войдите в аккаунт'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 15, fontWeight: FontWeight.w700)),
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: KaGoWeight.extraBold,
+                                  color: p.text)),
                           if (group != null)
                             Text(
                                 node != null
@@ -117,7 +159,7 @@ class DashboardScreen extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(fontSize: 12, color: p.muted)),
                         ])),
-                    Icon(Icons.chevron_right_rounded, color: p.muted),
+                    Icon(Icons.chevron_right_rounded, color: p.hint),
                   ]);
                 },
                 loading: () => const LinearProgressIndicator(minHeight: 2),
@@ -129,42 +171,8 @@ class DashboardScreen extends ConsumerWidget {
                             'Контроллер недоступен — проверьте адрес в настройках.'),
                     style: TextStyle(color: p.muted, fontSize: 12)),
               )),
-          const SizedBox(height: 18),
-          Center(
-              child: _PowerButton(
-                  connected: connected,
-                  busy: starting || ref.watch(desktopVpnBusyProvider),
-                  onPressed: () => toggleVpn(context, ref, androidConnected))),
-          const SizedBox(height: 10),
-          Text(
-              starting
-                  ? tr('Подключение…')
-                  : connected
-                      ? tr('Подключено')
-                      : tr('Не подключено'),
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-          if (connected && !guestActive && ref.watch(anonymousActiveProvider))
-            Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(tr('Анонимный режим'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: p.muted, fontSize: 12))),
-          if (guestNeeded || (connected && guestActive)) ...<Widget>[
-            const SizedBox(height: 4),
-            Text(
-                connected
-                    ? tr(
-                        'Бесплатный доступ: через VPN работает только Telegram')
-                    : tr('Без подписки — бесплатный доступ к Telegram'),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: p.muted, fontSize: 12)),
-          ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           _IpCard(connected: connected),
-          const SizedBox(height: 10),
-          _TrafficMetrics(active: connected),
         ]);
   }
 
@@ -442,33 +450,6 @@ class DashboardScreen extends ConsumerWidget {
 /// The subscription is being reloaded (the card's button shows progress).
 final _subscriptionRefreshingProvider = StateProvider<bool>((ref) => false);
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.active});
-  final String label;
-  final bool active;
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-      decoration: BoxDecoration(
-          color: context.kago.surface,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: context.kago.border)),
-      child: Row(children: <Widget>[
-        Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-                color: active ? context.kago.accent : context.kago.warning,
-                shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: context.kago.muted, fontSize: 12)))
-      ]));
-}
-
 class _SubscriptionCard extends StatelessWidget {
   const _SubscriptionCard(
       {required this.profile, required this.busy, required this.onAction});
@@ -497,10 +478,10 @@ class _SubscriptionCard extends StatelessWidget {
                 })}';
     }
     return SurfaceCard(
-        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
         child: Row(children: <Widget>[
-          const _CardIcon(icon: Icons.data_usage_rounded),
-          const SizedBox(width: 12),
+          const IconChip(Icons.data_usage_rounded),
+          const SizedBox(width: 14),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,7 +489,10 @@ class _SubscriptionCard extends StatelessWidget {
                 Text(profile?.name ?? tr('Нет подписки'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: KaGoWeight.extraBold,
+                        color: context.kago.text)),
                 const SizedBox(height: 2),
                 Text(details,
                     maxLines: 2,
@@ -556,21 +540,8 @@ String? _delayText(
   return null;
 }
 
-/// Small tinted icon square used by the dashboard cards.
-class _CardIcon extends StatelessWidget {
-  const _CardIcon({required this.icon});
-  final IconData icon;
-  @override
-  Widget build(BuildContext context) => Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-          color: context.kago.accentSoft,
-          borderRadius: BorderRadius.circular(12)),
-      child: Icon(icon, size: 21, color: context.kago.accent));
-}
-
-/// The round on/off button with a soft ring.
+/// The round on/off button: the brand blue in a soft ring of the same hue
+/// (the site's primary / primary-tint pair), red while connected.
 class _PowerButton extends StatelessWidget {
   const _PowerButton(
       {required this.connected, required this.busy, required this.onPressed});
@@ -581,38 +552,45 @@ class _PowerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
+    final tone = connected ? p.danger : p.brand;
     return SizedBox(
-        width: 148,
-        height: 148,
+        width: 152,
+        height: 152,
         child: Stack(alignment: Alignment.center, children: <Widget>[
           Container(
               decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: p.accent.withValues(alpha: .07),
-                  border: Border.all(color: p.accent.withValues(alpha: .22)))),
+                  color: tone.withValues(alpha: .08),
+                  border: Border.all(color: tone.withValues(alpha: .20)))),
+          Container(
+              width: 128,
+              height: 128,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: tone.withValues(alpha: .14),
+                  border: Border.all(color: tone.withValues(alpha: .28)))),
           SizedBox(
-            width: 116,
-            height: 116,
+            width: 108,
+            height: 108,
             child: FilledButton(
                 onPressed: onPressed,
                 style: FilledButton.styleFrom(
                     shape: const CircleBorder(),
                     padding: EdgeInsets.zero,
-                    backgroundColor: connected ? p.danger : p.brand,
+                    backgroundColor: tone,
                     foregroundColor: Colors.white,
-                    side: BorderSide(
-                        color: p.accent.withValues(alpha: .55), width: 2)),
+                    elevation: 0),
                 child: busy
                     ? const SizedBox(
-                        width: 34,
-                        height: 34,
+                        width: 32,
+                        height: 32,
                         child: CircularProgressIndicator(
                             strokeWidth: 3, color: Colors.white))
                     : Icon(
                         connected
                             ? Icons.stop_rounded
                             : Icons.power_settings_new_rounded,
-                        size: 46)),
+                        size: 44)),
           ),
         ]));
   }
@@ -654,19 +632,13 @@ class _IpCard extends ConsumerWidget {
       if (info?.isp != null) info!.isp!,
     ].join(' · ');
     return SurfaceCard(
-        padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+        padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
         child: Row(children: <Widget>[
-          Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                  color: context.kago.accentSoft,
-                  borderRadius: BorderRadius.circular(12)),
-              alignment: Alignment.center,
+          IconChip(Icons.public_rounded,
               child: info != null && info.flag.isNotEmpty && !hidden
                   ? Text(info.flag, style: const TextStyle(fontSize: 22))
-                  : Icon(Icons.public_rounded, color: context.kago.accent)),
-          const SizedBox(width: 12),
+                  : null),
+          const SizedBox(width: 14),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -677,7 +649,7 @@ class _IpCard extends ConsumerWidget {
                 SelectableText(address,
                     style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: KaGoWeight.extraBold,
                         color:
                             failed ? context.kago.muted : context.kago.text)),
                 if (details.isNotEmpty && !hidden)
@@ -727,34 +699,42 @@ class _TrafficMetrics extends ConsumerWidget {
         ? ref.watch(connectionsSnapshotProvider).asData?.value
         : null;
     return RepaintBoundary(
-        child: Row(children: <Widget>[
-      Expanded(
-          child: _MetricCard(
-              icon: Icons.arrow_downward_rounded,
-              label: tr('Загрузка'),
-              value: traffic == null ? '—' : formatSpeed(traffic.downloadSpeed),
-              caption: traffic == null
-                  ? null
-                  : tr('всего {v}', <String, Object?>{
-                      'v': formatBytes(traffic.downloadTotal)
-                    }))),
-      const SizedBox(width: 10),
-      Expanded(
-          child: _MetricCard(
-              icon: Icons.arrow_upward_rounded,
-              label: tr('Отдача'),
-              value: traffic == null ? '—' : formatSpeed(traffic.uploadSpeed),
-              caption: traffic == null
-                  ? null
-                  : tr('всего {v}', <String, Object?>{
-                      'v': formatBytes(traffic.uploadTotal)
-                    }))),
-    ]));
+        child: InsetTile(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(children: <Widget>[
+              Expanded(
+                  child: _Metric(
+                      icon: Icons.arrow_downward_rounded,
+                      label: tr('Загрузка'),
+                      value: traffic == null
+                          ? '—'
+                          : formatSpeed(traffic.downloadSpeed),
+                      caption: traffic == null
+                          ? null
+                          : tr('всего {v}', <String, Object?>{
+                              'v': formatBytes(traffic.downloadTotal)
+                            }))),
+              Container(width: 1, height: 34, color: context.kago.border),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: _Metric(
+                      icon: Icons.arrow_upward_rounded,
+                      label: tr('Отдача'),
+                      value: traffic == null
+                          ? '—'
+                          : formatSpeed(traffic.uploadSpeed),
+                      caption: traffic == null
+                          ? null
+                          : tr('всего {v}', <String, Object?>{
+                              'v': formatBytes(traffic.uploadTotal)
+                            }))),
+            ])));
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard(
+/// One counter of the hero card (`.hero__metric`).
+class _Metric extends StatelessWidget {
+  const _Metric(
       {required this.icon,
       required this.label,
       required this.value,
@@ -764,24 +744,13 @@ class _MetricCard extends StatelessWidget {
   final String value;
   final String? caption;
   @override
-  Widget build(BuildContext context) => SurfaceCard(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Row(children: <Widget>[
-        Icon(icon, color: context.kago.accent, size: 20),
-        const SizedBox(width: 8),
+  Widget build(BuildContext context) => Row(children: <Widget>[
+        Icon(icon, color: context.kago.accent, size: 18),
+        const SizedBox(width: 10),
         Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-              Text(value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w700)),
-              Text(caption == null ? label : '$label · $caption',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: context.kago.muted))
-            ])),
-      ]));
+            child: MetricValue(
+                value: value,
+                label: caption == null ? label : '$label · $caption',
+                size: 18)),
+      ]);
 }

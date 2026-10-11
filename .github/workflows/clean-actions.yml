@@ -1,0 +1,84 @@
+name: Чистка Actions
+
+# Хранилище Actions не бесконечно: сборки веток и релизов копятся, и старые
+# запуски (с их артефактами и логами) занимают место, а история становится
+# нечитаемой. Раз в неделю удаляются завершённые запуски старше N дней
+# (по умолчанию 30). Запуски, которые ещё идут, не трогаются.
+# Идея взята из FlClashX (.github/workflows/clean-actions.yaml).
+run-name: Чистка Actions (старше ${{ inputs.days || '30' }} дн.)
+
+on:
+  schedule:
+    - cron: '0 3 * * 0' # каждое воскресенье, 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Удалять завершённые запуски старше N дней'
+        default: '30'
+        type: string
+      keep_release:
+        description: 'Не удалять запуски workflow «Release»'
+        default: true
+        type: boolean
+
+# Только права на Actions: ни кода, ни релизов эта задача не касается.
+permissions:
+  actions: write
+
+concurrency:
+  group: clean-actions
+  cancel-in-progress: false
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Удалить старые запуски
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DAYS: ${{ inputs.days || '30' }}
+          # История релизных запусков — единственная запись о том, чем собран
+          # опубликованный файл, поэтому по умолчанию она сохраняется. При
+          # запуске по расписанию inputs пусты, поэтому значение по умолчанию
+          # задаётся в скрипте: сравнивать пустое с false в выражениях GitHub
+          # нельзя (пустое приводится к false и условие срабатывает).
+          KEEP_RELEASE_INPUT: ${{ inputs.keep_release }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$DAYS" =~ ^[0-9]+$ ]]; then
+            echo "::error::«Старше N дней» должно быть числом, получено: $DAYS" >&2
+            exit 1
+          fi
+          KEEP_RELEASE=true
+          if [[ "${KEEP_RELEASE_INPUT:-}" == "false" ]]; then KEEP_RELEASE=false; fi
+          CUTOFF="$(date -u -d "-$DAYS days" +%s)"
+          echo "Удаляются завершённые запуски, созданные до $(date -u -d "@$CUTOFF") (старше $DAYS дн.)."
+          if [[ "$KEEP_RELEASE" == "true" ]]; then
+            echo 'Запуски workflow «Release» сохраняются.'
+          fi
+
+          gh api --paginate "/repos/$REPO/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] | select(.status == "completed") | [.id, .created_at, .name] | @tsv' \
+            > runs.tsv
+
+          deleted=0; kept=0; failed=0
+          while IFS=$'\t' read -r id created name; do
+            [[ -z "${id:-}" ]] && continue
+            if [[ "$KEEP_RELEASE" == "true" && "$name" == "Release" ]]; then
+              kept=$((kept + 1)); continue
+            fi
+            if [[ "$(date -u -d "$created" +%s)" -lt "$CUTOFF" ]]; then
+              if gh api -X DELETE "/repos/$REPO/actions/runs/$id" > /dev/null 2>&1; then
+                echo "удалён запуск $id ($created, $name)"
+                deleted=$((deleted + 1))
+              else
+                echo "::warning::Не удалось удалить запуск $id ($created, $name)"
+                failed=$((failed + 1))
+              fi
+            fi
+          done < runs.tsv
+
+          echo "Удалено запусков: $deleted; сохранено релизных: $kept; ошибок: $failed." \
+            | tee -a "$GITHUB_STEP_SUMMARY"

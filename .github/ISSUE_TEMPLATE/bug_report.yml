@@ -1,0 +1,89 @@
+name: Багрепорт / Bug report
+title: '[BUG] '
+description: Сообщите об ошибке в KaGo VPN / Report a problem you are experiencing
+labels: ['bug']
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Перед тем как создать обращение, проверьте:
+        1. Заголовок короткий и понятный — чтобы другие могли найти такую же ошибку.
+        2. Среди [существующих обращений](https://github.com/ifdef2635/kago_vpn_app/issues?q=is%3Aissue) такой ошибки ещё нет (иначе напишите в ней).
+        3. У вас последняя версия: «Настройки → Обновление» или [страница релизов](https://github.com/ifdef2635/kago_vpn_app/releases/latest).
+        4. Описание заполнено по шаблону — без шагов воспроизведения и логов ошибку почти невозможно найти.
+        ## Before submitting, please check:
+        1. The title is short and clear, so others can find the same problem.
+        2. There is no [existing issue](https://github.com/ifdef2635/kago_vpn_app/issues?q=is%3Aissue) about it (comment there instead).
+        3. You are on the latest version (Settings → Update, or the [releases page](https://github.com/ifdef2635/kago_vpn_app/releases/latest)).
+        4. The template is filled in — without reproduction steps and logs the problem is very hard to track down.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание проблемы / Describe the bug
+      description: Что происходит и что ожидалось вместо этого; по возможности приложите скриншот / What happens and what you expected instead; add a screenshot if you can
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Версия KaGo VPN / KaGo VPN version
+      description: 'Как в «Настройки → О приложении», например: 2.0.3 / As shown in Settings → About, e.g. 2.0.3'
+      placeholder: '2.0.3'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Операционная система / OS
+      options:
+        - Windows
+        - Android
+        - macOS
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: Версия системы и устройство / OS version and device
+      placeholder: 'Windows 11 24H2 / Android 14, Xiaomi 13 / macOS 15.1, MacBook Air M2'
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести / To reproduce
+      description: Пошагово — что нажать, чтобы ошибка повторилась / Step by step, what to do to see the problem
+      placeholder: |
+        1. Войти в «Кабинет»
+        2. Включить «Весь трафик через VPN (TUN)»
+        3. Нажать «Подключиться»
+        4. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Режим подключения / Connection mode
+      options:
+        - Обычный / Normal
+        - Анонимный / Anonymous
+        - Гостевой доступ к Telegram / Telegram guest access
+        - Не знаю / Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи (вставьте текстом, не файлом) / Logs (paste as text, not as a file)
+      description: '«Настройки → Логи»: скопируйте строки за время ошибки. Уберите из них подписку, токены и адреса своих серверов / Settings → Logs: copy the lines from when the problem happened, and remove your subscription link, tokens and server addresses'
+      render: shell
+    validations:
+      required: false

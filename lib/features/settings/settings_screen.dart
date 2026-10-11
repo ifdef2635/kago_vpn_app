@@ -554,29 +554,35 @@ class _SettingsGroup extends StatelessWidget {
           children: <Widget>[
             Padding(
                 padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
-                child: Text(title,
+                child: Text(title.toUpperCase(),
                     style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: .3,
+                        fontSize: 11.5,
+                        fontWeight: KaGoWeight.extraBold,
+                        letterSpacing: .8,
                         color: context.kago.accent))),
-            Material(
-                color: context.kago.surface,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    side: BorderSide(color: context.kago.border)),
-                clipBehavior: Clip.antiAlias,
-                child: Column(children: <Widget>[
-                  for (var i = 0; i < children.length; i++) ...<Widget>[
-                    if (i > 0)
-                      Divider(
-                          height: 1,
-                          indent: 68,
-                          endIndent: 16,
-                          color: context.kago.border),
-                    children[i],
-                  ],
-                ])),
+            DecoratedBox(
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(KaGoRadius.lg),
+                    boxShadow: Theme.of(context).brightness == Brightness.light
+                        ? context.kagoCardShadow
+                        : null),
+                child: Material(
+                    color: context.kago.surface,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(KaGoRadius.lg),
+                        side: BorderSide(color: context.kago.border)),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(children: <Widget>[
+                      for (var i = 0; i < children.length; i++) ...<Widget>[
+                        if (i > 0)
+                          Divider(
+                              height: 1,
+                              indent: 72,
+                              endIndent: 16,
+                              color: context.kago.borderLight),
+                        children[i],
+                      ],
+                    ]))),
           ]));
 }
 
@@ -601,28 +607,24 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final end = trailing ??
         (onTap != null
-            ? Icon(Icons.chevron_right_rounded, color: context.kago.muted)
+            ? Icon(Icons.chevron_right_rounded, color: context.kago.hint)
             : null);
     return InkWell(
         onTap: onTap,
         child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(children: <Widget>[
-              Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                      color: context.kago.accentSoft,
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, size: 20, color: context.kago.accent)),
+              IconChip(icon),
               const SizedBox(width: 14),
               Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                     Text(title,
-                        style: const TextStyle(
-                            fontSize: 14.5, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: KaGoWeight.bold,
+                            color: context.kago.text)),
                     if (subtitleWidget != null || subtitle != null)
                       Padding(
                           padding: const EdgeInsets.only(top: 3),

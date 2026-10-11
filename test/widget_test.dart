@@ -44,7 +44,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('KaGo VPN'), findsOneWidget);
+    // The site's wordmark (KagoWordmark) instead of the old «KaGo VPN».
+    expect(find.text('KAGO.'), findsOneWidget);
     expect(find.text('Серверы'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     // Connections moved to Settings → Tools, as in FlClashX.

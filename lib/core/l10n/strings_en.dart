@@ -295,6 +295,9 @@ const stringsEn = <String, String>{
   'Закрыть все': 'Close all',
   'Закрыть соединение': 'Close connection',
   'Интернет без границ': 'Internet without borders',
+  'Весь трафик идёт через выбранный сервер':
+      'All traffic goes through the chosen server',
+  'Нажмите, чтобы включить защиту': 'Tap to turn protection on',
   'Обновить': 'Refresh',
   'Разрешение VPN отозвано': 'VPN permission revoked',
   'Не удалось запустить Android VPN': 'Could not start Android VPN',

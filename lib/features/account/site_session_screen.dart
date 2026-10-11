@@ -373,8 +373,8 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
                   popupOpen ? Icons.arrow_back_rounded : Icons.close_rounded)),
           title: Text(
               _login ? tr('Вход через Telegram') : tr('Кабинет на сайте'),
-              style:
-                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  fontSize: 17, fontWeight: KaGoWeight.extraBold)),
           actions: <Widget>[
             if (!_login && !popupOpen)
               TextButton(
@@ -552,7 +552,7 @@ class _TelegramCover extends StatelessWidget {
                 Text(tr('Вход через Telegram'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.w800)),
+                        fontSize: 24, fontWeight: KaGoWeight.heading)),
                 const SizedBox(height: 10),
                 Text(tr('Подтвердите вход в Telegram — пароль не нужен. Аккаунт KAGO и подписка подключатся автоматически.'),
                     textAlign: TextAlign.center,
@@ -584,7 +584,8 @@ class _TelegramCover extends StatelessWidget {
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                       color: p.danger.withValues(alpha: .1),
-                                      borderRadius: BorderRadius.circular(14)),
+                                      borderRadius:
+                                          BorderRadius.circular(KaGoRadius.md)),
                                   child: Text(error!,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
@@ -600,7 +601,7 @@ class _TelegramCover extends StatelessWidget {
                                     shape: const StadiumBorder(),
                                     textStyle: const TextStyle(
                                         fontSize: 16,
-                                        fontWeight: FontWeight.w700)),
+                                        fontWeight: KaGoWeight.extraBold)),
                                 onPressed: onContinue,
                                 icon: const Icon(Icons.telegram, size: 24),
                                 label: Text(tr('Продолжить с Telegram')),
@@ -665,9 +666,9 @@ class _PairedMarks extends StatelessWidget {
                 telegramBlue)),
         Positioned(
             right: 0,
-            // The logo's own dark tile, so its corners blend into the circle.
+            // The mark's own navy tile, so its corners blend into the circle.
             child: circle(
-                const KagoLogo(size: size * .6), const Color(0xFF0B0E18),
+                const KagoLogo(size: size * .6), const Color(0xFF1A4780),
                 outline: p.border)),
       ]),
     );

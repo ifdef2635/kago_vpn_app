@@ -10,6 +10,7 @@ import '../../core/desktop/windows_tray.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/models/mihomo_models.dart';
 import '../../core/network/app_providers.dart';
+import '../../core/theme/kago_theme.dart';
 import '../../core/update/app_updater.dart';
 
 /// The newer release on GitHub, or null when this version is the latest.
@@ -268,7 +269,7 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
                   'Windows заблокировала установщик: включено «Интеллектуальное управление приложениями» (Smart App Control), а у установщика KaGo VPN пока нет цифровой подписи.')),
               const SizedBox(height: 12),
               Text(tr('Как установить обновление:'),
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                  style: const TextStyle(fontWeight: KaGoWeight.extraBold)),
               const SizedBox(height: 4),
               Text(tr(
                   '1. Нажмите «Открыть настройки» — откроется «Безопасность Windows» → «Управление приложениями и браузером» → «Интеллектуальное управление приложениями».\n2. Выберите «Выкл.».\n3. Вернитесь сюда и нажмите «Установить».')),

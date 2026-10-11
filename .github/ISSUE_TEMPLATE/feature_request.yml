@@ -1,0 +1,51 @@
+name: Запрос функционала / Feature request
+title: '[Feature] '
+description: Предложите новую возможность / Propose a new feature
+labels: ['enhancement']
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Перед тем как создать обращение, проверьте:
+        1. Заголовок короткий и понятный.
+        2. Среди [существующих обращений](https://github.com/ifdef2635/kago_vpn_app/issues?q=is%3Aissue) такого предложения ещё нет.
+        3. Описано, зачем это нужно, а не только что сделать.
+        ## Before submitting, please check:
+        1. The title is short and clear.
+        2. There is no [existing issue](https://github.com/ifdef2635/kago_vpn_app/issues?q=is%3Aissue) with the same idea.
+        3. You explain why it is needed, not only what to build.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание возможности / Feature description
+      description: Что должно появиться в приложении / What should the app do
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Зачем это нужно / Use case
+      description: Какую задачу это решает и как вы пользуетесь приложением сейчас / What problem it solves and how you work around it today
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: os
+    attributes:
+      label: Системы / Target OS
+      description: Отметьте хотя бы одну / Select at least one
+      options:
+        - label: Windows
+        - label: Android
+        - label: macOS
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Как это сделано в других клиентах / How other clients do it
+      description: Например FlClash / FlClashX / Clash Verge — если там это есть, напишите, где искать / If another client already has it, say where to look
+    validations:
+      required: false

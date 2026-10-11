@@ -363,91 +363,101 @@ class _GroupSection extends ConsumerWidget {
     final testing = group.nodes.any((node) => pending.contains(node.name));
     final selected = group.selected;
     final p = context.kago;
-    return Material(
-      color: p.surface,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: p.border)),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: <Widget>[
-        InkWell(
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-            child: Row(children: <Widget>[
-              if (group.icon != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _GroupIcon(url: group.icon!),
-                ),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(group.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 15.5, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 3),
-                      Text(_groupDetail(group.type, selected),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12.5, color: p.muted)),
-                    ]),
+    final radius = BorderRadius.circular(KaGoRadius.lg);
+    return DecoratedBox(
+        decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: Theme.of(context).brightness == Brightness.light
+                ? context.kagoCardShadow
+                : null),
+        child: Material(
+          color: p.surface,
+          shape: RoundedRectangleBorder(
+              borderRadius: radius, side: BorderSide(color: p.border)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: <Widget>[
+            InkWell(
+              onTap: onToggle,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                child: Row(children: <Widget>[
+                  if (group.icon != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: _GroupIcon(url: group.icon!),
+                    ),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(group.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: KaGoWeight.heading,
+                                  letterSpacing: -.2,
+                                  color: p.text)),
+                          const SizedBox(height: 3),
+                          Text(_groupDetail(group.type, selected),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12.5, color: p.muted)),
+                        ]),
+                  ),
+                  if (group.nodes.any(_testable))
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: testing
+                          ? const Padding(
+                              padding: EdgeInsets.all(11),
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : IconButton(
+                              tooltip: tr('Проверить задержку'),
+                              padding: EdgeInsets.zero,
+                              onPressed: online && pending.isEmpty
+                                  ? () => _testDelays(
+                                      ref,
+                                      group.nodes
+                                          .where(_testable)
+                                          .map((node) => node.name)
+                                          .toList(growable: false),
+                                      guest: guest,
+                                      url: group.testUrl)
+                                  : null,
+                              icon: const Icon(Icons.network_ping_rounded,
+                                  size: 21)),
+                    ),
+                  const SizedBox(width: 4),
+                  IconButton.filledTonal(
+                      tooltip: expanded ? tr('Свернуть') : tr('Развернуть'),
+                      style: IconButton.styleFrom(
+                          backgroundColor: p.accentSoft,
+                          foregroundColor: p.accent),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints.tightFor(width: 40, height: 40),
+                      onPressed: onToggle,
+                      icon: AnimatedRotation(
+                          turns: expanded ? .5 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: const Icon(Icons.expand_more_rounded))),
+                ]),
               ),
-              if (group.nodes.any(_testable))
-                SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: testing
-                      ? const Padding(
-                          padding: EdgeInsets.all(11),
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : IconButton(
-                          tooltip: tr('Проверить задержку'),
-                          padding: EdgeInsets.zero,
-                          onPressed: online && pending.isEmpty
-                              ? () => _testDelays(
-                                  ref,
-                                  group.nodes
-                                      .where(_testable)
-                                      .map((node) => node.name)
-                                      .toList(growable: false),
-                                  guest: guest,
-                                  url: group.testUrl)
-                              : null,
-                          icon:
-                              const Icon(Icons.network_ping_rounded, size: 21)),
-                ),
-              const SizedBox(width: 4),
-              IconButton.filledTonal(
-                  tooltip: expanded ? tr('Свернуть') : tr('Развернуть'),
-                  style: IconButton.styleFrom(
-                      backgroundColor: p.accentSoft, foregroundColor: p.accent),
-                  padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints.tightFor(width: 40, height: 40),
-                  onPressed: onToggle,
-                  icon: AnimatedRotation(
-                      turns: expanded ? .5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: const Icon(Icons.expand_more_rounded))),
-            ]),
-          ),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: expanded
-              ? Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                  child: _grid(context, ref, delays, pending))
-              : const SizedBox(width: double.infinity),
-        ),
-      ]),
-    );
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                      child: _grid(context, ref, delays, pending))
+                  : const SizedBox(width: double.infinity),
+            ),
+          ]),
+        ));
   }
 
   Widget _grid(BuildContext context, WidgetRef ref, Map<String, int> delays,
@@ -621,14 +631,14 @@ class _NodeCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
           color: selected ? p.accentSoft : p.surfaceRaised,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(KaGoRadius.md),
           border: Border.all(
-              color: selected ? p.accent.withValues(alpha: .6) : p.border)),
+              color: selected ? p.accentTint : p.borderLight, width: 2)),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(KaGoRadius.md),
           child: Stack(children: <Widget>[
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 10, 9),
@@ -644,7 +654,7 @@ class _NodeCard extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 13.5,
                               height: 1.25,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: KaGoWeight.bold,
                               color: selected ? p.accent : p.text)),
                     ),
                     const SizedBox(height: 8),
@@ -716,14 +726,14 @@ class _DelayLabel extends StatelessWidget {
               : p.danger;
       label = Text(tr('{value} мс', <String, Object?>{'value': value}),
           style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w700, color: color));
+              fontSize: 12, fontWeight: KaGoWeight.bold, color: color));
     }
     if (onTest == null) return label;
     return Tooltip(
       message: tr('Проверить задержку'),
       child: InkWell(
           onTap: onTest,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               child: label)),
@@ -738,13 +748,17 @@ class _GroupIcon extends StatelessWidget {
   final String url;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 36,
-        height: 36,
+  Widget build(BuildContext context) => Container(
+        width: 42,
+        height: 42,
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+            color: context.kago.accentSoft,
+            borderRadius: BorderRadius.circular(KaGoRadius.button)),
         child: Image.network(url,
             fit: BoxFit.contain,
             // Icons are small; do not keep a full-size image in memory.
-            cacheWidth: (36 * MediaQuery.devicePixelRatioOf(context)).round(),
+            cacheWidth: (42 * MediaQuery.devicePixelRatioOf(context)).round(),
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
                 AnimatedOpacity(
                     opacity: wasSynchronouslyLoaded || frame != null ? 1 : 0,

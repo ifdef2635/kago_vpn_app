@@ -12,16 +12,6 @@ const stringsEn = <String, String>{
   'МБ': 'MB',
   'ГБ': 'GB',
   'ТБ': 'TB',
-  'Проверка Android core доступна только на Android.':
-      'The Android core check is only available on Android.',
-  'В этой сборке не найден native Mihomo. Android .so должен входить в подписанный APK/AAB.':
-      'No native Mihomo in this build. The Android .so must be part of the signed APK/AAB.',
-  'Версия встроенного Mihomo не распознана: {installed}':
-      'Unrecognized embedded Mihomo version: {installed}',
-  'Доступен Mihomo {version}. На Android ядро обновляется вместе с новой KaGo VPN сборкой.':
-      'Mihomo {version} is available. On Android the core is updated with a new KaGo VPN build.',
-  'Встроенный Mihomo {installed} актуален.':
-      'Embedded Mihomo {installed} is up to date.',
   'Сервис не вернул IP-адрес.': 'The service did not return an IP address.',
   'ipwho.is: отказ.': 'ipwho.is: request refused.',
   'Неожиданный ответ сервиса IP.': 'Unexpected response from the IP service.',
@@ -326,10 +316,6 @@ const stringsEn = <String, String>{
   'У этой группы нет доступных узлов.': 'This group has no available nodes.',
   'Таймаут': 'Timeout',
   '{value} мс': '{value} ms',
-  'Проверяется…': 'Checking…',
-  'Mihomo ещё не установлен: он скачается автоматически в %APPDATA%\\KaGo\\core.':
-      'Mihomo is not installed yet: it will be downloaded automatically to %APPDATA%\\KaGo\\core.',
-  'Установлен Mihomo {version}.': 'Mihomo {version} installed.',
   'Внешний вид': 'Appearance',
   'Тема': 'Theme',
   'Авто': 'Auto',
@@ -338,36 +324,16 @@ const stringsEn = <String, String>{
   'Чисто чёрный фон': 'Pure black background',
   'Тёмная тема для OLED-дисплеев': 'Dark theme for OLED displays',
   'Подключение': 'Connection',
-  'Адрес контроллера': 'Controller address',
   'Режим подключения': 'Connection mode',
-  'Путь к Mihomo': 'Mihomo path',
-  'Не задан. Укажите путь к бинарнику Mihomo.':
-      'Not set. Specify the path to the Mihomo binary.',
   'Логи Mihomo': 'Mihomo logs',
   'О приложении': 'About',
   'Лицензии': 'Licenses',
   'Блокировать интернет без VPN': 'Block the internet without VPN',
   'Откройте «Настройки → Сеть → VPN» и включите для KaGo VPN «Постоянная VPN».':
       'Open “Settings → Network → VPN” and turn on “Always-on VPN” for KaGo VPN.',
-  '{windowsCoreStatus} Остановите ядро, чтобы обновить.':
-      '{windowsCoreStatus} Stop the core to update.',
-  'Проверка версии встроенного Mihomo…':
-      'Checking the embedded Mihomo version…',
-  'Не удалось проверить upstream release: {error}':
-      'Could not check the upstream release: {error}',
-  'Mihomo · внешний бинарник': 'Mihomo · external binary',
-  'HTTPS или локальный HTTP. Secret создаётся автоматически.':
-      'HTTPS or local HTTP. The secret is generated automatically.',
-  'Полный путь к исполняемому файлу Mihomo.':
-      'Full path to the Mihomo executable.',
   'Логов пока нет. Они появятся при запуске или загрузке ядра.':
       'No logs yet. They appear when the core starts or downloads.',
   'Закрыть': 'Close',
-  'Проверяются и загружаются данные релиза Mihomo…':
-      'Checking and downloading Mihomo release data…',
-  'Установлен Mihomo {version}. Проверить обновление не удалось ({note}).':
-      'Mihomo {version} installed. Could not check for updates ({note}).',
-  'Обновление не выполнено: {error}': 'Update failed: {error}',
   'Корень конфигурации Mihomo должен быть YAML-объектом.':
       'The root of the Mihomo configuration must be a YAML object.',
   'В подписке не найдены proxies или proxy-providers.':
@@ -436,8 +402,6 @@ const stringsEn = <String, String>{
   'Вход через официальный сайт Telegram':
       'Signed in via the official Telegram website',
   'или по email': 'or with email',
-  'Дополнительно': 'Advanced',
-  'Для опытных пользователей': 'For advanced users',
   'Приложения без VPN': 'Apps without VPN',
   'Например, Яндекс Музыка, VK и банки':
       'For example Yandex Music, VK and banks',
@@ -461,10 +425,6 @@ const stringsEn = <String, String>{
   'Войдите в аккаунт KAGO — подписка подключится сама':
       'Sign in to your KAGO account and the subscription is added automatically',
   'Нет подписки': 'No subscription',
-  'Встроено в приложение: {version}. Обновляется вместе с KaGo VPN.':
-      'Built into the app: {version}. Updated together with KaGo VPN.',
-  'На Linux пока нужен внешний Mihomo. Встроенное ядро есть в версиях для Windows, macOS и Android.':
-      'Linux still needs an external Mihomo. The Windows, macOS and Android versions have a built-in core.',
   'Не удалось получить список сетей macOS: {error}':
       'Could not list macOS network services: {error}',
   'Не удалось включить системный прокси macOS: {error}. Нужна учётная запись администратора.':
@@ -583,7 +543,6 @@ const stringsEn = <String, String>{
   'Инструменты': 'Tools',
   'Какие сайты и приложения сейчас идут через ядро':
       'Sites and apps going through the core right now',
-  'Ядро и адрес контроллера': 'Core and controller address',
   'Режим': 'Mode',
   'По правилам': 'By rules',
   'Глобальный': 'Global',

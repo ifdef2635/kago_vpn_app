@@ -1,7 +1,7 @@
 name: kago_vpn
 description: KaGo VPN client for Mihomo (Clash.Meta), usekago.net.
 publish_to: none
-version: 2.4.0+20400
+version: 2.5.0+20500
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
@@ -11,6 +11,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
+  connectivity_plus: 6.1.5
   dio: ^5.8.0+1
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.5.3

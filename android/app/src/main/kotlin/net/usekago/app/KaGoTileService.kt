@@ -28,7 +28,7 @@ class KaGoTileService : TileService() {
         if (now - lastClick < DEBOUNCE_MS) return
         lastClick = now
 
-        if (KaGoVpnService.isConnected || KaGoVpnService.isStarting) {
+        if (KaGoVpnService.isConnected || KaGoVpnService.isStarting || KaGoVpnService.isRecovering) {
             startService(Intent(this, KaGoVpnService::class.java).setAction(KaGoVpnService.ACTION_STOP))
             showState(active = false)
             return
@@ -61,7 +61,7 @@ class KaGoTileService : TileService() {
         }
     }
 
-    private fun syncTile() = showState(KaGoVpnService.isConnected || KaGoVpnService.isStarting)
+    private fun syncTile() = showState(KaGoVpnService.isConnected || KaGoVpnService.isStarting || KaGoVpnService.isRecovering)
 
     private fun showState(active: Boolean) {
         val tile = qsTile ?: return

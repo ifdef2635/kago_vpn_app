@@ -10,6 +10,8 @@ import '../../core/desktop/windows_tray.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/models/mihomo_models.dart';
 import '../../core/network/app_providers.dart';
+import '../../core/network/android_vpn_events.dart';
+import '../../core/network/vpn_connection_controller.dart';
 import '../../core/theme/kago_theme.dart';
 import '../../core/update/app_updater.dart';
 
@@ -127,11 +129,20 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
       // the installer replaces the app and this process quits.
       if (!Platform.isAndroid) {
         await ref
-            .read(mihomoProcessProvider)
-            .stop()
+            .read(vpnConnectionControllerProvider)
+            .stopDesktop()
             .timeout(const Duration(seconds: 6))
-            .catchError((Object _) {});
+            .catchError((Object _) => false);
         ref.read(desktopCoreRunningProvider.notifier).state = false;
+      } else if (ref.read(vpnActiveProvider) ||
+          <String>[
+            'starting',
+            'recovering'
+          ].contains(ref.read(androidVpnEventProvider).valueOrNull?['state'])) {
+        await ref
+            .read(vpnConnectionControllerProvider)
+            .stopAndroid()
+            .catchError((Object _) {});
       }
       final result = await _updater.install(file);
       if (!mounted) return;

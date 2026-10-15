@@ -10,6 +10,7 @@ import '../../core/l10n/l10n.dart';
 import '../../core/models/mihomo_models.dart';
 import '../../core/network/android_vpn_events.dart';
 import '../../core/network/app_providers.dart';
+import '../../core/network/desktop_recovery.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -147,7 +148,11 @@ class AccountScreen extends ConsumerWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
-    if (ref.read(vpnActiveProvider)) {
+    if (ref.read(vpnActiveProvider) ||
+        (Platform.isAndroid &&
+            <String>['starting', 'recovering'].contains(
+                ref.read(androidVpnEventProvider).valueOrNull?['state'])) ||
+        (!Platform.isAndroid && ref.read(desktopRecoveryProvider).desired)) {
       await DashboardScreen.toggleVpn(context, ref, true);
       await DashboardScreen.waitForVpn(ref, false,
           timeout: const Duration(seconds: 8));

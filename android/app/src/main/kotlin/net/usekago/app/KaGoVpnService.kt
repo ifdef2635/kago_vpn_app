@@ -3,6 +3,7 @@ package net.usekago.app
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -199,9 +200,15 @@ class KaGoVpnService : VpnService() {
         if (stopStartId >= 0) stopSelf(stopStartId) else stopSelf()
     }
 
+    /**
+     * Also cancels the notification by id: it was last updated with notify(),
+     * and some OEM systems left "KaGo VPN connected" behind after
+     * stopForeground alone, with the VPN already off.
+     */
     @Suppress("DEPRECATION")
     private fun removeForegroundNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE) else stopForeground(true)
+        runCatching { getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID) }
     }
 
     override fun onRevoke() {
@@ -217,6 +224,10 @@ class KaGoVpnService : VpnService() {
         // On the core thread, after anything this instance queued, and before
         // the start of a new instance: start and stop never overlap.
         onCoreThread { stopCore() }
+        removeForegroundNotification()
+        // Destroyed by the system without a stop: tell the UI it is off
+        // (after a stop or an error this sends nothing, the message stays).
+        KaGoVpnEvents.resync()
         KaGoTileService.requestUpdate(this)
         super.onDestroy()
     }
@@ -261,11 +272,26 @@ class KaGoVpnService : VpnService() {
 
     private fun notification(text: String): Notification {
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID) else Notification.Builder(this)
+        val immutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        val open = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            immutable or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val stop = PendingIntent.getService(
+            this, 1,
+            Intent(this, KaGoVpnService::class.java).setAction(ACTION_STOP),
+            immutable or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        @Suppress("DEPRECATION")
+        val disconnect = Notification.Action.Builder(0, getString(R.string.vpn_disconnect), stop).build()
         return builder.setContentTitle("KaGo VPN")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_stat_kago)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
+            .setContentIntent(open)
+            .addAction(disconnect)
             .build()
     }
 

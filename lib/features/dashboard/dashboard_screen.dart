@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/mihomo_models.dart';
 import '../../core/network/android_vpn_events.dart';
+import '../../core/network/android_battery.dart';
 import '../../core/network/anonymous_mode.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/theme/app_widgets.dart';
@@ -250,6 +252,9 @@ class DashboardScreen extends ConsumerWidget {
           );
           await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>(
               'connect', <String, String>{'configPath': config.path});
+          // Once: without the exemption the system may stop the VPN in the
+          // background (asked after the VPN permission, not over it).
+          unawaited(AndroidBattery.askOnce());
           if (guest &&
               context.mounted &&
               await waitForVpn(ref, true,

@@ -65,6 +65,10 @@ class DesktopRecovery {
     Duration(minutes: 5),
   ];
 
+  static Duration delayForAttempt(int attempt,
+          [List<Duration> schedule = delays]) =>
+      schedule[attempt.clamp(0, schedule.length - 1)];
+
   StreamSubscription<int>? _exits;
   StreamSubscription<List<ConnectivityResult>>? _connectivity;
   Timer? _interfacesTimer;
@@ -271,9 +275,8 @@ class DesktopRecovery {
     _retryTimer?.cancel();
     ref.read(desktopRecoveryStatusProvider.notifier).state =
         RecoveryStatus.recovering;
-    final delay = immediate
-        ? Duration.zero
-        : retryDelays[_attempt.clamp(0, retryDelays.length - 1)];
+    final delay =
+        immediate ? Duration.zero : delayForAttempt(_attempt, retryDelays);
     if (!immediate) _attempt++;
     _retryTimer = Timer(delay, () {
       _inflight = _retry();

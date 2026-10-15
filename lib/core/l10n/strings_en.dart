@@ -576,4 +576,14 @@ const stringsEn = <String, String>{
   'Добавить на это устройство': 'Add to this device',
   'Не удалось добавить подписку на это устройство.':
       'Could not add the subscription to this device.',
+  'Работа в фоне': 'Background work',
+  'Android может остановить VPN в фоне. Нажмите и разрешите работу без ограничений.':
+      'Android may stop the VPN in the background. Tap and allow unrestricted use.',
+  'Без ограничений батареи: Android не останавливает VPN':
+      'No battery restrictions: Android does not stop the VPN',
+  'Ядро': 'Core',
+  'Перезапустить ядро': 'Restart core',
+  'Работает': 'Running',
+  'Остановлено': 'Stopped',
+  'Перезапуск…': 'Restarting…',
 };

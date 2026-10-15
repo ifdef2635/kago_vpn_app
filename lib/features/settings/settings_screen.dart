@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/device/device_identity.dart';
+import '../../core/network/android_battery.dart';
 import '../../core/network/anonymous_mode.dart';
 import '../../core/network/app_providers.dart';
 import '../../core/network/mihomo_macos.dart';
@@ -34,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _bypassRussian = false;
   bool _macTun = true;
   bool _windowsTun = true;
+  bool _restarting = false;
 
   @override
   void initState() {
@@ -144,6 +146,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () => showLicensePage(
                     context: context, applicationName: 'KaGo VPN')),
           ]),
+          _SettingsGroup(
+              title: tr('Ядро'), children: <Widget>[_restartCoreTile()]),
         ]);
   }
 
@@ -185,6 +189,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: Icon(Icons.open_in_new_rounded,
                   size: 20, color: context.kago.muted),
               onTap: _openVpnSettings),
+          _batteryTile(),
         ],
         if (Platform.isMacOS)
           _SettingsTile(
@@ -218,6 +223,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: tr('Режим подключения'),
               subtitle: tr('Системный прокси 127.0.0.1:7890')),
       ];
+
+  /// Battery optimization (Android): asked once at the first connection,
+  /// changed here later.
+  Widget _batteryTile() {
+    final free = ref.watch(androidBatteryUnrestrictedProvider).valueOrNull;
+    return _SettingsTile(
+        icon: Icons.battery_saver_outlined,
+        title: tr('Работа в фоне'),
+        subtitle: free == false
+            ? tr(
+                'Android может остановить VPN в фоне. Нажмите и разрешите работу без ограничений.')
+            : tr('Без ограничений батареи: Android не останавливает VPN'),
+        trailing: free == false
+            ? Icon(Icons.warning_amber_rounded, color: context.kago.warning)
+            : Icon(Icons.open_in_new_rounded,
+                size: 20, color: context.kago.muted),
+        onTap: AndroidBattery.request);
+  }
+
+  /// The last row, as in FlClashX: restarts the running core (stop, then
+  /// start with the saved profile).
+  Widget _restartCoreTile() {
+    final running = ref.watch(vpnActiveProvider);
+    final p = context.kago;
+    final (color, label) = _restarting
+        ? (p.warning, tr('Перезапуск…'))
+        : running
+            ? (p.success, tr('Работает'))
+            : (p.hint, tr('Остановлено'));
+    return _SettingsTile(
+        icon: Icons.memory_rounded,
+        title: tr('Перезапустить ядро'),
+        subtitleWidget: Row(children: <Widget>[
+          StatusDot(color: color, size: 8),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontSize: 12, color: p.muted)),
+        ]),
+        trailing: _restarting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : Icon(Icons.restart_alt_rounded,
+                color: running ? p.accent : p.hint),
+        onTap: running && !_restarting ? _restartCore : null);
+  }
+
+  Future<void> _restartCore() async {
+    setState(() => _restarting = true);
+    try {
+      await DashboardScreen.reconnect(context, ref);
+    } finally {
+      if (mounted) setState(() => _restarting = false);
+    }
+  }
 
   Future<void> _openVpnSettings() async {
     var opened = false;

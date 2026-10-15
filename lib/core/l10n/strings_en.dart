@@ -1,6 +1,16 @@
 /// English. Keys are the Russian source strings (see l10n.dart); a
 /// missing key falls back to Russian. `test/l10n_test.dart` checks coverage.
 const stringsEn = <String, String>{
+  'Восстанавливаем соединение': 'Restoring connection',
+  'Соединение прервалось. Повторяем подключение.':
+      'Connection interrupted. Trying again.',
+  'Профиль VPN удалён. Подключитесь вручную.':
+      'VPN profile is missing. Connect manually.',
+  'Подписка недействительна. Проверьте кабинет.':
+      'Subscription is no longer valid. Check your account.',
+  'Для TUN требуется ручное подключение.': 'TUN requires a manual connection.',
+  'Не удалось перезапустить установленную задачу TUN.':
+      'Could not restart the installed TUN task.',
   'Главная': 'Home',
   'Серверы': 'Servers',
   'Трафик': 'Traffic',
@@ -470,6 +480,10 @@ const stringsEn = <String, String>{
   'Позже': 'Later',
   'Установить': 'Install',
   'Понятно': 'Got it',
+  'Для восстановления TUN требуется пароль администратора. Подключитесь вручную.':
+      'Restoring TUN requires an administrator password. Connect manually.',
+  'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.':
+      'Restoring TUN requires administrator approval. Connect manually.',
   'Обновления': 'Updates',
   'Проверка…': 'Checking…',
   'Доступна версия {version} — нажмите, чтобы обновить':

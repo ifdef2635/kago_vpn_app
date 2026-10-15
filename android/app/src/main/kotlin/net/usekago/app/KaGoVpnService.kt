@@ -8,6 +8,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.IBinder
@@ -16,8 +20,13 @@ import org.json.JSONObject
 import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.HttpURLConnection
+import java.net.URI
+import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -28,10 +37,19 @@ class KaGoVpnService : VpnService() {
     // Set in onDestroy: a start still running on the core thread must not
     // leave the core up without the service (nothing could stop it then).
     @Volatile private var destroyed = false
+    @Volatile private var desired = false
+    private var recoveryAttempts = 0
+    private var recoveryTask: ScheduledFuture<*>? = null
+    private var healthTask: ScheduledFuture<*>? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var currentConfig: String? = null
+    private var expiresAt = 0L
+    private var guest = false
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        watchNetworks()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -39,11 +57,14 @@ class KaGoVpnService : VpnService() {
             ACTION_STOP -> {
                 // A later START (fast taps on the tile) supersedes this stop.
                 val request = requests.incrementAndGet()
+                desired = false
+                recoveryTask?.cancel(false)
+                healthTask?.cancel(false)
                 isStarting = false
                 onCoreThread { if (request == requests.get()) stopTunnel("disconnected", stopStartId = startId) }
                 return START_NOT_STICKY
             }
-            ACTION_START, null -> {
+            ACTION_START -> {
                 startForegroundCompat(notification(getString(R.string.vpn_preparing)))
                 val requestedPath = intent?.getStringExtra(EXTRA_CONFIG_PATH)
                 val configPath = requestedPath ?: getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_CONFIG_PATH, null)
@@ -54,12 +75,28 @@ class KaGoVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_CONFIG_PATH, configPath).apply()
+                val preferences = getSharedPreferences(PREFS, MODE_PRIVATE)
+                expiresAt = if (intent.hasExtra(EXTRA_EXPIRES_AT)) intent.getLongExtra(EXTRA_EXPIRES_AT, 0L)
+                    else preferences.getLong(KEY_EXPIRES_AT, 0L)
+                guest = if (intent.hasExtra(EXTRA_GUEST)) intent.getBooleanExtra(EXTRA_GUEST, false)
+                    else preferences.getBoolean(KEY_GUEST, false)
+                if (!guest && expiresAt > 0 && System.currentTimeMillis() >= expiresAt) {
+                    KaGoVpnEvents.emit("error", getString(R.string.vpn_subscription_expired))
+                    removeForegroundNotification()
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                preferences.edit().putLong(KEY_EXPIRES_AT, expiresAt).putBoolean(KEY_GUEST, guest).apply()
+                currentConfig = configPath
+                desired = true
+                recoveryAttempts = 0
+                recoveryTask?.cancel(false)
                 val request = requests.incrementAndGet()
                 isStarting = true
                 KaGoVpnEvents.emit("starting")
                 KaGoTileService.requestUpdate(this)
                 onCoreThread { if (request == requests.get()) startTunnel(configPath, request) }
-                return START_STICKY
+                return START_NOT_STICKY
             }
             else -> return START_NOT_STICKY
         }
@@ -69,12 +106,167 @@ class KaGoVpnService : VpnService() {
         runCatching { coreThread.execute { runCatching(task) } }
     }
 
+    private fun watchNetworks() {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = queueNetworkCheck()
+            override fun onLost(network: Network) = queueNetworkCheck()
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = queueNetworkCheck()
+        }
+        runCatching { connectivity.registerNetworkCallback(request, callback) }
+            .onSuccess { networkCallback = callback }
+    }
+
+    private var networkTask: ScheduledFuture<*>? = null
+
+    private fun queueNetworkCheck() {
+        onCoreThread {
+            networkTask?.cancel(false)
+            networkTask = coreThread.schedule({
+                if (!desired || destroyed) return@schedule
+                if (!physicalNetworkAvailable()) return@schedule
+                if (isRecovering) {
+                    scheduleRecovery(immediate = true)
+                } else if (coreRunning && !probeExternalTwice()) {
+                    beginRecovery(immediate = true)
+                }
+            }, 2, TimeUnit.SECONDS)
+        }
+    }
+
+    private fun physicalNetworkAvailable(): Boolean = runCatching {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        connectivity.allNetworks.any { network ->
+            val capabilities = connectivity.getNetworkCapabilities(network)
+            capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+        }
+    }.getOrDefault(false)
+
+    private fun startHealthChecks() {
+        healthTask?.cancel(false)
+        healthTask = coreThread.scheduleWithFixedDelay({
+            if (desired && coreRunning && !probeLocal()) beginRecovery()
+        }, 30, 30, TimeUnit.SECONDS)
+    }
+
+    private fun controllerRoot(): JSONObject? = currentConfig?.let { path ->
+        runCatching { JSONObject(File(path).readText()) }.getOrNull()
+    }
+
+    private fun controllerRequest(path: String, timeoutMs: Int): JSONObject? {
+        val root = controllerRoot() ?: return null
+        val endpoint = root.optString("external-controller", "127.0.0.1:9090")
+        val base = runCatching { URI("http://$endpoint") }.getOrNull() ?: return null
+        if (base.host !in listOf("127.0.0.1", "localhost") ||
+            base.port !in 1..65535 ||
+            base.userInfo != null ||
+            base.rawPath !in listOf("", "/") ||
+            base.rawQuery != null ||
+            base.rawFragment != null
+        ) return null
+        val connection = runCatching {
+            base.resolve(path).toURL().openConnection() as HttpURLConnection
+        }.getOrNull() ?: return null
+        return try {
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
+            root.optString("secret").takeIf { it.isNotEmpty() }?.let {
+                connection.setRequestProperty("Authorization", "Bearer $it")
+            }
+            if (connection.responseCode !in 200..299) return null
+            JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun probeLocal(): Boolean = controllerRequest("/version", 3_000) != null
+
+    private fun probeExternalTwice(): Boolean {
+        if (probeExternal()) return true
+        Thread.sleep(2_000)
+        return !desired || probeExternal()
+    }
+
+    private fun probeExternal(): Boolean {
+        if (!probeLocal()) return false
+        val groups = controllerRoot()?.optJSONArray("proxy-groups") ?: return false
+        val selected = (0 until groups.length()).asSequence()
+            .mapNotNull { groups.optJSONObject(it) }
+            .firstOrNull { it.optString("name").isNotBlank() && it.optString("name") != "GLOBAL" }
+            ?: return false
+        val groupName = selected.optString("name")
+        val proxies = controllerRequest("/proxies", 3_000)?.optJSONObject("proxies")
+        val activeNode = proxies?.optJSONObject(groupName)?.optString("now")
+            ?.takeIf { it.isNotBlank() } ?: groupName
+        val name = URLEncoder.encode(activeNode, "UTF-8").replace("+", "%20")
+        val target = if (guest) "https://telegram.org/" else
+            selected.optString("url").ifBlank { "https://www.gstatic.com/generate_204" }
+        val url = URLEncoder.encode(target, "UTF-8")
+        return controllerRequest("/proxies/$name/delay?url=$url&timeout=5000", 7_000)
+            ?.optInt("delay", -1)?.let { it >= 0 } == true
+    }
+
+    private fun beginRecovery(immediate: Boolean = false) {
+        if (!desired || destroyed) return
+        healthTask?.cancel(false)
+        stopCore()
+        isConnected = false
+        isStarting = false
+        isRecovering = true
+        runningConfig = null
+        KaGoVpnEvents.emit("recovering")
+        KaGoTileService.requestUpdate(this)
+        updateNotification(getString(R.string.vpn_recovering))
+        scheduleRecovery(immediate)
+    }
+
+    private fun scheduleRecovery(immediate: Boolean = false) {
+        recoveryTask?.cancel(false)
+        if (!desired || destroyed) return
+        val delay = if (immediate) 0L else RETRY_DELAYS[recoveryAttempts.coerceAtMost(RETRY_DELAYS.lastIndex)]
+        if (!immediate) recoveryAttempts++
+        recoveryTask = coreThread.schedule({
+            val path = currentConfig
+            if (!desired || destroyed || path == null) return@schedule
+            if (!File(path).isFile) {
+                stopTunnel("error", getString(R.string.vpn_config_missing_recovery), -1)
+                return@schedule
+            }
+            if (!guest && expiresAt > 0 && System.currentTimeMillis() >= expiresAt) {
+                stopTunnel("error", getString(R.string.vpn_subscription_expired), -1)
+                return@schedule
+            }
+            if (VpnService.prepare(this) != null) {
+                stopTunnel("revoked", getString(R.string.vpn_permission_required), -1)
+                return@schedule
+            }
+            if (!physicalNetworkAvailable()) {
+                scheduleRecovery()
+                return@schedule
+            }
+            val request = requests.get()
+            startTunnel(path, request)
+        }, delay, TimeUnit.SECONDS)
+    }
+
     private fun startTunnel(configPath: String, request: Int) {
-        if (destroyed) return
+        if (destroyed || request != requests.get()) return
         if (coreRunning) {
             // Already up (a stop was superseded by this start).
             isConnected = true
             isStarting = false
+            isRecovering = false
+            recoveryAttempts = 0
+            recoveryTask?.cancel(false)
+            startHealthChecks()
             KaGoTileService.requestUpdate(this)
             updateNotification(getString(R.string.vpn_connected))
             KaGoVpnEvents.emit("connected")
@@ -137,6 +329,10 @@ class KaGoVpnService : VpnService() {
             runningConfig = configPath
             isConnected = true
             isStarting = false
+            isRecovering = false
+            recoveryAttempts = 0
+            recoveryTask?.cancel(false)
+            startHealthChecks()
             KaGoTileService.requestUpdate(this)
             updateNotification(getString(R.string.vpn_connected))
             KaGoVpnEvents.emit("connected")
@@ -144,7 +340,17 @@ class KaGoVpnService : VpnService() {
             runCatching { descriptor?.close() }
             stopCore()
             if (request == requests.get()) {
-                stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopStartId = -1)
+                if (desired &&
+                    File(configPath).isFile &&
+                    error !is org.json.JSONException &&
+                    error !is LinkageError &&
+                    error !is ClassNotFoundException &&
+                    VpnService.prepare(this) == null
+                ) {
+                    beginRecovery()
+                } else {
+                    stopTunnel("error", error.message ?: getString(R.string.vpn_core_failed), stopStartId = -1)
+                }
             }
         }
     }
@@ -190,9 +396,14 @@ class KaGoVpnService : VpnService() {
      * meanwhile, so a fast off/on never loses the "on". -1 stops in any case.
      */
     private fun stopTunnel(state: String, message: String? = null, stopStartId: Int) {
+        desired = false
+        recoveryTask?.cancel(false)
+        healthTask?.cancel(false)
+        networkTask?.cancel(false)
         stopCore()
         isConnected = false
         isStarting = false
+        isRecovering = false
         runningConfig = null
         KaGoVpnEvents.emit(state, message)
         KaGoTileService.requestUpdate(this)
@@ -213,14 +424,22 @@ class KaGoVpnService : VpnService() {
 
     override fun onRevoke() {
         val request = requests.incrementAndGet()
+        desired = false
+        recoveryTask?.cancel(false)
         onCoreThread { if (request == requests.get()) stopTunnel("revoked", stopStartId = -1) }
     }
 
     override fun onDestroy() {
         destroyed = true
+        desired = false
+        recoveryTask?.cancel(false)
+        healthTask?.cancel(false)
+        networkTask?.cancel(false)
+        networkCallback?.let { runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) } }
         isConnected = false
         runningConfig = null
         isStarting = false
+        isRecovering = false
         // On the core thread, after anything this instance queued, and before
         // the start of a new instance: start and stop never overlap.
         onCoreThread { stopCore() }
@@ -309,13 +528,18 @@ class KaGoVpnService : VpnService() {
 
     companion object {
         private const val PACKAGE_CACHE_MS = 30_000L
+        private val RETRY_DELAYS = longArrayOf(2, 5, 15, 30, 60, 300)
         const val ACTION_START = "net.usekago.app.START"
         const val ACTION_STOP = "net.usekago.app.STOP"
         const val EXTRA_CONFIG_PATH = "configPath"
+        const val EXTRA_EXPIRES_AT = "expiresAt"
+        const val EXTRA_GUEST = "guest"
         private const val CHANNEL_ID = "kago_vpn_status"
         private const val NOTIFICATION_ID = 7401
         private const val PREFS = "kago_vpn_service"
         private const val KEY_CONFIG_PATH = "config_path"
+        private const val KEY_EXPIRES_AT = "expires_at"
+        private const val KEY_GUEST = "guest"
         // The tunnel networks are also in AndroidRoutes (Dart): keep them equal.
         private const val IPV4_ADDRESS = "172.19.0.1"
         private const val IPV4_CIDR = "172.19.0.1/30"
@@ -338,11 +562,13 @@ class KaGoVpnService : VpnService() {
          * instance start the (process-wide) core while the old one was still
          * starting or stopping it, and the connection hung at "starting".
          */
-        private val coreThread = Executors.newSingleThreadExecutor()
+        private val coreThread = Executors.newSingleThreadScheduledExecutor()
         /** The latest start/stop request; older queued work is skipped. */
         private val requests = AtomicInteger()
         @Volatile private var coreRunning = false
         @Volatile var isStarting: Boolean = false
+            private set
+        @Volatile var isRecovering: Boolean = false
             private set
 
         /**
@@ -350,24 +576,35 @@ class KaGoVpnService : VpnService() {
          * the tile does not keep starting the guest (Telegram-only) profile.
          * Only files of the app itself are accepted.
          */
-        fun rememberConfigPath(context: Context, path: String): Boolean {
+        fun rememberConfigPath(context: Context, path: String, expiresAt: Long): Boolean {
             val file = File(path).canonicalFile
             val home = File(context.applicationInfo.dataDir).canonicalFile
             if (!file.isFile || !file.path.startsWith(home.path + File.separator)) return false
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CONFIG_PATH, file.path).apply()
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(KEY_CONFIG_PATH, file.path)
+                .putLong(KEY_EXPIRES_AT, expiresAt)
+                .putBoolean(KEY_GUEST, false)
+                .apply()
             return true
         }
 
         /** Sign-out: the tile opens the app instead of starting a profile. */
         fun forgetConfigPath(context: Context): Boolean {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_CONFIG_PATH).apply()
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .remove(KEY_CONFIG_PATH)
+                .remove(KEY_EXPIRES_AT)
+                .remove(KEY_GUEST)
+                .apply()
             return true
         }
 
         /** The app prepared a profile once, so the tile can start headless. */
         fun hasPreparedConfig(context: Context): Boolean {
-            val path = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CONFIG_PATH, null)
-            return !path.isNullOrBlank() && File(path).isFile
+            val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val path = preferences.getString(KEY_CONFIG_PATH, null)
+            val expiresAt = preferences.getLong(KEY_EXPIRES_AT, 0L)
+            return !path.isNullOrBlank() && File(path).isFile &&
+                (preferences.getBoolean(KEY_GUEST, false) || expiresAt <= 0 || System.currentTimeMillis() < expiresAt)
         }
     }
 }

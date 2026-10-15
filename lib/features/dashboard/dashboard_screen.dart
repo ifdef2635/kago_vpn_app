@@ -10,6 +10,8 @@ import '../../core/network/android_vpn_events.dart';
 import '../../core/network/android_battery.dart';
 import '../../core/network/anonymous_mode.dart';
 import '../../core/network/app_providers.dart';
+import '../../core/network/desktop_recovery.dart';
+import '../../core/network/vpn_connection_controller.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_theme.dart';
 import '../guest/guest_telegram.dart';
@@ -20,7 +22,6 @@ import '../../core/l10n/l10n.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-  static const _vpnChannel = MethodChannel('net.usekago.app/service');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,34 +33,45 @@ class DashboardScreen extends ConsumerWidget {
     final androidEvent = androidVpn?.asData?.value;
     final androidState = androidEvent?['state'] as String?;
     final androidConnected = androidState == 'connected';
+    final recovering = androidState == 'recovering' ||
+        (!Platform.isAndroid &&
+            ref.watch(desktopRecoveryStatusProvider) ==
+                RecoveryStatus.recovering);
+    final recoveryError =
+        Platform.isAndroid ? null : ref.watch(desktopRecoveryErrorProvider);
     final connected = coreRunning || androidConnected;
     final starting = androidState == 'starting';
     final guestNeeded = ref.watch(guestModeNeededProvider);
     final guestActive = ref.watch(guestModeActiveProvider);
     // Only problems are worth a line on the main screen.
-    final problem = switch (androidState) {
-      'error' => androidEvent?['message'] as String? ??
-          tr('Не удалось запустить Android VPN'),
-      'revoked' => tr('Разрешение VPN отозвано'),
-      _ => null,
-    };
+    final problem = recoveryError ??
+        switch (androidState) {
+          'error' => androidEvent?['message'] as String? ??
+              tr('Не удалось запустить Android VPN'),
+          'revoked' => tr('Разрешение VPN отозвано'),
+          _ => null,
+        };
     final p = context.kago;
     final width = MediaQuery.sizeOf(context).width;
     final side = width > 760 ? 44.0 : 16.0;
-    final state = starting
-        ? tr('Подключение…')
-        : connected
-            ? tr('Подключено')
-            : tr('Не подключено');
-    final hint = guestNeeded || (connected && guestActive)
-        ? (connected
-            ? tr('Бесплатный доступ: через VPN работает только Telegram')
-            : tr('Без подписки — бесплатный доступ к Telegram'))
-        : connected && ref.watch(anonymousActiveProvider)
-            ? tr('Анонимный режим')
+    final state = recovering
+        ? tr('Восстанавливаем соединение')
+        : starting
+            ? tr('Подключение…')
             : connected
-                ? tr('Весь трафик идёт через выбранный сервер')
-                : tr('Нажмите, чтобы включить защиту');
+                ? tr('Подключено')
+                : tr('Не подключено');
+    final hint = recovering
+        ? tr('Соединение прервалось. Повторяем подключение.')
+        : guestNeeded || (connected && guestActive)
+            ? (connected
+                ? tr('Бесплатный доступ: через VPN работает только Telegram')
+                : tr('Без подписки — бесплатный доступ к Telegram'))
+            : connected && ref.watch(anonymousActiveProvider)
+                ? tr('Анонимный режим')
+                : connected
+                    ? tr('Весь трафик идёт через выбранный сервер')
+                    : tr('Нажмите, чтобы включить защиту');
     return ListView(
         padding: EdgeInsets.fromLTRB(side, 14, side, 18),
         children: <Widget>[
@@ -88,7 +100,7 @@ class DashboardScreen extends ConsumerWidget {
               child: Column(children: <Widget>[
                 Row(children: <Widget>[
                   StatusDot(
-                      color: starting
+                      color: starting || recovering
                           ? p.warning
                           : connected
                               ? p.success
@@ -109,8 +121,9 @@ class DashboardScreen extends ConsumerWidget {
                 ]),
                 const SizedBox(height: 20),
                 _PowerButton(
-                    connected: connected,
-                    busy: starting || ref.watch(desktopVpnBusyProvider),
+                    connected: connected || recovering,
+                    busy: !recovering &&
+                        (starting || ref.watch(desktopVpnBusyProvider)),
                     onPressed: () => toggleVpn(context, ref, androidConnected)),
                 const SizedBox(height: 20),
                 _TrafficMetrics(active: connected),
@@ -178,41 +191,24 @@ class DashboardScreen extends ConsumerWidget {
         ]);
   }
 
-  /// The proxy list and version are cached futures; without this they keep the
-  /// old "controller unavailable" error after the core starts or stops.
-  static void _refreshCoreData(WidgetRef ref) {
-    ref.invalidate(coreVersionProvider);
-    ref.invalidate(proxyGroupsProvider);
-  }
-
   /// Starts or stops the VPN (desktop core or Android service). Also used by
   /// the personal account screen. False when it failed (the user has already
   /// been told why) or another start/stop is still running.
   static Future<bool> toggleVpn(
       BuildContext context, WidgetRef ref, bool androidConnected) async {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      // One start or stop at a time: a second tap while the core starts would
-      // start a second core, and a stop during the start would let the start
-      // turn the system proxy on after the stop restored it.
-      final busy = ref.read(desktopVpnBusyProvider.notifier);
-      if (busy.state) return false;
-      busy.state = true;
-      final manager = ref.read(mihomoProcessProvider);
+      final connection = ref.read(vpnConnectionControllerProvider);
+      final recovery = ref.read(desktopRecoveryProvider);
       try {
-        if (manager.isRunning) {
-          await manager.stop();
-          ref.read(desktopCoreRunningProvider.notifier).state = false;
-          _refreshCoreData(ref);
-          return true;
+        if (recovery.desired || ref.read(mihomoProcessProvider).isRunning) {
+          return await connection.stopDesktop();
         }
         final (config, guest) = await _connectConfig(ref);
-        await manager.start(configPath: config.path);
-        ref.read(guestModeActiveProvider.notifier).state = guest;
-        ref.read(desktopCoreRunningProvider.notifier).state = true;
-        _refreshCoreData(ref);
         final anonymous = !guest && await AnonymousMode.enabled();
-        ref.read(anonymousActiveProvider.notifier).state = anonymous;
-        if (anonymous) await _matchTimeZone(ref);
+        if (!await connection.startDesktop(config,
+            guest: guest, anonymous: anonymous)) {
+          return false;
+        }
         // The power button shows the state; a declined TUN (manager.notice)
         // is in the log.
         if (guest && context.mounted) await _checkGuest(context, ref);
@@ -224,34 +220,30 @@ class DashboardScreen extends ConsumerWidget {
               details: error.message);
         }
       } catch (error) {
-        ref.read(desktopCoreRunningProvider.notifier).state = manager.isRunning;
-        _refreshCoreData(ref);
         if (context.mounted) {
           _showError(context, tr('Не удалось подключиться.'),
               details: '$error');
         }
-      } finally {
-        busy.state = false;
       }
       return false;
     }
     if (Platform.isAndroid) {
+      final connection = ref.read(vpnConnectionControllerProvider);
       try {
-        if (androidConnected) {
-          await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>('disconnect');
+        if (androidConnected ||
+            <String>['starting', 'recovering'].contains(
+                ref.read(androidVpnEventProvider).valueOrNull?['state'])) {
+          await connection.stopAndroid();
         } else {
           final (config, guest) = await _connectConfig(ref);
-          ref.read(guestModeActiveProvider.notifier).state = guest;
-          ref.read(anonymousActiveProvider.notifier).state =
-              !guest && await AnonymousMode.enabled();
-          final controller = ref.read(mihomoControllerProvider);
-          await const MihomoConfigBuilder().prepareAndroidTunnelConfig(
-            config,
-            endpoint: await controller.endpoint,
-            secret: await controller.ensureSecret(),
-          );
-          await _vpnChannel.invokeMethod<Map<dynamic, dynamic>>(
-              'connect', <String, String>{'configPath': config.path});
+          final anonymous = !guest && await AnonymousMode.enabled();
+          final profile = await ref
+              .read(importedSubscriptionProvider.future)
+              .catchError((Object _) => null);
+          await connection.startAndroid(config,
+              guest: guest,
+              anonymous: anonymous,
+              expiresAt: profile?.expiresAt);
           // Once: without the exemption the system may stop the VPN in the
           // background (asked after the VPN permission, not over it).
           unawaited(AndroidBattery.askOnce());
@@ -294,7 +286,7 @@ class DashboardScreen extends ConsumerWidget {
       return false;
     }
     try {
-      await _vpnChannel.invokeMethod<void>('connect');
+      await ref.read(vpnConnectionControllerProvider).startOther();
       return true;
     } on MissingPluginException {
       if (context.mounted) {
@@ -377,19 +369,6 @@ class DashboardScreen extends ConsumerWidget {
       return;
     }
     await toggleVpn(context, ref, false);
-  }
-
-  /// Windows, anonymous profile: the system time zone of the VPN exit, so
-  /// the browser's clock matches the IP.
-  static Future<void> _matchTimeZone(WidgetRef ref) async {
-    if (!Platform.isWindows) return;
-    try {
-      final info = await ref.read(ipInfoServiceProvider).fetch(proxyPort: 7890);
-      final zone = info.timeZone;
-      if (zone != null) await WindowsTimeZone.apply(zone);
-    } catch (_) {
-      // Not fatal: the connection works, only the clock is not matched.
-    }
   }
 
   /// The profile to connect with: the subscription, or — without a working

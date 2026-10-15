@@ -9,6 +9,7 @@ import '../core/desktop/windows_tray.dart';
 import '../core/network/android_vpn_events.dart';
 import '../core/network/anonymous_mode.dart';
 import '../core/network/app_providers.dart';
+import '../core/network/vpn_connection_controller.dart';
 import '../core/theme/app_widgets.dart';
 import '../core/theme/kago_theme.dart';
 import '../features/account/account_screen.dart';
@@ -221,7 +222,7 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
     unawaited(WindowsTray.attach(
         connected: ref.read(vpnActiveProvider),
         onQuit: () async {
-          await ref.read(mihomoProcessProvider).stop();
+          await ref.read(vpnConnectionControllerProvider).stopDesktop();
           ref.read(desktopCoreRunningProvider.notifier).state = false;
         }));
     _listener = AppLifecycleListener(
@@ -229,8 +230,8 @@ class _ExitGuardState extends ConsumerState<_ExitGuard> {
         onExitRequested: () async {
           try {
             await ref
-                .read(mihomoProcessProvider)
-                .stop()
+                .read(vpnConnectionControllerProvider)
+                .stopDesktop()
                 .timeout(const Duration(seconds: 6));
           } catch (_) {
             // Exit anyway; a stale proxy is repaired at the next start.

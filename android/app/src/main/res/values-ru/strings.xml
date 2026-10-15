@@ -6,6 +6,10 @@
     <string name="vpn_service_start_failed">Не удалось запустить VPN service.</string>
     <string name="vpn_preparing">Подготовка VPN…</string>
     <string name="vpn_connected">KaGo VPN подключён</string>
+    <string name="vpn_recovering">Восстанавливаем соединение…</string>
+    <string name="vpn_config_missing_recovery">Профиль VPN удалён. Подключитесь вручную.</string>
+    <string name="vpn_subscription_expired">Подписка истекла. Проверьте кабинет.</string>
+    <string name="vpn_permission_required">Нужно разрешение VPN. Подключитесь вручную.</string>
     <string name="vpn_no_config_path">Нет пути к конфигурации Mihomo.</string>
     <string name="vpn_config_not_found">Файл конфигурации не найден: %1$s</string>
     <string name="vpn_no_tun">Android не выдал TUN descriptor.</string>

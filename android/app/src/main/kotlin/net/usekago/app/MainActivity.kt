@@ -27,6 +27,8 @@ class MainActivity : FlutterActivity() {
     private val permissionRequestCode = 7402
     private var pendingResult: MethodChannel.Result? = null
     private var pendingConfigPath: String? = null
+    private var pendingExpiresAt: Long = 0L
+    private var pendingGuest: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -132,14 +134,23 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, methodChannelName).setMethodCallHandler { call, result ->
             when (call.method) {
-                "connect" -> requestVpnPermission(call.argument<String>("configPath"), result)
+                "connect" -> requestVpnPermission(
+                    call.argument<String>("configPath"),
+                    call.argument<Number>("expiresAt")?.toLong() ?: 0L,
+                    call.argument<Boolean>("guest") ?: false,
+                    result,
+                )
                 "disconnect" -> {
                     startVpnService(Intent(this, KaGoVpnService::class.java).setAction(KaGoVpnService.ACTION_STOP))
                     result.success(mapOf("state" to "stopping"))
                 }
                 "forgetConfig" -> result.success(KaGoVpnService.forgetConfigPath(this))
                 "rememberConfig" -> result.success(
-                    KaGoVpnService.rememberConfigPath(this, call.argument<String>("path").orEmpty())
+                    KaGoVpnService.rememberConfigPath(
+                        this,
+                        call.argument<String>("path").orEmpty(),
+                        call.argument<Number>("expiresAt")?.toLong() ?: 0L,
+                    )
                 )
                 "status" -> result.success(mapOf("state" to if (KaGoVpnService.isConnected) "connected" else "disconnected"))
                 "coreVersion" -> result.success(runCatching { MihomoNativeCore.version() }.getOrNull())
@@ -239,7 +250,7 @@ class MainActivity : FlutterActivity() {
     }
 
     @Suppress("DEPRECATION")
-    private fun requestVpnPermission(configPath: String?, result: MethodChannel.Result) {
+    private fun requestVpnPermission(configPath: String?, expiresAt: Long, guest: Boolean, result: MethodChannel.Result) {
         if (configPath.isNullOrBlank()) {
             result.error("missing_config", getString(R.string.vpn_missing_config), null)
             return
@@ -250,9 +261,11 @@ class MainActivity : FlutterActivity() {
         }
         val prepareIntent = VpnService.prepare(this)
         if (prepareIntent == null) {
-            launchVpnService(configPath, result)
+            launchVpnService(configPath, expiresAt, guest, result)
         } else {
             pendingConfigPath = configPath
+            pendingExpiresAt = expiresAt
+            pendingGuest = guest
             pendingResult = result
             startActivityForResult(prepareIntent, permissionRequestCode)
         }
@@ -268,17 +281,19 @@ class MainActivity : FlutterActivity() {
         pendingConfigPath = null
         if (result == null) return
         if (resultCode == Activity.RESULT_OK && !configPath.isNullOrBlank()) {
-            launchVpnService(configPath, result)
+            launchVpnService(configPath, pendingExpiresAt, pendingGuest, result)
         } else {
             result.error("vpn_permission_denied", getString(R.string.vpn_permission_denied), null)
         }
     }
 
-    private fun launchVpnService(configPath: String, result: MethodChannel.Result) {
+    private fun launchVpnService(configPath: String, expiresAt: Long, guest: Boolean, result: MethodChannel.Result) {
         try {
             val intent = Intent(this, KaGoVpnService::class.java)
                 .setAction(KaGoVpnService.ACTION_START)
                 .putExtra(KaGoVpnService.EXTRA_CONFIG_PATH, configPath)
+                .putExtra(KaGoVpnService.EXTRA_EXPIRES_AT, expiresAt)
+                .putExtra(KaGoVpnService.EXTRA_GUEST, guest)
             startVpnService(intent)
             result.success(mapOf("state" to "starting"))
         } catch (error: Exception) {
@@ -313,6 +328,7 @@ object KaGoVpnEvents {
 
     fun currentState(): String = when {
         KaGoVpnService.isConnected -> "connected"
+        KaGoVpnService.isRecovering -> "recovering"
         KaGoVpnService.isStarting -> "starting"
         else -> "disconnected"
     }

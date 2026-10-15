@@ -3,8 +3,10 @@ package net.usekago.app
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
+import android.os.PowerManager
 import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
@@ -35,6 +37,9 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         // The user may have switched display mode or moved to another display.
         requestHighestRefreshRate()
+        // The service may have changed state while the UI was away (the tile,
+        // the notification's "Disconnect", a restart by the system).
+        KaGoVpnEvents.resync()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -161,6 +166,8 @@ class MainActivity : FlutterActivity() {
                         .onSuccess { result.success(it) }
                         .onFailure { result.error("install_failed", it.message, null) }
                 }
+                "batteryUnrestricted" -> result.success(batteryUnrestricted())
+                "requestBatteryUnrestricted" -> result.success(requestBatteryUnrestricted())
                 "openVpnSettings" -> {
                     // "Always-on VPN" and "Block connections without VPN" (kill switch) are
                     // system settings; an app cannot turn them on itself.
@@ -173,12 +180,44 @@ class MainActivity : FlutterActivity() {
             }
         }
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, eventChannelName).setStreamHandler(object : EventChannel.StreamHandler {
+            private var mine: EventChannel.EventSink? = null
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                mine = events
                 KaGoVpnEvents.attach(events)
-                KaGoVpnEvents.emit(if (KaGoVpnService.isConnected) "connected" else "disconnected")
+                KaGoVpnEvents.emit(KaGoVpnEvents.currentState())
             }
-            override fun onCancel(arguments: Any?) { KaGoVpnEvents.attach(null) }
+            // A recreated activity attaches its sink before the old one is
+            // cancelled: clearing the shared sink then would leave the new UI
+            // without any later state (it showed "off" with the VPN on).
+            override fun onCancel(arguments: Any?) {
+                KaGoVpnEvents.detach(mine)
+                mine = null
+            }
         })
+    }
+
+    /**
+     * Battery optimization off for the app (Android 6+). With it on, the
+     * system (and OEM savers on Xiaomi, Huawei, Samsung…) may stop the app in
+     * the background, and the VPN drops or hangs half-way.
+     */
+    private fun batteryUnrestricted(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val power = getSystemService(PowerManager::class.java) ?: return true
+        return power.isIgnoringBatteryOptimizations(packageName)
+    }
+
+    /** The system dialog that lifts the restriction; its list as a fallback. */
+    @SuppressLint("BatteryLife")
+    private fun requestBatteryUnrestricted(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+        return runCatching {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            )
+        }.recoverCatching {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }.isSuccess
     }
 
     /**
@@ -262,10 +301,35 @@ class MainActivity : FlutterActivity() {
 object KaGoVpnEvents {
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var sink: EventChannel.EventSink? = null
+    /** The last state sent to the UI (null: none yet). */
+    @Volatile private var lastState: String? = null
 
     fun attach(eventSink: EventChannel.EventSink?) { sink = eventSink }
 
+    /** Clears the sink only if it is still [eventSink]. */
+    fun detach(eventSink: EventChannel.EventSink?) {
+        if (sink === eventSink) sink = null
+    }
+
+    fun currentState(): String = when {
+        KaGoVpnService.isConnected -> "connected"
+        KaGoVpnService.isStarting -> "starting"
+        else -> "disconnected"
+    }
+
+    /**
+     * Sends the service's state again when the UI's last one no longer
+     * matches it ("error" and "revoked" count as off: their message stays).
+     */
+    fun resync() {
+        val now = currentState()
+        val last = lastState
+        val lastAsState = if (last == "error" || last == "revoked") "disconnected" else last
+        if (lastAsState != now) emit(now)
+    }
+
     fun emit(state: String, message: String? = null) {
+        lastState = state
         val event = mutableMapOf<String, Any>("state" to state)
         if (message != null) event["message"] = message
         // The UI forgets the guest/anonymous label when the activity is

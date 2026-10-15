@@ -13,4 +13,5 @@
     <string name="vpn_core_failed">Не удалось запустить native VPN core.</string>
     <string name="tile_on">Подключено</string>
     <string name="tile_off">Отключено</string>
+    <string name="vpn_disconnect">Отключить</string>
 </resources>

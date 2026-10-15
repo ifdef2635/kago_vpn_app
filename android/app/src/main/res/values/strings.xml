@@ -14,4 +14,5 @@
     <string name="vpn_core_failed">Could not start the native VPN core.</string>
     <string name="tile_on">Connected</string>
     <string name="tile_off">Off</string>
+    <string name="vpn_disconnect">Disconnect</string>
 </resources>

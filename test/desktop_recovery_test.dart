@@ -8,6 +8,7 @@ import 'package:kago_vpn/core/network/mihomo_controller.dart';
 import 'package:kago_vpn/core/network/mihomo_process_manager.dart';
 import 'package:kago_vpn/core/network/app_providers.dart';
 import 'package:kago_vpn/core/network/vpn_connection_controller.dart';
+import 'package:kago_vpn/core/models/mihomo_models.dart';
 
 class _Manager extends MihomoProcessManager {
   final _events = StreamController<int>.broadcast();
@@ -51,6 +52,29 @@ class _Manager extends MihomoProcessManager {
   Future<void> close() => _events.close();
 }
 
+class _Controller extends MihomoController {
+  final tested = <String>[];
+
+  @override
+  Future<String> version() async => 'Mihomo';
+
+  @override
+  Future<List<ProxyGroup>> proxies() async => const <ProxyGroup>[
+        ProxyGroup(
+            name: 'Premium',
+            type: 'Selector',
+            nodes: <ProxyNode>[],
+            selected: 'node-a'),
+      ];
+
+  @override
+  Future<int?> testDelay(String proxy,
+      {String url = 'https://www.gstatic.com/generate_204'}) async {
+    tested.add(proxy);
+    return 25;
+  }
+}
+
 Future<void> _settle([int milliseconds = 35]) =>
     Future<void>.delayed(Duration(milliseconds: milliseconds));
 
@@ -74,11 +98,12 @@ void main() {
     Future<bool> Function()? health,
     Future<String?> Function()? interfaceSnapshot,
     Future<String?> Function(String, bool)? preflight,
+    MihomoController? controller,
     List<Duration> delays = const <Duration>[Duration(milliseconds: 1)],
   }) {
     final provider = Provider<DesktopRecovery>((ref) => DesktopRecovery(ref,
         manager: manager,
-        controller: MihomoController(),
+        controller: controller ?? MihomoController(),
         watchNetwork: false,
         retryDelays: delays,
         networkDebounce: Duration.zero,
@@ -112,6 +137,15 @@ void main() {
     expect(probes, 1);
     expect(manager.stops, 0);
     expect(manager.starts, 0);
+  });
+
+  test('remote check targets the selected node', () async {
+    final controller = _Controller();
+    create(controller: controller);
+    recovery.onNetworkChanged();
+    await _settle();
+    expect(controller.tested, <String>['node-a']);
+    expect(manager.stops, 0);
   });
 
   test('network change restarts only after two failed probes', () async {

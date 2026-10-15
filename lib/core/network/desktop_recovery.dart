@@ -254,11 +254,12 @@ class DesktopRecovery {
       final target = _guest
           ? GuestTelegram.checkUrl
           : group.testUrl ?? 'https://www.gstatic.com/generate_204';
-      if (await controller.testDelay(group.name, url: target) != null) {
+      final selected = group.selected ?? group.name;
+      if (await controller.testDelay(selected, url: target) != null) {
         return true;
       }
       return !_guest &&
-          await controller.testDelay(group.name, url: 'https://usekago.net/') !=
+          await controller.testDelay(selected, url: 'https://usekago.net/') !=
               null;
     } catch (_) {
       return false;

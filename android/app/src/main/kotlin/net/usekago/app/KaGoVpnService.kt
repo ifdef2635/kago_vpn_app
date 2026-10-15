@@ -125,15 +125,13 @@ class KaGoVpnService : VpnService() {
         onCoreThread {
             networkTask?.cancel(false)
             networkTask = coreThread.schedule({
-            if (!desired || destroyed) return@schedule
-            if (!physicalNetworkAvailable()) {
-                return@schedule
-            }
-            if (isRecovering) {
-                scheduleRecovery(immediate = true)
-            } else if (coreRunning && !probeExternalTwice()) {
-                beginRecovery(immediate = true)
-            }
+                if (!desired || destroyed) return@schedule
+                if (!physicalNetworkAvailable()) return@schedule
+                if (isRecovering) {
+                    scheduleRecovery(immediate = true)
+                } else if (coreRunning && !probeExternalTwice()) {
+                    beginRecovery(immediate = true)
+                }
             }, 2, TimeUnit.SECONDS)
         }
     }
@@ -202,7 +200,11 @@ class KaGoVpnService : VpnService() {
             .mapNotNull { groups.optJSONObject(it) }
             .firstOrNull { it.optString("name").isNotBlank() && it.optString("name") != "GLOBAL" }
             ?: return false
-        val name = URLEncoder.encode(selected.optString("name"), "UTF-8").replace("+", "%20")
+        val groupName = selected.optString("name")
+        val proxies = controllerRequest("/proxies", 3_000)?.optJSONObject("proxies")
+        val activeNode = proxies?.optJSONObject(groupName)?.optString("now")
+            ?.takeIf { it.isNotBlank() } ?: groupName
+        val name = URLEncoder.encode(activeNode, "UTF-8").replace("+", "%20")
         val target = if (guest) "https://telegram.org/" else
             selected.optString("url").ifBlank { "https://www.gstatic.com/generate_204" }
         val url = URLEncoder.encode(target, "UTF-8")

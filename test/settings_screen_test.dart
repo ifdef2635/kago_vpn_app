@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kago_vpn/core/network/app_providers.dart';
 import 'package:kago_vpn/features/settings/settings_screen.dart';
+import 'package:kago_vpn/features/subscriptions/russian_rules.dart';
 import 'package:kago_vpn/features/subscriptions/subscription_providers.dart';
+import 'package:kago_vpn/features/update/update_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> _pump(WidgetTester tester, {required bool running}) async {
@@ -14,6 +16,9 @@ Future<void> _pump(WidgetTester tester, {required bool running}) async {
   await tester.pumpWidget(ProviderScope(overrides: <Override>[
     vpnActiveProvider.overrideWithValue(running),
     importedSubscriptionProvider.overrideWith((ref) async => null),
+    // Windows and macOS check GitHub for updates (a timer and the network).
+    appUpdateProvider.overrideWith((ref) async => null),
+    subscriptionRoutesRussiaProvider.overrideWith((ref) async => false),
   ], child: const MaterialApp(home: Scaffold(body: SettingsScreen()))));
   await tester.pumpAndSettle();
 }

@@ -154,7 +154,8 @@ class MihomoProcessManager {
     return _coreUpdater.ensureInstalled(forceCheck: true, onLog: _writeLog);
   }
 
-  Future<void> start({required String configPath}) async {
+  Future<void> start(
+      {required String configPath, bool allowElevation = true}) async {
     if (isRunning) return;
     notice = null;
     _macosTun = false;
@@ -171,7 +172,8 @@ class MihomoProcessManager {
           <String, Object?>{'version': core.version}));
     } else if (Platform.isMacOS) {
       await MihomoMacosCore.killStale();
-      final core = await MihomoMacosCore.resolve(_writeLog);
+      final core = await MihomoMacosCore.resolve(_writeLog,
+          allowAuthorization: allowElevation);
       binary = core.binary.path;
       tunMode = core.tun;
       _macosTun = core.tun;
@@ -251,7 +253,8 @@ class MihomoProcessManager {
 
     final directory = File(configPath).parent.path;
     if (windowsTun) {
-      final started = await _startWindowsTun(binary, configFile);
+      final started = await _startWindowsTun(binary, configFile,
+          allowElevation: allowElevation);
       if (started) {
         await _awaitWindowsTun(controller, directory, routesRussia);
         return;
@@ -291,11 +294,17 @@ class MihomoProcessManager {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) => _writeLog('[stderr] $line'));
-    unawaited(process.exitCode.then((code) {
+    unawaited(process.exitCode.then((code) async {
       if (identical(_process, process)) {
         _process = null;
         if (Platform.isMacOS) unawaited(MihomoMacosCore.rememberPid(null));
-        unawaited(_restoreSystemProxy());
+        try {
+          await _restoreSystemProxy();
+        } catch (error) {
+          _writeLog(tr(
+              'Не удалось восстановить сохранённые proxy settings: {error}',
+              <String, Object?>{'error': error}));
+        }
         if (!_exits.isClosed) _exits.add(code);
       }
       _writeLog(tr('Mihomo завершился с кодом {code}.',
@@ -332,11 +341,16 @@ class MihomoProcessManager {
   /// Starts the elevated TUN core: through the scheduled task (permission
   /// asked once, when it is installed or the core version changed), or —
   /// for a Windows user without administrator rights — with a UAC prompt now.
-  Future<bool> _startWindowsTun(String binary, File configFile) async {
+  Future<bool> _startWindowsTun(String binary, File configFile,
+      {required bool allowElevation}) async {
     if (await MihomoWindowsTun.isAdministrator()) {
       if (await MihomoWindowsTun.isInstalled() &&
           await MihomoWindowsTun.runService(configFile)) {
         return true;
+      }
+      if (!allowElevation) {
+        throw StateError(tr(
+            'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.'));
       }
       _writeLog(
           tr('Режим TUN: Windows один раз спросит разрешение администратора.'));
@@ -348,6 +362,10 @@ class MihomoProcessManager {
       // The task could not be set up: ask for this connect only.
       _writeLog(tr('Задача TUN не настроена (код {code}).',
           <String, Object?>{'code': code}));
+    }
+    if (!allowElevation) {
+      throw StateError(tr(
+          'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.'));
     }
     _writeLog(tr('Запрашивается разрешение администратора для режима TUN.'));
     return MihomoWindowsTun.launch(

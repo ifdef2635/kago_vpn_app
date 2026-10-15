@@ -219,12 +219,16 @@ abstract final class MihomoMacosCore {
   /// config on stdin). Asks for the password at most once: if the user
   /// cancels, TUN is switched off in settings and the app keeps working
   /// through the system proxy with the unprivileged bundled core.
-  static Future<({File binary, bool tun})> resolve(
-      void Function(String) log) async {
+  static Future<({File binary, bool tun})> resolve(void Function(String) log,
+      {bool allowAuthorization = true}) async {
     await _removeLegacy();
     if (!await tunEnabled()) return (binary: executable, tun: false);
     var helper = await authorizedHelper();
     if (helper == null) {
+      if (!allowAuthorization) {
+        throw StateError(tr(
+            'Для восстановления TUN требуется пароль администратора. Подключитесь вручную.'));
+      }
       final error = await authorize();
       if (error == null) {
         helper = await authorizedHelper();

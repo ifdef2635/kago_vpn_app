@@ -18,6 +18,7 @@ _Обновлено: 2026-10-15 (версия 2.4.0 в `dev`, ещё не вып
 - Расхождение состояния VPN в приложении и в уведомлении Android (сообщено 2026-10-15).
 
 Для разработчиков:
+- Перед автоматическим восстановлением desktop-ядра можно запретить новые запросы прав администратора: `MihomoProcessManager.start(allowElevation: false)` и `MihomoMacosCore.resolve(allowAuthorization: false)`. Событие аварийного выхода обычного ядра теперь приходит после восстановления системного прокси, чтобы новый запуск не столкнулся с очисткой старого.
 - Причина расхождения: `KaGoVpnEvents` хранил один общий `EventSink`. При пересоздании activity новый движок вызывал `onListen` (подключал свой sink) раньше, чем старый `onCancel`, а тот обнулял общий sink. После этого все события службы терялись, и интерфейс оставался в старом состоянии. Теперь `detach(sink)` обнуляет sink, только если он всё ещё свой.
 - `KaGoVpnEvents.resync()`: в `MainActivity.onResume` и в `KaGoVpnService.onDestroy` состояние службы (`currentState()`: connected/starting/disconnected) отправляется заново, если последнее отправленное с ним не совпадает. `error`/`revoked` считаются «выключено», поэтому сообщение об ошибке не стирается. Так интерфейс узнаёт и о том, что систему уничтожила службу без остановки.
 - Уведомление: `removeForegroundNotification` после `stopForeground` ещё и отменяет уведомление по id (оно обновлялось через `notify()`), а также вызывается в `onDestroy`. Добавлены `contentIntent` (MainActivity) и действие «Отключить» (`ACTION_STOP`, `PendingIntent.FLAG_IMMUTABLE`), строка `vpn_disconnect`.

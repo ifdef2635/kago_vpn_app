@@ -470,6 +470,10 @@ const stringsEn = <String, String>{
   'Позже': 'Later',
   'Установить': 'Install',
   'Понятно': 'Got it',
+  'Для восстановления TUN требуется пароль администратора. Подключитесь вручную.':
+      'Restoring TUN requires an administrator password. Connect manually.',
+  'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.':
+      'Restoring TUN requires administrator approval. Connect manually.',
   'Обновления': 'Updates',
   'Проверка…': 'Checking…',
   'Доступна версия {version} — нажмите, чтобы обновить':

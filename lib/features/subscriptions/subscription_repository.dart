@@ -135,11 +135,6 @@ class SubscriptionRepository {
       await const MihomoConfigBuilder().prepareAndroidTunnelConfig(configFile,
           endpoint: await controller.endpoint,
           secret: await controller.ensureSecret());
-      // The tile starts the subscription again, not a guest profile.
-      await const MethodChannel('net.usekago.app/service').invokeMethod<bool>(
-          'rememberConfig', <String, String>{
-        'path': configFile.path
-      }).catchError((Object _) => false);
     }
     final fields =
         parseUserInfo(_header(response.headers, 'subscription-userinfo'));
@@ -176,6 +171,14 @@ class SubscriptionRepository {
       'updated': profile.updatedAt!.millisecondsSinceEpoch,
     });
     await _storage.write(key: _key, value: jsonEncode(profiles));
+    if (Platform.isAndroid) {
+      // The tile can start without Flutter: keep the expiry beside its config.
+      await const MethodChannel('net.usekago.app/service')
+          .invokeMethod<bool>('rememberConfig', <String, Object?>{
+        'path': configFile.path,
+        'expiresAt': profile.expiresAt?.millisecondsSinceEpoch ?? 0,
+      }).catchError((Object _) => false);
+    }
     return profile;
   }
 

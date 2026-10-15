@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'core_authorization_required.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
@@ -226,7 +227,7 @@ abstract final class MihomoMacosCore {
     var helper = await authorizedHelper();
     if (helper == null) {
       if (!allowAuthorization) {
-        throw StateError(tr(
+        throw CoreAuthorizationRequired(tr(
             'Для восстановления TUN требуется пароль администратора. Подключитесь вручную.'));
       }
       final error = await authorize();

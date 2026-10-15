@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/subscriptions/config_builder.dart';
 import '../../features/subscriptions/russian_rules.dart';
 import 'anonymous_mode.dart';
+import 'core_authorization_required.dart';
 import 'mihomo_controller.dart';
 import 'mihomo_macos.dart';
 import 'mihomo_windows_core_updater.dart';
@@ -349,7 +350,7 @@ class MihomoProcessManager {
         return true;
       }
       if (!allowElevation) {
-        throw StateError(tr(
+        throw CoreAuthorizationRequired(tr(
             'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.'));
       }
       _writeLog(
@@ -364,7 +365,7 @@ class MihomoProcessManager {
           <String, Object?>{'code': code}));
     }
     if (!allowElevation) {
-      throw StateError(tr(
+      throw CoreAuthorizationRequired(tr(
           'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.'));
     }
     _writeLog(tr('Запрашивается разрешение администратора для режима TUN.'));

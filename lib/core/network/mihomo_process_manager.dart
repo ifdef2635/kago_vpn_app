@@ -344,11 +344,15 @@ class MihomoProcessManager {
   /// for a Windows user without administrator rights — with a UAC prompt now.
   Future<bool> _startWindowsTun(String binary, File configFile,
       {required bool allowElevation}) async {
-    if (await MihomoWindowsTun.isAdministrator()) {
-      if (await MihomoWindowsTun.isInstalled() &&
-          await MihomoWindowsTun.runService(configFile)) {
-        return true;
+    if (await MihomoWindowsTun.isInstalled()) {
+      await MihomoWindowsTun.awaitServiceStopped();
+      if (await MihomoWindowsTun.runService(configFile)) return true;
+      if (!allowElevation) {
+        throw StateError(
+            tr('Не удалось перезапустить установленную задачу TUN.'));
       }
+    }
+    if (await MihomoWindowsTun.isAdministrator()) {
       if (!allowElevation) {
         throw CoreAuthorizationRequired(tr(
             'Для восстановления TUN требуется разрешение администратора. Подключитесь вручную.'));
@@ -400,7 +404,13 @@ class MihomoProcessManager {
             _windowsTunWatch = null;
             _windowsTunDir = null;
             _writeLog(tr('Ядро TUN остановилось.'));
-            await _restoreSystemProxy();
+            try {
+              await _restoreSystemProxy();
+            } catch (error) {
+              _writeLog(tr(
+                  'Не удалось восстановить сохранённые proxy settings: {error}',
+                  <String, Object?>{'error': error}));
+            }
             if (!_exits.isClosed) _exits.add(-1);
           }
         });

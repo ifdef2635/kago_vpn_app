@@ -9,6 +9,8 @@ const stringsEn = <String, String>{
   'Подписка недействительна. Проверьте кабинет.':
       'Subscription is no longer valid. Check your account.',
   'Для TUN требуется ручное подключение.': 'TUN requires a manual connection.',
+  'Не удалось перезапустить установленную задачу TUN.':
+      'Could not restart the installed TUN task.',
   'Главная': 'Home',
   'Серверы': 'Servers',
   'Трафик': 'Traffic',

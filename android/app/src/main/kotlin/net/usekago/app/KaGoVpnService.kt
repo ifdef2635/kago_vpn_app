@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
+import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
@@ -114,6 +115,7 @@ class KaGoVpnService : VpnService() {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) = queueNetworkCheck()
             override fun onLost(network: Network) = queueNetworkCheck()
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = queueNetworkCheck()
         }
         runCatching { connectivity.registerNetworkCallback(request, callback) }
             .onSuccess { networkCallback = callback }

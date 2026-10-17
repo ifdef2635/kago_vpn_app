@@ -65,6 +65,27 @@ Filename: "{app}\kago_vpn.exe"; Flags: nowait; Check: WizardSilent
 russian.FullCleanup=Удалить также все данные KaGo VPN?%n%nБудут удалены ядро Mihomo, подписка, вход в аккаунт и настройки — полная очистка.%nНажмите «Нет», чтобы сохранить их для повторной установки.
 english.FullCleanup=Also remove all KaGo VPN data?%n%nThe Mihomo core, subscription, sign-in and settings will be deleted (full cleanup).%nChoose "No" to keep them for a reinstall.
 
+; «Интеллектуальное управление приложениями» (Smart App Control) Windows 11:
+; без цифровой подписи приложение не запустится.
+russian.SacInstruction=Windows не даст запустить KaGo VPN
+russian.SacText=Включено «Интеллектуальное управление приложениями». Оно запускает только программы с цифровой подписью, а у KaGo VPN её пока нет, поэтому после установки приложение не откроется.%n%nЧтобы KaGo VPN работал, эту защиту нужно отключить. Она отключается для всех программ, а на некоторых версиях Windows включить её обратно можно только переустановкой системы.
+russian.SacAuto=Отключить автоматически%nWindows попросит разрешение администратора
+russian.SacManual=Отключу сам%nОткроются настройки «Безопасность Windows»
+russian.SacSkip=Продолжить без отключения%nKaGo VPN не запустится
+russian.SacManualHint=В открывшемся окне выберите «Параметры интеллектуального управления приложениями» и переключите защиту в положение «Выкл.».%n%nПосле этого нажмите «ОК».
+russian.SacAutoDone=Защита отключена. Если KaGo VPN всё равно не запустится, перезагрузите компьютер.
+russian.SacAutoFailed=Отключить автоматически не получилось: разрешение администратора не дано, или Windows не применила изменение.%n%nОтключите защиту вручную или перезагрузите компьютер и запустите установку снова.
+russian.SacSkipConfirm=Продолжить установку с включённой защитой?%n%nKaGo VPN не запустится, пока она включена. Отключить её можно позже: «Безопасность Windows» → «Управление приложениями и браузером» → «Параметры интеллектуального управления приложениями».
+english.SacInstruction=Windows will not let KaGo VPN start
+english.SacText=Smart App Control is on. It only runs programs with a digital signature, and KaGo VPN does not have one yet, so the app will not open after installation.%n%nTo use KaGo VPN, turn this protection off. It is turned off for all programs, and on some Windows versions it can only be turned back on by reinstalling Windows.
+english.SacAuto=Turn it off automatically%nWindows will ask for administrator permission
+english.SacManual=I will turn it off myself%nOpens Windows Security settings
+english.SacSkip=Continue without turning it off%nKaGo VPN will not start
+english.SacManualHint=In the window that opens, choose "Smart App Control settings" and switch the protection to "Off".%n%nThen click OK.
+english.SacAutoDone=The protection is off. If KaGo VPN still does not start, restart the computer.
+english.SacAutoFailed=It could not be turned off automatically: administrator permission was not given, or Windows did not apply the change.%n%nTurn the protection off manually, or restart the computer and run the installer again.
+english.SacSkipConfirm=Continue the installation with the protection on?%n%nKaGo VPN will not start while it is on. You can turn it off later: Windows Security > App & browser control > Smart App Control settings.
+
 [UninstallDelete]
 ; Данные встроенного WebView2 (вход через Telegram) лежат рядом с exe.
 Type: filesandordirs; Name: "{app}\kago_vpn.exe.WebView2"
@@ -77,8 +98,75 @@ const
   // Ключ шифрования flutter_secure_storage (подписка, вход) в диспетчере учётных данных.
   StorageCredential = 'key_kago_vpn_VGhpcyBpcyB0aGUgcHJlZml4IGZv_';
 
+  // Состояние Smart App Control: 0 — выключено, 1 — включено, 2 — оценка
+  // (Windows только наблюдает и ничего не блокирует).
+  CiPolicyKey = 'SYSTEM\CurrentControlSet\Control\CI\Policy';
+  CiPolicyValue = 'VerifiedAndReputablePolicyState';
+
 var
   FullCleanup: Boolean;
+
+function SmartAppControlOn: Boolean;
+var
+  State: Cardinal;
+begin
+  Result := RegQueryDWordValue(HKLM64, CiPolicyKey, CiPolicyValue, State) and (State = 1);
+end;
+
+// С правами администратора (UAC): записывает «выключено» и применяет
+// политику через CiTool без перезагрузки (Windows 11 22H2+). True, если
+// защита после этого выключена.
+function DisableSmartAppControl: Boolean;
+var
+  Code: Integer;
+begin
+  ShellExec('runas', ExpandConstant('{cmd}'),
+    '/c reg add "HKLM\' + CiPolicyKey + '" /v ' + CiPolicyValue + ' /t REG_DWORD /d 0 /f' +
+    ' & if exist "%SystemRoot%\System32\CiTool.exe" "%SystemRoot%\System32\CiTool.exe" -r',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Result := not SmartAppControlOn;
+end;
+
+// Без подписи приложение заблокирует «Интеллектуальное управление
+// приложениями». Пока защита включена, установщик настойчиво предлагает её
+// отключить; продолжить без этого можно только после подтверждения.
+// Тихая установка (обновление из приложения) ничего не спрашивает.
+procedure CheckSmartAppControl;
+var
+  Code: Integer;
+begin
+  if WizardSilent then
+    Exit;
+  while SmartAppControlOn do
+  begin
+    case TaskDialogMsgBox(CustomMessage('SacInstruction'), CustomMessage('SacText'),
+      mbError, MB_YESNOCANCEL,
+      [CustomMessage('SacAuto'), CustomMessage('SacManual'), CustomMessage('SacSkip')],
+      IDYES) of
+      IDYES:
+        if DisableSmartAppControl then
+          MsgBox(CustomMessage('SacAutoDone'), mbInformation, MB_OK)
+        else
+          MsgBox(CustomMessage('SacAutoFailed'), mbError, MB_OK);
+      IDNO:
+        begin
+          ShellExec('open', 'windowsdefender://appbrowser', '', '', SW_SHOWNORMAL,
+            ewNoWait, Code);
+          MsgBox(CustomMessage('SacManualHint'), mbInformation, MB_OK);
+        end;
+    else
+      if MsgBox(CustomMessage('SacSkipConfirm'), mbConfirmation,
+        MB_YESNO or MB_DEFBUTTON2) = IDYES then
+        Exit;
+    end;
+  end;
+end;
+
+function InitializeSetup: Boolean;
+begin
+  CheckSmartAppControl;
+  Result := True;
+end;
 
 // Ядро Mihomo из %APPDATA%\KaGo, если оно осталось работать без приложения.
 procedure StopCore;

@@ -5,11 +5,10 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:win32_registry/win32_registry.dart';
+import '../app_version.dart';
 import '../storage/secure_storage.dart';
 
-/// App version for the User-Agent; `test/user_agent_test.dart` keeps it in
-/// step with pubspec.yaml.
-const kagoAppVersion = '2.6.0';
+export '../app_version.dart';
 
 /// Mihomo core built into the app (Android) and downloaded on Windows.
 const kagoCoreVersion = '1.19.32';

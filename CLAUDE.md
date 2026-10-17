@@ -22,7 +22,7 @@ KaGoVPN — VPN-клиент на Flutter/Dart со встроенным ядр�
 
 ## Версии и релизы
 
-- Версия в `pubspec.yaml`: `X.Y.Z+N`, `N = X*10000 + Y*100 + Z` (versionCode Android; проверяет `test/version_test.dart`). Ту же `X.Y.Z` держать в `kagoAppVersion` (`lib/core/device/device_identity.dart`).
+- Версия в `pubspec.yaml`: `X.Y.Z+N`, `N = X*10000 + Y*100 + Z` (versionCode Android; проверяет `test/version_test.dart`). Ту же `X.Y.Z` держать в `kagoAppVersion` (`lib/core/app_version.dart`; отдельный файл, чтобы подъём версии не запускал проверочные сборки Android и macOS — их `paths` исключают его и `pubspec.yaml`, запрошено 2026-10-17).
 - **Версии — по Semantic Versioning 2.0.0** (semver.org, запрошено 2026-10-11): `MAJOR.MINOR.PATCH`. Каждый выпуск к пользователям — новая версия; опубликованную версию не переиспользовать.
   - **PATCH** (`2.2.0` → `2.2.1`): исправления ошибок и мелкие правки без новой функциональности — значки, тексты, вёрстка, имена, внутренние изменения сборки и CI.
   - **MINOR** (`2.2.1` → `2.3.0`, PATCH обнуляется): новая обратно совместимая функциональность — новые экраны, режимы, настройки, поддержка новых полей подписки.

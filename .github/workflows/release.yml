@@ -59,6 +59,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Версия общая для всех систем: каждый релиз — от последнего
+      # опубликованного, кому бы тот ни вышел (после Windows 2.6.0 релиз для
+      # Android — 2.6.1 или 2.7.0, CLAUDE.md). Проверяется до сборок.
+      - name: Версия новее последнего релиза
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          NAME="${VERSION%%+*}"
+          LATEST="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-pre-releases --exclude-drafts \
+            --limit 100 --json tagName --jq '.[].tagName' \
+            | sed 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
+          if [[ -n "$LATEST" && "$(printf '%s\n%s\n' "$LATEST" "$NAME" | sort -V | tail -1)" != "$NAME" ]] \
+             || [[ "$LATEST" == "$NAME" ]]; then
+            echo "::error::Версия $NAME в pubspec.yaml не новее последнего релиза $LATEST. Поднимите её от $LATEST (CLAUDE.md, Semantic Versioning)." >&2
+            exit 1
+          fi
+          echo "::notice::Версия $NAME (последний релиз: ${LATEST:-нет})"
+
       - name: Платформы
         id: platforms
         run: |

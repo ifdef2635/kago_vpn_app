@@ -147,10 +147,11 @@ class AppUpdater {
     return platforms.isEmpty ? null : platforms;
   }
 
-  /// From GitHub's release list: the newest release, if any release newer
-  /// than [current] is for [os]. A release for other systems only is not
-  /// offered; the next one for [os] installs the newest version, which also
-  /// carries the earlier changes. Notes are those of the releases for [os].
+  /// From GitHub's release list: the newest release newer than [current]
+  /// that is for [os]. Releases are built only for the systems in their
+  /// «Платформы:» line (release.yml), so a newer release for other systems
+  /// has no file for [os] and is skipped. Notes are those of the releases
+  /// for [os].
   static ({String tag, String notes})? pick(
       List<dynamic> releases, String os, String current) {
     final newer = <({String tag, String body})>[];
@@ -180,7 +181,7 @@ class AppUpdater {
             .map((release) =>
                 '${release.tag.replaceFirst('v', '')}:\n${plainNotes(release.body)}')
             .join('\n\n');
-    return (tag: newer.first.tag, notes: notes);
+    return (tag: relevant.first.tag, notes: notes);
   }
 
   /// The hash for [name] in a `sha256sum`/`shasum` listing
@@ -222,7 +223,8 @@ class AppUpdater {
   /// The release to offer this platform: from the GitHub API, or — when the
   /// API is unreachable or rate-limited — the redirect of
   /// github.com/…/releases/latest and that release's `release.json`
-  /// (platforms; then only the latest release is known).
+  /// (platforms; then only the latest release is known, and an update is
+  /// offered only if it is for this system).
   Future<({String tag, String notes})?> _candidate(String os) async {
     try {
       final response = await _dio().get<List<dynamic>>(_apiReleases);

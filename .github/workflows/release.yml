@@ -1,11 +1,14 @@
 name: Release
 
-# Единственный путь к GitHub Release: собирает Android, Windows и macOS
-# параллельно и публикует v<версия> только если готовы все три файла —
-# .apk, .exe и .dmg. Список файлов SHA256SUMS.txt подписывается ключом
-# релиза (тем же, что подписывает APK); приложение ставит обновление только
-# с верной подписью. Опубликованный релиз не перезаписывается: каждая
-# публикация — новая версия в pubspec.yaml.
+# Единственный путь к GitHub Release. Собирает только системы из строки
+# «Платформы: Android, Windows, macOS» первого раздела RELEASE_STATUS.md
+# (без строки — все три) и публикует v<версия>, только если готовы файлы
+# всех этих систем (.apk, .exe и .zip, .dmg). Релиз для одной системы не
+# пересобирает и не выпускает другие; приложение берёт самый новый релиз,
+# в котором есть файл для его системы (app_updater: pick). Список файлов
+# SHA256SUMS.txt подписывается ключом релиза (тем же, что подписывает APK);
+# приложение ставит обновление только с верной подписью. Опубликованный
+# релиз не перезаписывается: каждая публикация — новая версия в pubspec.yaml.
 # Запуск: тег v<версия> (совпадает с pubspec.yaml) или Actions → Release →
 # Run workflow (тег создаётся на выбранном коммите).
 # Предварительный релиз (тег с суффиксом, например v2.0.4-pre.1, или галочка
@@ -42,8 +45,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  android:
+  # Какие системы собирать: строка «Платформы:» первого раздела
+  # RELEASE_STATUS.md (его же публикует «Что нового»).
+  plan:
     if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.platforms.outputs.android }}
+      windows: ${{ steps.platforms.outputs.windows }}
+      macos: ${{ steps.platforms.outputs.macos }}
+      json: ${{ steps.platforms.outputs.json }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Платформы
+        id: platforms
+        run: |
+          awk '/^## /{n++; next} n==1 && /^Для разработчиков/{exit} n==1' RELEASE_STATUS.md > release-notes.md
+          LINE="$(grep -iE '^[[:space:]*_]*(Платформы|Platforms)[[:space:]*_]*:' release-notes.md | head -1 || true)"
+          JSON=""
+          for p in android windows macos; do
+            if [[ -z "$LINE" ]] || echo "$LINE" | grep -qiE "\b${p}\b|\b${p%os}\b"; then
+              echo "$p=true" >> "$GITHUB_OUTPUT"
+              JSON="$JSON\"$p\","
+            else
+              echo "$p=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+          if [[ -z "$JSON" ]]; then
+            echo "::error::В строке «$LINE» нет ни одной платформы (Android, Windows, macOS)." >&2
+            exit 1
+          fi
+          echo "json=${JSON%,}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Релиз для: ${JSON%,}"
+
+  android:
+    needs: plan
+    if: needs.plan.outputs.android == 'true'
     uses: ./.github/workflows/android-release.yml
     with:
       release: true
@@ -55,13 +94,15 @@ jobs:
       KAGO_ANDROID_KEY_PASSWORD: ${{ secrets.KAGO_ANDROID_KEY_PASSWORD }}
 
   windows:
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
+    needs: plan
+    if: needs.plan.outputs.windows == 'true'
     uses: ./.github/workflows/windows-release.yml
     with:
       release: true
 
   macos:
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
+    needs: plan
+    if: needs.plan.outputs.macos == 'true'
     uses: ./.github/workflows/macos-release.yml
     with:
       release: true
@@ -76,8 +117,14 @@ jobs:
       KAGO_APPLE_API_ISSUER: ${{ secrets.KAGO_APPLE_API_ISSUER }}
 
   publish:
-    needs: [android, windows, macos]
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
+    needs: [plan, android, windows, macos]
+    # Пропущенная сборка системы, которой нет в «Платформы:», не мешает
+    # публикации; упавшая или отменённая сборка нужной системы — мешает.
+    if: >-
+      !cancelled() && needs.plan.result == 'success'
+      && (needs.plan.outputs.android != 'true' || needs.android.result == 'success')
+      && (needs.plan.outputs.windows != 'true' || needs.windows.result == 'success')
+      && (needs.plan.outputs.macos != 'true' || needs.macos.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -144,10 +191,16 @@ jobs:
       - name: Проверить состав релиза
         env:
           V: ${{ steps.version.outputs.name }}
+          ANDROID: ${{ needs.plan.outputs.android }}
+          WINDOWS: ${{ needs.plan.outputs.windows }}
+          MACOS: ${{ needs.plan.outputs.macos }}
         run: |
           ls -lh dist
-          for f in "KaGoVPN-Android-$V.apk" "KaGoVPN-Windows-x64-Setup-$V.exe" "KaGoVPN-macOS-$V.dmg" \
-                   SHA256SUMS-Android.txt SHA256SUMS-Windows.txt SHA256SUMS-macOS.txt; do
+          FILES=()
+          [[ "$ANDROID" == true ]] && FILES+=("KaGoVPN-Android-$V.apk" SHA256SUMS-Android.txt)
+          [[ "$WINDOWS" == true ]] && FILES+=("KaGoVPN-Windows-x64-Setup-$V.exe" "KaGoVPN-Windows-x64-$V.zip" SHA256SUMS-Windows.txt)
+          [[ "$MACOS" == true ]] && FILES+=("KaGoVPN-macOS-$V.dmg" SHA256SUMS-macOS.txt)
+          for f in "${FILES[@]}"; do
             test -s "dist/$f" || { echo "::error::В релизе нет $f" >&2; exit 1; }
           done
           if ls dist | grep -q debugsigned; then
@@ -195,25 +248,13 @@ jobs:
       - name: Описание релиза
         env:
           V: ${{ steps.version.outputs.name }}
+          PLATFORMS: ${{ needs.plan.outputs.json }}
         run: |
           awk '/^## /{n++; next} n==1 && /^Для разработчиков/{exit} n==1' RELEASE_STATUS.md > release-notes.md
           test -s release-notes.md || echo "KaGo VPN $V" > release-notes.md
-          # Строка «Платформы: Android, Windows, macOS» — каким системам
-          # приложение предложит это обновление (без строки — всем). Файлы
-          # всех трёх систем публикуются в любом случае. release.json читает
-          # приложение, когда API GitHub недоступен.
-          LINE="$(grep -iE '^[[:space:]*_]*(Платформы|Platforms)[[:space:]*_]*:' release-notes.md | head -1 || true)"
-          PLATFORMS=""
-          for p in android windows macos; do
-            if [[ -z "$LINE" ]] || echo "$LINE" | grep -qiE "\b${p}\b|\b${p%os}\b"; then
-              PLATFORMS="$PLATFORMS\"$p\","
-            fi
-          done
-          if [[ -z "$PLATFORMS" ]]; then
-            echo "::error::В строке «$LINE» нет ни одной платформы (Android, Windows, macOS)." >&2
-            exit 1
-          fi
-          printf '{"version":"%s","platforms":[%s]}\n' "$V" "${PLATFORMS%,}" > dist/release.json
+          # Системы релиза (задача plan); release.json читает приложение,
+          # когда API GitHub недоступен.
+          printf '{"version":"%s","platforms":[%s]}\n' "$V" "$PLATFORMS" > dist/release.json
           cat dist/release.json
 
       - name: GitHub Release

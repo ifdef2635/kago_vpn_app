@@ -74,7 +74,7 @@ void main() {
     expect(AppUpdater.platformsFrom('Платформы: все'), isNull);
   });
 
-  test('an update is offered only when a newer release is for this system', () {
+  test('an update comes from the newest release built for this system', () {
     Map<String, Object?> release(String tag, String body) =>
         <String, Object?>{'tag_name': tag, 'body': body, 'draft': false};
     final releases = <Object?>[
@@ -85,15 +85,20 @@ void main() {
     ];
     // Windows on 2.0.0: 2.0.1 and 2.0.2 are not for it.
     expect(AppUpdater.pick(releases, 'windows', '2.0.0'), isNull);
-    // Windows on 1.0.6: 2.0.0 is for everyone; the newest files are offered.
+    // Windows on 1.0.6: only 2.0.0 has Windows files (2.0.1 and 2.0.2 are
+    // built for other systems only).
     final windows = AppUpdater.pick(releases, 'windows', '1.0.6')!;
-    expect(windows.tag, 'v2.0.2');
+    expect(windows.tag, 'v2.0.0');
     expect(windows.notes, contains('everything'));
     expect(windows.notes, isNot(contains('mac fix')));
-    // Android on 2.0.0 gets 2.0.2 (which also carries 2.0.1).
+    // Android on 2.0.0 gets 2.0.1: the newer 2.0.2 has no APK.
     final android = AppUpdater.pick(releases, 'android', '2.0.0')!;
-    expect(android.tag, 'v2.0.2');
+    expect(android.tag, 'v2.0.1');
     expect(android.notes, contains('android fix'));
+    // Android on 1.0.6: the newest release with an APK, notes of both.
+    final older = AppUpdater.pick(releases, 'android', '1.0.6')!;
+    expect(older.tag, 'v2.0.1');
+    expect(older.notes, allOf(contains('android fix'), contains('everything')));
     expect(AppUpdater.pick(releases, 'macos', '2.0.2'), isNull);
   });
 

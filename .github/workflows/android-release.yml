@@ -32,9 +32,11 @@ on:
       - 'tool/build_android_native.sh'
       - 'assets/**'
       - 'test/**'
-      - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/android-release.yml'
+      # Подъём версии (номер в app_version.dart и pubspec.yaml) сборку не
+      # запускает: зависимости меняют pubspec.lock, ресурсы — assets/.
+      - '!lib/core/app_version.dart'
 
 # Только чтение: сборка не публикует релиз (это делает release.yml).
 permissions:

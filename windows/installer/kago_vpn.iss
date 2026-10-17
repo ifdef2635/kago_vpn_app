@@ -134,15 +134,20 @@ end;
 procedure CheckSmartAppControl;
 var
   Code: Integer;
+  Buttons: TArrayOfString;
 begin
   if WizardSilent then
     Exit;
+  // Не литерал массива: строку, начинающуюся с «[», Inno Setup читает как
+  // заголовок секции даже внутри [Code].
+  SetArrayLength(Buttons, 3);
+  Buttons[0] := CustomMessage('SacAuto');
+  Buttons[1] := CustomMessage('SacManual');
+  Buttons[2] := CustomMessage('SacSkip');
   while SmartAppControlOn do
   begin
     case TaskDialogMsgBox(CustomMessage('SacInstruction'), CustomMessage('SacText'),
-      mbError, MB_YESNOCANCEL,
-      [CustomMessage('SacAuto'), CustomMessage('SacManual'), CustomMessage('SacSkip')],
-      IDYES) of
+      mbError, MB_YESNOCANCEL, Buttons, IDYES) of
       IDYES:
         if DisableSmartAppControl then
           MsgBox(CustomMessage('SacAutoDone'), mbInformation, MB_OK)

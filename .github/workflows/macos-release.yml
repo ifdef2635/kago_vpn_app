@@ -38,9 +38,13 @@ on:
       - 'macos/**'
       - 'assets/**'
       - 'test/**'
-      - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/macos-release.yml'
+      # Подъём версии (номер в app_version.dart и pubspec.yaml) и файл
+      # плагинов, который flutter пересоздаёт сам, сборку не запускают:
+      # новый плагин всё равно меняет pubspec.lock.
+      - '!lib/core/app_version.dart'
+      - '!macos/Flutter/GeneratedPluginRegistrant.swift'
 
 # Только чтение: сборка не публикует релиз (это делает release.yml).
 permissions:

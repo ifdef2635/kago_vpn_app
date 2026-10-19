@@ -1,0 +1,111 @@
+name: Выпуск проверенной сборки
+
+# Публикует проверенный предварительный релиз (v<версия>-pre.N) как обычный
+# v<версия> без пересборки: пользователи получают ровно те файлы, что ставил
+# тестировщик (APK/EXE/ZIP/DMG, SHA256SUMS-*, SHA256SUMS.txt и его подпись,
+# release.json, «Что нового»). Имена файлов в предварительном релизе уже без
+# суффикса -pre, подпись SHA256SUMS.txt действует и для обычного релиза.
+# Запуск: Actions → «Выпуск проверенной сборки» → Run workflow на main, тег
+# предварительного релиза. Код main должен совпадать с проверенной сборкой
+# (тот же коммит или только слияния) — тег обычного релиза ставится на main.
+run-name: Выпуск ${{ inputs.pre_tag || 'проверенной сборки' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      pre_tag:
+        description: 'Тег предварительного релиза, например v2.6.1-pre.34'
+        required: true
+        type: string
+  push:
+    # Только чтобы GitHub зарегистрировал workflow на ветке (иначе ручной
+    # запуск через API отвечает 404): при таком пуше задача пропускается.
+    branches:
+      - 'claude/**'
+    paths:
+      - '.github/workflows/promote.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PRE_TAG: ${{ inputs.pre_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Тег и версия
+        id: version
+        run: |
+          set -euo pipefail
+          if ! [[ "$PRE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-pre\.[0-9]+$ ]]; then
+            echo "::error::Нужен тег предварительного релиза вида v2.6.1-pre.34, а не «$PRE_TAG»." >&2
+            exit 1
+          fi
+          NAME="${BASH_REMATCH[1]}"
+          TAG="v$NAME"
+          VERSION="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          if [[ "${VERSION%%+*}" != "$NAME" ]]; then
+            echo "::error::Версия $GITHUB_REF_NAME (${VERSION%%+*}) не совпадает с $PRE_TAG." >&2
+            exit 1
+          fi
+          if [[ "$(gh release view "$PRE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" != true ]]; then
+            echo "::error::$PRE_TAG — не предварительный релиз." >&2
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::Релиз $TAG уже опубликован." >&2
+            exit 1
+          fi
+          # Как в release.yml: версия новее последнего обычного релиза.
+          LATEST="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-pre-releases --exclude-drafts \
+            --limit 100 --json tagName --jq '.[].tagName' \
+            | sed 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
+          if [[ -n "$LATEST" && "$(printf '%s\n%s\n' "$LATEST" "$NAME" | sort -V | tail -1)" != "$NAME" ]] \
+             || [[ "$LATEST" == "$NAME" ]]; then
+            echo "::error::Версия $NAME не новее последнего релиза $LATEST." >&2
+            exit 1
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Те же файлы, что у тестировщика; суммы сверяются, подпись списка
+      # проверит само приложение (как у любого релиза).
+      - name: Файлы проверенной сборки
+        env:
+          NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          mkdir dist
+          gh release download "$PRE_TAG" --repo "$GITHUB_REPOSITORY" --dir dist
+          ls -lh dist
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          test -s dist/SHA256SUMS.txt.sig
+          grep -q "\"version\":\"$NAME\"" dist/release.json
+          if ls dist | grep -q debugsigned; then
+            echo "::error::APK подписан debug-ключом — такой нельзя публиковать." >&2
+            exit 1
+          fi
+          gh release view "$PRE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
+          test -s release-notes.md
+
+      - name: GitHub Release
+        env:
+          NAME: ${{ steps.version.outputs.name }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "KaGo VPN $NAME" \
+            --notes-file release-notes.md --latest

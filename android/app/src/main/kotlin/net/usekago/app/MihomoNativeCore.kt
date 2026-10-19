@@ -16,6 +16,13 @@ object MihomoNativeCore {
         tunnelDns: String,
     ): Int
     external fun stop(): Int
+    /**
+     * After a network change: the core's "system" DNS from [dnsServers] (the
+     * new network's DNS, comma-separated; empty — public fallback), DNS cache
+     * and resolver connections reset; [closeConnections] closes every proxied
+     * connection so apps reconnect over the new network.
+     */
+    external fun resetNetwork(dnsServers: String, closeConnections: Boolean): Int
     /** Returns the Mihomo release tag embedded into this signed Android app build. */
     external fun version(): String
     /** Detailed startup error from the Go bridge for fail-closed diagnostics. */

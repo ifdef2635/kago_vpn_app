@@ -23,6 +23,11 @@ int kago_mihomo_start_with_tun_fd(char *config_path, char *work_dir, int tun_fd,
                                   int mtu, char *stack, char *tunnel_address,
                                   char *tunnel_dns);
 int kago_mihomo_stop(void);
+/* After a network change: "system" DNS from dns_csv (the new network's DNS
+ * servers, comma-separated; empty — the public fallback), DNS cache and
+ * resolver connections reset; with close_connections != 0 every proxied
+ * connection is closed. No-op while the core is stopped. */
+int kago_mihomo_reset_network(char *dns_csv, int close_connections);
 int kago_mihomo_is_running(void);
 /* Returned strings are heap-allocated and must be freed with kago_mihomo_free_string. */
 char *kago_mihomo_version(void);

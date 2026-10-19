@@ -203,6 +203,16 @@ Java_net_usekago_app_MihomoNativeCore_stop(JNIEnv* env, jobject) {
   return static_cast<jint>(result);
 }
 
+extern "C" JNIEXPORT jint JNICALL
+Java_net_usekago_app_MihomoNativeCore_resetNetwork(JNIEnv* env, jobject, jstring dns_servers,
+                                                   jboolean close_connections) {
+  const char* dns = dns_servers == nullptr ? nullptr : env->GetStringUTFChars(dns_servers, nullptr);
+  std::string copy = dns == nullptr ? std::string() : std::string(dns);
+  if (dns != nullptr) env->ReleaseStringUTFChars(dns_servers, dns);
+  return static_cast<jint>(
+      kago_mihomo_reset_network(copy.data(), close_connections == JNI_TRUE ? 1 : 0));
+}
+
 extern "C" JNIEXPORT jstring JNICALL
 Java_net_usekago_app_MihomoNativeCore_version(JNIEnv* env, jobject) {
   char* version = kago_mihomo_version();

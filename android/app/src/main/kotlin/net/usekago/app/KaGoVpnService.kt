@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import org.json.JSONObject
 import java.io.File
+import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.HttpURLConnection
@@ -43,6 +44,12 @@ class KaGoVpnService : VpnService() {
     private var healthTask: ScheduledFuture<*>? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var currentConfig: String? = null
+    // Local address the core's protected sockets leave from, and the DNS of
+    // that network: a change means the phone moved to another network.
+    private var lastRoute: String? = null
+    private var lastDns: String? = null
+    // A network appeared or went away since the last check.
+    @Volatile private var structuralChange = false
     private var expiresAt = 0L
     private var guest = false
 
@@ -113,9 +120,13 @@ class KaGoVpnService : VpnService() {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) = queueNetworkCheck()
-            override fun onLost(network: Network) = queueNetworkCheck()
+            override fun onAvailable(network: Network) = queueNetworkCheck(structural = true)
+            override fun onLost(network: Network) = queueNetworkCheck(structural = true)
             override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = queueNetworkCheck()
+            // Samsung switches a weak Wi-Fi to mobile data without losing the
+            // Wi-Fi network: only capabilities change. The check is cheap
+            // (refreshRoute) and probes only when the route really moved.
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = queueNetworkCheck()
         }
         runCatching { connectivity.registerNetworkCallback(request, callback) }
             .onSuccess { networkCallback = callback }
@@ -123,19 +134,82 @@ class KaGoVpnService : VpnService() {
 
     private var networkTask: ScheduledFuture<*>? = null
 
-    private fun queueNetworkCheck() {
+    /**
+     * At most one check per 2 seconds: a network switch fires a burst of
+     * callbacks, and capabilities of mobile data change often.
+     */
+    private fun queueNetworkCheck(structural: Boolean = false) {
+        if (structural) structuralChange = true
         onCoreThread {
-            networkTask?.cancel(false)
+            if (networkTask?.isDone == false) return@onCoreThread
             networkTask = coreThread.schedule({
                 if (!desired || destroyed) return@schedule
                 if (!physicalNetworkAvailable()) return@schedule
+                val moved = refreshRoute()
+                val structuralNow = structuralChange
+                structuralChange = false
                 if (isRecovering) {
-                    scheduleRecovery(immediate = true)
-                } else if (coreRunning && !probeExternalTwice()) {
+                    if (structuralNow) scheduleRecovery(immediate = true)
+                } else if (coreRunning && (moved || structuralNow) && !probeExternalTwice()) {
                     beginRecovery(immediate = true)
                 }
             }, 2, TimeUnit.SECONDS)
         }
+    }
+
+    private data class Route(val local: String, val dns: String)
+
+    /**
+     * Where the core's sockets go out now: the local address of a protected
+     * (VPN-bypassing, like the core's) UDP socket "connected" to a public
+     * address — no packet is sent — and the DNS servers of the network that
+     * owns that address. Null without a usable network.
+     */
+    private fun currentRoute(): Route? {
+        val local = sequenceOf("1.1.1.1", "2606:4700:4700::1111").firstNotNullOfOrNull { target ->
+            runCatching {
+                DatagramSocket().use { socket ->
+                    if (!protect(socket)) return@use null
+                    socket.connect(InetSocketAddress(InetAddress.getByName(target), 53))
+                    socket.localAddress?.takeUnless { it.isAnyLocalAddress }
+                }
+            }.getOrNull()
+        } ?: return null
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        val dns = runCatching {
+            connectivity.allNetworks.firstNotNullOfOrNull { network ->
+                val capabilities = connectivity.getNetworkCapabilities(network)
+                val properties = connectivity.getLinkProperties(network)
+                if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) != true ||
+                    properties == null ||
+                    properties.linkAddresses.none { it.address == local }
+                ) {
+                    null
+                } else {
+                    properties.dnsServers.mapNotNull { it.hostAddress }.joinToString(",")
+                }
+            }
+        }.getOrNull().orEmpty()
+        return Route(local.hostAddress ?: return null, dns)
+    }
+
+    /**
+     * Keeps the core in step with the phone's network: its "system" DNS
+     * follows the network, and when the route moved (Wi-Fi to mobile data
+     * and back) every connection of the core is closed, so apps reconnect
+     * over the new network instead of hanging on the old one until the VPN
+     * is turned off and on. True when the route moved.
+     */
+    private fun refreshRoute(): Boolean {
+        if (!coreRunning) return false
+        val route = currentRoute() ?: return false
+        val moved = lastRoute != null && route.local != lastRoute
+        if (route.local != lastRoute || route.dns != lastDns) {
+            runCatching { MihomoNativeCore.resetNetwork(route.dns, moved) }
+        }
+        lastRoute = route.local
+        lastDns = route.dns
+        return moved
     }
 
     private fun physicalNetworkAvailable(): Boolean = runCatching {
@@ -150,7 +224,10 @@ class KaGoVpnService : VpnService() {
     private fun startHealthChecks() {
         healthTask?.cancel(false)
         healthTask = coreThread.scheduleWithFixedDelay({
-            if (desired && coreRunning && !probeLocal()) beginRecovery()
+            if (!desired || !coreRunning) return@scheduleWithFixedDelay
+            // A switch Android reported no callback for is noticed here.
+            val moved = refreshRoute()
+            if (!probeLocal() || (moved && !probeExternalTwice())) beginRecovery()
         }, 30, 30, TimeUnit.SECONDS)
     }
 
@@ -326,6 +403,11 @@ class KaGoVpnService : VpnService() {
                 return
             }
             if (request != requests.get()) return
+            // The core starts with the public fallback DNS: give it this
+            // network's and remember the route.
+            lastRoute = null
+            lastDns = null
+            refreshRoute()
             runningConfig = configPath
             isConnected = true
             isStarting = false
@@ -388,6 +470,8 @@ class KaGoVpnService : VpnService() {
         // it (a previous instance may have).
         runCatching { MihomoNativeCore.stop() }
         coreRunning = false
+        lastRoute = null
+        lastDns = null
     }
 
     /**

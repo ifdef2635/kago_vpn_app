@@ -28,3 +28,24 @@ func TestJniSafeText(t *testing.T) {
 		t.Fatal("BMP text must stay as is")
 	}
 }
+
+func TestSystemDNSServers(t *testing.T) {
+	got := systemDNSServers([]string{"192.168.1.1", " 2001:db8::53 ", "fe80::1%wlan0", "127.0.0.1", "::", "bad", "::ffff:10.0.0.1"})
+	want := []string{"192.168.1.1:53", "[2001:db8::53]:53", "10.0.0.1:53"}
+	if len(got) != len(want) {
+		t.Fatalf("systemDNSServers = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("systemDNSServers = %v, want %v", got, want)
+		}
+	}
+	fallback := systemDNSServers(nil)
+	if len(fallback) != len(fallbackSystemDNS) || fallback[0] != fallbackSystemDNS[0] {
+		t.Fatalf("empty list must use the fallback, got %v", fallback)
+	}
+	fallback[0] = "changed"
+	if fallbackSystemDNS[0] == "changed" {
+		t.Fatal("the fallback list must not be shared")
+	}
+}

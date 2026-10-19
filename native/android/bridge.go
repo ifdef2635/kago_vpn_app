@@ -88,6 +88,18 @@ func kago_mihomo_start_with_tun_fd(configPath, workDir *C.char, tunFD, mtu C.int
 //export kago_mihomo_stop
 func kago_mihomo_stop() C.int { return C.int(stopCore()) }
 
+//export kago_mihomo_reset_network
+func kago_mihomo_reset_network(dnsCSV *C.char, closeConnections C.int) C.int {
+	var servers []string
+	for _, item := range strings.Split(C.GoString(dnsCSV), ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			servers = append(servers, item)
+		}
+	}
+	resetNetwork(servers, closeConnections != 0)
+	return 0
+}
+
 //export kago_mihomo_is_running
 func kago_mihomo_is_running() C.int {
 	if isCoreRunning() {

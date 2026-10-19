@@ -19,11 +19,13 @@ on:
       - 'windows/**'
       - 'assets/**'
       - 'test/**'
-      - 'pubspec.yaml'
       - 'pubspec.lock'
       - 'tool/build_windows_release.ps1'
       - 'tool/windows_tray_smoke.ps1'
       - '.github/workflows/windows-release.yml'
+      # Подъём версии (номер в app_version.dart и pubspec.yaml) сборку не
+      # запускает: зависимости меняют pubspec.lock, ресурсы — assets/.
+      - '!lib/core/app_version.dart'
 
 # Только чтение: сборка не публикует релиз (это делает release.yml).
 permissions:

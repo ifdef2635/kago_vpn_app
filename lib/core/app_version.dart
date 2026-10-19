@@ -3,4 +3,4 @@
 ///
 /// Its own file so a version bump (this file and pubspec.yaml) does not
 /// start the Android and macOS check builds (`paths` in their workflows).
-const kagoAppVersion = '2.6.0';
+const kagoAppVersion = '2.6.1';

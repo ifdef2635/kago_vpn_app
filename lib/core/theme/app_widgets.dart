@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/l10n.dart';
+import 'kago_motion.dart';
 import 'kago_theme.dart';
 
 /// Where «Поддержка» leads: the subscription's `support-url` when it sends
@@ -330,42 +331,51 @@ class KagoLogo extends StatelessWidget {
 }
 
 /// The site's lockup: the mark plus the «KAGO.» wordmark (`.kago-logo`).
+/// With [intro] the lockup plays the app's first appearance: the mark grows
+/// in with a glint ([KagoMarkReveal]), then the name slides in.
 class KagoWordmark extends StatelessWidget {
-  const KagoWordmark({super.key, this.size = 34, this.subtitle});
+  const KagoWordmark(
+      {super.key, this.size = 34, this.subtitle, this.intro = false});
   final double size;
   final String? subtitle;
+  final bool intro;
 
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
     final subtitle = this.subtitle;
-    return Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-      KagoLogo(size: size),
-      SizedBox(width: size * .28),
-      Flexible(
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-            Text('KAGO.',
+    final mark = KagoLogo(size: size);
+    final name = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text('KAGO.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: size * .55,
+                  fontWeight: KaGoWeight.heading,
+                  letterSpacing: -.5,
+                  height: 1.1,
+                  color: p.text)),
+          if (subtitle != null)
+            Text(subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    fontSize: size * .55,
-                    fontWeight: KaGoWeight.heading,
-                    letterSpacing: -.5,
-                    height: 1.1,
-                    color: p.text)),
-            if (subtitle != null)
-              Text(subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: size * .34,
-                      fontWeight: KaGoWeight.body,
-                      height: 1.3,
-                      color: p.muted)),
-          ])),
+                    fontSize: size * .34,
+                    fontWeight: KaGoWeight.body,
+                    height: 1.3,
+                    color: p.muted)),
+        ]);
+    return Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+      intro ? KagoMarkReveal(size: size, child: mark) : mark,
+      SizedBox(width: size * .28),
+      Flexible(
+          child: intro
+              ? KagoEntrance(
+                  order: 1, offset: const Offset(-10, 0), child: name)
+              : name),
     ]);
   }
 }

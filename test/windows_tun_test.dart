@@ -62,20 +62,25 @@ void main() {
     expect(command, contains("-ArgumentList '--headless','powershell.exe'"));
   });
 
-  // Windows CI: conhost.exe accepts --headless and runs the command.
+  // Windows CI: conhost.exe accepts --headless and runs the command. Started
+  // through Start-Process, as the launcher and the scheduled task start it:
+  // a conhost that inherits a console or redirected output (Process.run
+  // directly) does not run its command.
   test('conhost --headless runs PowerShell', skip: !Platform.isWindows,
       () async {
     final dir = await Directory.systemTemp.createTemp('kago_headless');
     try {
       final marker = File('${dir.path}\\ran.txt');
-      final root = Platform.environment['SystemRoot'] ?? r'C:\Windows';
-      await Process.run('$root\\System32\\conhost.exe', <String>[
-        '--headless',
-        'powershell.exe',
+      final path = marker.path.replaceAll("'", "''");
+      await Process.run('powershell.exe', <String>[
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        "Set-Content -LiteralPath '${marker.path.replaceAll("'", "''")}' -Value ok",
+        "Start-Process -FilePath (Join-Path \$env:SystemRoot "
+            "'System32\\conhost.exe') -WindowStyle Hidden -Wait "
+            "-ArgumentList '--headless','powershell.exe','-NoProfile',"
+            "'-NonInteractive','-Command',"
+            "\"Set-Content -LiteralPath '$path' -Value ok\"",
       ]);
       for (var i = 0; i < 50 && !await marker.exists(); i++) {
         await Future<void>.delayed(const Duration(milliseconds: 200));

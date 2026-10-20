@@ -57,6 +57,33 @@ void main() {
     expect(String.fromCharCodes(units), text);
     // Windows command lines are limited to 32767 characters.
     expect(args.join(' ').length, lessThan(30000));
+    // The elevated script runs as long as the core: no console window.
+    expect(command, contains(r"'System32\conhost.exe') -Verb RunAs"));
+    expect(command, contains("-ArgumentList '--headless','powershell.exe'"));
+  });
+
+  // Windows CI: conhost.exe accepts --headless and runs the command.
+  test('conhost --headless runs PowerShell', skip: !Platform.isWindows,
+      () async {
+    final dir = await Directory.systemTemp.createTemp('kago_headless');
+    try {
+      final marker = File('${dir.path}\\ran.txt');
+      final root = Platform.environment['SystemRoot'] ?? r'C:\Windows';
+      await Process.run('$root\\System32\\conhost.exe', <String>[
+        '--headless',
+        'powershell.exe',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        "Set-Content -LiteralPath '${marker.path.replaceAll("'", "''")}' -Value ok",
+      ]);
+      for (var i = 0; i < 50 && !await marker.exists(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      expect((await marker.readAsString()).trim(), 'ok');
+    } finally {
+      await dir.delete(recursive: true);
+    }
   });
 
   // Windows CI: PowerShell's own parser must accept both scripts.
@@ -145,6 +172,12 @@ rules:
     expect(text, contains(r"$user = 'PC\O''Neil'"));
     expect(text, contains('-RunLevel Highest'));
     expect(text, contains('-MultipleInstances Queue'));
+    // Normal priority (the default 7 slows the core down) and no console.
+    expect(text, contains('-Priority 4'));
+    expect(text, contains(r'-Execute $conhost'));
+    expect(text, contains(r"""-Argument ('--headless "' + $shell + '" """));
+    // A new setup revision makes old installs register the task again.
+    expect(service, startsWith('# KaGo VPN TUN service, setup 2\n'));
     expect(text, contains(r"-TaskName 'KaGo VPN TUN' -TaskPath '\KaGo VPN\'"));
     final launcher = MihomoWindowsTun.waitingLauncherArguments(text).last;
     expect(launcher, contains('-Wait -PassThru'));

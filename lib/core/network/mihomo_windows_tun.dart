@@ -137,6 +137,11 @@ try {
 
   /// Arguments for a non-elevated powershell.exe that asks Windows to run
   /// [script] as administrator. Exit code 0: started; 1223: the user said no.
+  /// The script runs as long as the core, so `conhost.exe --headless` hosts
+  /// it without a console window. `-WindowStyle Hidden` alone still showed
+  /// one: a flash at every start of the core, and where Windows Terminal is
+  /// the default terminal (Windows 11) a window that stays open — closing it
+  /// stopped the core.
   static List<String> launcherArguments(String script) {
     final encoded = base64.encode(_utf16le(script));
     return <String>[
@@ -145,10 +150,11 @@ try {
       '-ExecutionPolicy',
       'Bypass',
       '-Command',
-      "try { Start-Process -FilePath 'powershell.exe' -Verb RunAs "
-          "-WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive',"
-          "'-ExecutionPolicy','Bypass','-WindowStyle','Hidden',"
-          "'-EncodedCommand','$encoded'; exit 0 } catch { exit 1223 }",
+      "try { Start-Process -FilePath (Join-Path \$env:SystemRoot "
+          "'System32\\conhost.exe') -Verb RunAs -WindowStyle Hidden "
+          "-ArgumentList '--headless','powershell.exe','-NoProfile',"
+          "'-NonInteractive','-ExecutionPolicy','Bypass','-WindowStyle',"
+          "'Hidden','-EncodedCommand','$encoded'; exit 0 } catch { exit 1223 }",
     ];
   }
 
@@ -240,7 +246,11 @@ function Test-KagoConfig([string]\$text) {
   /// a new core version means a new script and one new permission prompt.
   static String serviceScript(
       {String coreSha256 = MihomoPinnedCore.exeSha256Hex}) {
+    // The first line is the setup revision: a changed script makes
+    // [isInstalled] false, so the task is registered again (setup 2: no
+    // console window, normal priority).
     return '''
+# KaGo VPN TUN service, setup 2
 \$ErrorActionPreference = 'Stop'
 \$coreHash = '${coreSha256.toLowerCase()}'
 \$root = Join-Path \$env:ProgramFiles 'KaGo VPN Core'
@@ -286,7 +296,11 @@ try {
 
   /// The one-time elevated setup: core and [serviceScript] into Program
   /// Files, and the scheduled task for [account] (DOMAIN\\user) with the
-  /// highest privileges.
+  /// highest privileges. The task runs the script through
+  /// `conhost.exe --headless` (no console window, see [launcherArguments])
+  /// and with priority 4: the default 7 runs it — and the core it starts —
+  /// below normal CPU priority with low I/O priority, so a busy computer
+  /// (a game) slowed the whole VPN down.
   static String setupScript({
     required String coreSource,
     required String coreSha256,
@@ -313,9 +327,10 @@ if (-not (Test-Path -LiteralPath \$exe) -or (Get-Sha256 \$exe) -ne \$coreHash) {
 \$ps1 = Join-Path \$root 'kago-tun.ps1'
 [IO.File]::WriteAllText(\$ps1, \$service, (New-Object Text.UTF8Encoding \$false))
 \$shell = Join-Path \$env:SystemRoot 'System32\\WindowsPowerShell\\v1.0\\powershell.exe'
-\$action = New-ScheduledTaskAction -Execute \$shell -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + \$ps1 + '"')
+\$conhost = Join-Path \$env:SystemRoot 'System32\\conhost.exe'
+\$action = New-ScheduledTaskAction -Execute \$conhost -Argument ('--headless "' + \$shell + '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + \$ps1 + '"')
 \$principal = New-ScheduledTaskPrincipal -UserId \$user -LogonType Interactive -RunLevel Highest
-\$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances Queue
+\$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances Queue -Priority 4
 Register-ScheduledTask -TaskName '$taskName' -TaskPath '$taskPath' -Action \$action -Principal \$principal -Settings \$settings -Force | Out-Null
 exit 0
 ''';

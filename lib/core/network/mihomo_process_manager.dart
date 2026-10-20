@@ -76,6 +76,11 @@ class MihomoProcessManager {
   String? _windowsTunDir;
   Timer? _windowsTunWatch;
 
+  /// Missed 3-second checks after which a Windows TUN core that its service
+  /// still reports running counts as stopped (one that the service reports
+  /// stopped counts after two).
+  static const tunSilenceLimit = 10;
+
   /// A note for the user about the last start (e.g. TUN was not allowed).
   String? notice;
   Stream<String> get logs => _logs.stream;
@@ -400,6 +405,14 @@ class MihomoProcessManager {
             misses = 0;
           } catch (_) {
             if (++misses < 2 || _windowsTunDir == null) return;
+            // A busy core (heavy traffic, a game) can answer late: while the
+            // service still reports it running, it counts as stopped only
+            // after ~30 s of silence. Restarting it resets every connection.
+            if (misses < tunSilenceLimit &&
+                await MihomoWindowsTun.serviceStatus() == 'running') {
+              return;
+            }
+            if (_windowsTunDir == null || !timer.isActive) return;
             timer.cancel();
             _windowsTunWatch = null;
             _windowsTunDir = null;

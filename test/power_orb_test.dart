@@ -136,8 +136,8 @@ void main() {
 
   testWidgets('the entrance plays once per run of the app', (tester) async {
     KagoIntro.reset();
-    await tester.pumpWidget(
-        host(const KagoEntrance(order: 2, child: Text('KAGO'))));
+    await tester
+        .pumpWidget(host(const KagoEntrance(order: 2, child: Text('KAGO'))));
     expect(opacityOf(tester), 0);
     await tester.pumpAndSettle();
     expect(opacityOf(tester), 1);
@@ -145,17 +145,16 @@ void main() {
 
     // A new mount (a language switch rebuilds the screens) shows at once.
     await tester.pumpWidget(host(const SizedBox()));
-    await tester.pumpWidget(
-        host(const KagoEntrance(order: 2, child: Text('KAGO'))));
+    await tester
+        .pumpWidget(host(const KagoEntrance(order: 2, child: Text('KAGO'))));
     expect(opacityOf(tester), 1);
   });
 
   testWidgets('the entrance is skipped without system animations',
       (tester) async {
     KagoIntro.reset();
-    await tester.pumpWidget(host(
-        const KagoEntrance(order: 3, child: Text('KAGO')),
-        reduced: true));
+    await tester.pumpWidget(
+        host(const KagoEntrance(order: 3, child: Text('KAGO')), reduced: true));
     expect(opacityOf(tester), 1);
   });
 }

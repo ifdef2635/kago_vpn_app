@@ -195,14 +195,15 @@ class DashboardScreen extends ConsumerWidget {
                                       ? (delay == null
                                           ? group.name
                                           : '${group.name} · $delay')
-                                      : tr('{length} серверов',
+                                      : tr(
+                                          '{length} серверов',
                                           <String, Object?>{
                                               'length': group.nodes.length
                                             }),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      fontSize: 12, color: p.muted)),
+                                  style:
+                                      TextStyle(fontSize: 12, color: p.muted)),
                           ])),
                       Icon(Icons.chevron_right_rounded, color: p.hint),
                     ]);

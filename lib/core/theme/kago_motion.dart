@@ -145,8 +145,8 @@ class _KagoMarkRevealState extends State<KagoMarkReveal>
     parent: _controller,
     curve: const Interval(0, .23, curve: Curves.easeOut),
   );
-  late final Animation<double> _scale = Tween<double>(begin: .82, end: 1)
-      .animate(CurvedAnimation(
+  late final Animation<double> _scale =
+      Tween<double>(begin: .82, end: 1).animate(CurvedAnimation(
     parent: _controller,
     curve: const Interval(0, .45, curve: KaGoMotion.settle),
   ));

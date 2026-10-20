@@ -249,8 +249,7 @@ class _PowerOrbState extends State<PowerOrb> with TickerProviderStateMixin {
     if (!_moving) _ticker.stop();
   }
 
-  static double _approach(
-      double value, double target, double dt, double rate) {
+  static double _approach(double value, double target, double dt, double rate) {
     final next = value + (target - value) * math.min(1.0, dt * rate);
     return (next - target).abs() < .004 ? target : next;
   }
@@ -501,8 +500,7 @@ class _OrbPainter extends CustomPainter {
           canvas.drawCircle(
               centre + Offset(math.cos(head), math.sin(head)) * _track,
               3,
-              Paint()
-                ..color = Color.lerp(palette.heroGlow, Colors.white, .5)!);
+              Paint()..color = Color.lerp(palette.heroGlow, Colors.white, .5)!);
         }
       }
     }
@@ -541,17 +539,16 @@ class _OrbPainter extends CustomPainter {
           ..strokeWidth = width
           ..shader = SweepGradient(
             endAngle: length,
-            colors: direction > 0
-                ? <Color>[clear, solid]
-                : <Color>[solid, clear],
+            colors:
+                direction > 0 ? <Color>[clear, solid] : <Color>[solid, clear],
             transform: GradientRotation(start),
           ).createShader(rect));
     canvas.drawCircle(
         rect.center + Offset(math.cos(head), math.sin(head)) * (rect.width / 2),
         dot,
         Paint()
-          ..color = Color.lerp(color, Colors.white, .35)!
-              .withValues(alpha: alpha));
+          ..color =
+              Color.lerp(color, Colors.white, .35)!.withValues(alpha: alpha));
   }
 
   @override

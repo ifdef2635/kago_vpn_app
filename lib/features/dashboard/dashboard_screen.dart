@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,11 +14,13 @@ import '../../core/network/app_providers.dart';
 import '../../core/network/desktop_recovery.dart';
 import '../../core/network/vpn_connection_controller.dart';
 import '../../core/theme/app_widgets.dart';
+import '../../core/theme/kago_motion.dart';
 import '../../core/theme/kago_theme.dart';
 import '../guest/guest_telegram.dart';
 import '../subscriptions/config_builder.dart';
 import '../subscriptions/subscription_providers.dart';
 import '../subscriptions/subscription_repository.dart';
+import 'power_orb.dart';
 import '../../core/l10n/l10n.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -78,7 +81,9 @@ class DashboardScreen extends ConsumerWidget {
           Row(children: <Widget>[
             Expanded(
                 child: KagoWordmark(
-                    size: 38, subtitle: tr('Интернет без границ'))),
+                    size: 38,
+                    subtitle: tr('Интернет без границ'),
+                    intro: true)),
             IconButton(
                 tooltip: tr('Обновить'),
                 onPressed: () {
@@ -90,104 +95,131 @@ class DashboardScreen extends ConsumerWidget {
           ]),
           if (problem != null) ...<Widget>[
             const SizedBox(height: 12),
-            KagoPill(problem, color: p.danger, dot: true),
+            KagoEntrance(
+                order: 1, child: KagoPill(problem, color: p.danger, dot: true)),
           ],
           const SizedBox(height: 14),
           // The hero of usekago.net: state, the power button and the live
-          // counters in one card.
-          SurfaceCard(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-              child: Column(children: <Widget>[
-                Row(children: <Widget>[
-                  StatusDot(
-                      color: starting || recovering
-                          ? p.warning
-                          : connected
-                              ? p.success
-                              : p.hint),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                        Text(state,
-                            style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: KaGoWeight.heading,
-                                color: p.text)),
-                        Text(hint,
-                            style: TextStyle(fontSize: 12, color: p.muted)),
-                      ])),
-                ]),
-                const SizedBox(height: 20),
-                _PowerButton(
-                    connected: connected || recovering,
-                    busy: !recovering &&
-                        (starting || ref.watch(desktopVpnBusyProvider)),
-                    onPressed: () => toggleVpn(context, ref, androidConnected)),
-                const SizedBox(height: 20),
-                _TrafficMetrics(active: connected),
-              ])),
-          const SizedBox(height: 12),
-          _SubscriptionCard(
-              profile: profile.valueOrNull,
-              busy: ref.watch(_subscriptionRefreshingProvider),
-              onAction: () =>
-                  refreshSubscription(context, ref, profile.valueOrNull)),
-          const SizedBox(height: 12),
-          SurfaceCard(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-              onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
-              child: groups.when(
-                data: (items) {
-                  final group = _primaryGroup(items);
-                  final node = group?.selected;
-                  final delay = _delayText(
-                      items, ref.watch(proxyDelaysProvider), connected);
-                  return Row(children: <Widget>[
-                    const IconChip(Icons.public_rounded),
-                    const SizedBox(width: 14),
+          // counters in one card. The cards enter one after another on the
+          // first appearance of the app (KagoEntrance).
+          KagoEntrance(
+            order: 2,
+            child: SurfaceCard(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                child: Column(children: <Widget>[
+                  Row(children: <Widget>[
+                    StatusDot(
+                        color: starting || recovering
+                            ? p.warning
+                            : connected
+                                ? p.success
+                                : p.hint),
+                    const SizedBox(width: 12),
                     Expanded(
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                          Text(tr('Ваш сервер'),
-                              style: TextStyle(fontSize: 12, color: p.muted)),
-                          const SizedBox(height: 2),
-                          Text(node ?? group?.name ?? tr('Войдите в аккаунт'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          Text(state,
                               style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: KaGoWeight.extraBold,
+                                  fontSize: 17,
+                                  fontWeight: KaGoWeight.heading,
                                   color: p.text)),
-                          if (group != null)
-                            Text(
-                                node != null
-                                    ? (delay == null
-                                        ? group.name
-                                        : '${group.name} · $delay')
-                                    : tr('{length} серверов', <String, Object?>{
-                                        'length': group.nodes.length
-                                      }),
+                          Text(hint,
+                              style: TextStyle(fontSize: 12, color: p.muted)),
+                        ])),
+                  ]),
+                  const SizedBox(height: 20),
+                  // Its own Consumer: the traffic (once a second) and the
+                  // visibility rebuild only the button.
+                  Consumer(builder: (context, ref, _) {
+                    final live = ref.watch(rootTabIndexProvider) == 0 &&
+                        ref.watch(appForegroundProvider);
+                    final traffic = connected && live
+                        ? ref.watch(connectionsSnapshotProvider).asData?.value
+                        : null;
+                    return PowerOrb(
+                        connected: connected || recovering,
+                        busy: !recovering &&
+                            (starting || ref.watch(desktopVpnBusyProvider)),
+                        recovering: recovering,
+                        live: live,
+                        activity: _trafficActivity(traffic),
+                        onPressed: () =>
+                            toggleVpn(context, ref, androidConnected));
+                  }),
+                  const SizedBox(height: 20),
+                  _TrafficMetrics(active: connected),
+                ])),
+          ),
+          const SizedBox(height: 12),
+          KagoEntrance(
+            order: 3,
+            child: _SubscriptionCard(
+                profile: profile.valueOrNull,
+                busy: ref.watch(_subscriptionRefreshingProvider),
+                onAction: () =>
+                    refreshSubscription(context, ref, profile.valueOrNull)),
+          ),
+          const SizedBox(height: 12),
+          KagoEntrance(
+            order: 4,
+            child: SurfaceCard(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
+                child: groups.when(
+                  data: (items) {
+                    final group = _primaryGroup(items);
+                    final node = group?.selected;
+                    final delay = _delayText(
+                        items, ref.watch(proxyDelaysProvider), connected);
+                    return Row(children: <Widget>[
+                      const IconChip(Icons.public_rounded),
+                      const SizedBox(width: 14),
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                            Text(tr('Ваш сервер'),
+                                style: TextStyle(fontSize: 12, color: p.muted)),
+                            const SizedBox(height: 2),
+                            Text(node ?? group?.name ?? tr('Войдите в аккаунт'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12, color: p.muted)),
-                        ])),
-                    Icon(Icons.chevron_right_rounded, color: p.hint),
-                  ]);
-                },
-                loading: () => const LinearProgressIndicator(minHeight: 2),
-                error: (_, __) => Text(
-                    !Platform.isAndroid && !coreRunning
-                        ? tr(
-                            'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
-                        : tr(
-                            'Контроллер недоступен — проверьте адрес в настройках.'),
-                    style: TextStyle(color: p.muted, fontSize: 12)),
-              )),
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: KaGoWeight.extraBold,
+                                    color: p.text)),
+                            if (group != null)
+                              Text(
+                                  node != null
+                                      ? (delay == null
+                                          ? group.name
+                                          : '${group.name} · $delay')
+                                      : tr(
+                                          '{length} серверов',
+                                          <String, Object?>{
+                                              'length': group.nodes.length
+                                            }),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      TextStyle(fontSize: 12, color: p.muted)),
+                          ])),
+                      Icon(Icons.chevron_right_rounded, color: p.hint),
+                    ]);
+                  },
+                  loading: () => const LinearProgressIndicator(minHeight: 2),
+                  error: (_, __) => Text(
+                      !Platform.isAndroid && !coreRunning
+                          ? tr(
+                              'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
+                          : tr(
+                              'Контроллер недоступен — проверьте адрес в настройках.'),
+                      style: TextStyle(color: p.muted, fontSize: 12)),
+                )),
+          ),
           const SizedBox(height: 12),
-          _IpCard(connected: connected),
+          KagoEntrance(order: 5, child: _IpCard(connected: connected)),
         ]);
   }
 
@@ -524,60 +556,14 @@ String? _delayText(
   return null;
 }
 
-/// The round on/off button: the brand blue in a soft ring of the same hue
-/// (the site's primary / primary-tint pair), red while connected.
-class _PowerButton extends StatelessWidget {
-  const _PowerButton(
-      {required this.connected, required this.busy, required this.onPressed});
-  final bool connected;
-  final bool busy;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.kago;
-    final tone = connected ? p.danger : p.brand;
-    return SizedBox(
-        width: 152,
-        height: 152,
-        child: Stack(alignment: Alignment.center, children: <Widget>[
-          Container(
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: tone.withValues(alpha: .08),
-                  border: Border.all(color: tone.withValues(alpha: .20)))),
-          Container(
-              width: 128,
-              height: 128,
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: tone.withValues(alpha: .14),
-                  border: Border.all(color: tone.withValues(alpha: .28)))),
-          SizedBox(
-            width: 108,
-            height: 108,
-            child: FilledButton(
-                onPressed: onPressed,
-                style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: EdgeInsets.zero,
-                    backgroundColor: tone,
-                    foregroundColor: Colors.white,
-                    elevation: 0),
-                child: busy
-                    ? const SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 3, color: Colors.white))
-                    : Icon(
-                        connected
-                            ? Icons.stop_rounded
-                            : Icons.power_settings_new_rounded,
-                        size: 44)),
-          ),
-        ]));
-  }
+/// Traffic as 0…1 for the satellites of the power button: logarithmic, so a
+/// page loading already shows, and about 100 Mbit/s is the top.
+double _trafficActivity(ConnectionsSnapshot? traffic) {
+  final bytes =
+      traffic == null ? 0 : traffic.downloadSpeed + traffic.uploadSpeed;
+  if (bytes <= 0) return 0;
+  return (math.log(1 + bytes / 16384) / math.log(1 + 12500000 / 16384))
+      .clamp(0.0, 1.0);
 }
 
 /// "Ваш IP": the address the internet currently sees, with country, city and

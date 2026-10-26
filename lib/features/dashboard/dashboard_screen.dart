@@ -433,6 +433,9 @@ class DashboardScreen extends ConsumerWidget {
 
   /// Subscriptions come only from the KAGO account: without one the button
   /// leads to the account tab; with one it reloads the saved subscription.
+  /// A running VPN is restarted when the profile changed: the core keeps the
+  /// config it started with, so new servers and rules showed up only after
+  /// the next connect and the button looked broken.
   static Future<void> refreshSubscription(BuildContext context, WidgetRef ref,
       ImportedSubscription? profile) async {
     if (profile == null || profile.url.isEmpty) {
@@ -443,9 +446,16 @@ class DashboardScreen extends ConsumerWidget {
     if (busy.state) return;
     busy.state = true;
     try {
-      await SubscriptionRepository().import(profile.url);
+      final updated = await SubscriptionRepository().import(profile.url);
       ref.invalidate(importedSubscriptionProvider);
       ref.invalidate(proxyGroupsProvider);
+      // Compared by the downloaded config, not the file: a desktop core
+      // writes its ports and secret into the active file when it starts.
+      if (updated.configHash != profile.configHash &&
+          ref.read(vpnActiveProvider) &&
+          context.mounted) {
+        await reconnect(context, ref);
+      }
     } catch (error) {
       if (context.mounted) {
         _showError(context, tr('Не удалось обновить подписку.'),

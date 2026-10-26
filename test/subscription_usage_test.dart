@@ -53,6 +53,24 @@ void main() {
     return SubscriptionRepository(storage: const FlutterSecureStorage());
   }
 
+  test('the saved config hash survives a usage refresh', () async {
+    FlutterSecureStorage.setMockInitialValues(<String, String>{
+      key: jsonEncode(<Map<String, dynamic>>[
+        <String, dynamic>{'name': 'KaGo', 'url': url, 'used': 1, 'hash': 'ab'},
+      ]),
+    });
+    final repository =
+        SubscriptionRepository(storage: const FlutterSecureStorage());
+    expect((await repository.latest())!.configHash, 'ab');
+    final dio = Dio()
+      ..httpClientAdapter = _UserInfoAdapter(<String, String?>{
+        'HEAD': 'upload=5; download=7; total=100',
+      });
+    final updated = await repository.refreshUsage(dio: dio);
+    expect(updated!.usedBytes, 12);
+    expect(updated.configHash, 'ab');
+  });
+
   test('parseUserInfo reads counters and skips malformed tokens', () {
     expect(
       SubscriptionRepository.parseUserInfo(

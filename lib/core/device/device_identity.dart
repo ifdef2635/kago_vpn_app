@@ -36,13 +36,28 @@ class DeviceIdentity {
 
   Future<Map<String, String>> headers() => _headers ??= _build();
 
-  /// `mihomo/1.19.32 KaGoVPN/0.1.0 (Android 14)`. Starts with the core, so
-  /// Remnawave response rules for Mihomo clients serve a full Mihomo config
-  /// (groups and rules of the panel); the device list on the site shows
-  /// KaGoVPN and the system.
-  Future<String> userAgent() async =>
-      (await headers())['User-Agent'] ??
-      userAgentFor(Platform.operatingSystem, '');
+  /// The subscription User-Agent, `KaGo/v2.6.3 core/v1.19.32 Platform/android`
+  /// (set by the panel owner 2026-10-24; the same shape as FlClashX's
+  /// `FlClash X/v… core/v… Platform/…`). The panel's response rules pick
+  /// the Mihomo config by it; the device list on the site shows the app,
+  /// its core and the system. [platform] is `Platform.operatingSystem`.
+  static String userAgentFor(String platform) =>
+      'KaGo/v$kagoAppVersion core/v$kagoCoreVersion Platform/${_ascii(platform)}';
+
+  /// For the guest servers on usekago.net: `mihomo/1.19.32 KaGoVPN/2.6.3
+  /// (Android 14)`. The site answers only a User-Agent with `KaGoVPN/`
+  /// (README), and after a redirect the panel serves the Mihomo format by
+  /// the `mihomo/` prefix.
+  Future<String> guestUserAgent() async {
+    final headers = await this.headers();
+    final os = headers['x-device-os'] ?? Platform.operatingSystem;
+    return guestUserAgentFor(os, headers['x-ver-os'] ?? '');
+  }
+
+  static String guestUserAgentFor(String os, String osVersion) {
+    final system = _ascii(osVersion.isEmpty ? os : '$os $osVersion');
+    return 'mihomo/$kagoCoreVersion KaGoVPN/$kagoAppVersion ($system)';
+  }
 
   /// For the usekago.net API: the app and system without the `mihomo/`
   /// prefix, which only selects the subscription format and could look like
@@ -56,11 +71,6 @@ class DeviceIdentity {
   static String apiUserAgentFor(String os, String osVersion) {
     final system = _ascii(osVersion.isEmpty ? os : '$os $osVersion');
     return 'KaGoVPN/$kagoAppVersion ($system)';
-  }
-
-  static String userAgentFor(String os, String osVersion) {
-    final system = _ascii(osVersion.isEmpty ? os : '$os $osVersion');
-    return 'mihomo/$kagoCoreVersion KaGoVPN/$kagoAppVersion ($system)';
   }
 
   Future<Map<String, String>> _build() async {
@@ -97,7 +107,7 @@ class DeviceIdentity {
     }
     if (hwid == null || hwid.isEmpty) hwid = await _storedRandomId();
     return <String, String>{
-      'User-Agent': userAgentFor(os, osVersion),
+      'User-Agent': userAgentFor(Platform.operatingSystem),
       'x-hwid': _ascii(hwid),
       'x-device-os': os,
       if (osVersion.isNotEmpty) 'x-ver-os': _ascii(osVersion),

@@ -16,10 +16,17 @@ void main() {
     expect('v$kagoCoreVersion', MihomoPinnedCore.version);
   });
 
-  test('User-Agent starts with mihomo and names the app and system', () {
-    expect(DeviceIdentity.userAgentFor('Android', '14'),
+  test('subscription User-Agent names the app, its core and the platform', () {
+    expect(DeviceIdentity.userAgentFor('android'),
+        'KaGo/v$kagoAppVersion core/v$kagoCoreVersion Platform/android');
+    expect(DeviceIdentity.userAgentFor('windows'),
+        'KaGo/v$kagoAppVersion core/v$kagoCoreVersion Platform/windows');
+  });
+
+  test('guest User-Agent starts with mihomo and names the app and system', () {
+    expect(DeviceIdentity.guestUserAgentFor('Android', '14'),
         'mihomo/$kagoCoreVersion KaGoVPN/$kagoAppVersion (Android 14)');
-    expect(DeviceIdentity.userAgentFor('Windows', ''),
+    expect(DeviceIdentity.guestUserAgentFor('Windows', ''),
         'mihomo/$kagoCoreVersion KaGoVPN/$kagoAppVersion (Windows)');
   });
 

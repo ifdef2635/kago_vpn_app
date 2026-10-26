@@ -194,7 +194,7 @@ abstract final class GuestTelegram {
   /// `KaGoVPN/` part of the User-Agent, README); anyone else gets 404.
   static Future<List<Map<String, dynamic>>> download(
       {Uri? source, Dio? dio, String? userAgent}) async {
-    final agent = userAgent ?? await DeviceIdentity.instance.userAgent();
+    final agent = userAgent ?? await DeviceIdentity.instance.guestUserAgent();
     final response = await SubscriptionRepository.fetch(
         dio ??
             Dio(BaseOptions(

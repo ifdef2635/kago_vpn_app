@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -25,7 +26,8 @@ class ImportedSubscription {
       required this.groups,
       this.supportUrl,
       this.updateInterval,
-      this.updatedAt});
+      this.updatedAt,
+      this.configHash});
   final String name;
   final String url;
   final int usedBytes;
@@ -41,6 +43,11 @@ class ImportedSubscription {
 
   /// When the subscription (its servers and rules) was last downloaded.
   final DateTime? updatedAt;
+
+  /// SHA-256 of the downloaded config (servers, groups, rules), so a refresh
+  /// can tell whether the running core needs the new one. Null for profiles
+  /// saved before 2.6.4.
+  final String? configHash;
 
   /// Re-download is due: the provider's interval (a day without one) has
   /// passed since the last download. A profile saved before 2.1.0 has no
@@ -86,6 +93,7 @@ class SubscriptionRepository {
       updatedAt: item['updated'] is int
           ? DateTime.fromMillisecondsSinceEpoch(item['updated'] as int)
           : null,
+      configHash: item['hash'] as String?,
     );
   }
 
@@ -150,6 +158,7 @@ class SubscriptionRepository {
       supportUrl: metadata.supportUrl,
       updateInterval: metadata.updateInterval,
       updatedAt: DateTime.now(),
+      configHash: sha256.convert(utf8.encode(normalized)).toString(),
     );
     final stored = await _storage.read(key: _key);
     final profiles = stored == null
@@ -169,6 +178,7 @@ class SubscriptionRepository {
       if (profile.updateInterval != null)
         'interval': profile.updateInterval!.inMinutes,
       'updated': profile.updatedAt!.millisecondsSinceEpoch,
+      'hash': profile.configHash,
     });
     await _storage.write(key: _key, value: jsonEncode(profiles));
     if (Platform.isAndroid) {

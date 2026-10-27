@@ -726,7 +726,7 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
 
   Future<void> _reissue(KagoSubscription sub) async {
     final ok = await _confirm(context, tr('Перевыпустить ключ?'),
-        tr('Старая ссылка перестанет работать. На этом устройстве подписка обновится автоматически, на остальных её нужно добавить заново.'),
+        tr('Старая ссылка перестанет работать. Приложение KaGo VPN с входом в этот аккаунт получит новую само, на других устройствах и в других приложениях подписку нужно добавить заново.'),
         action: tr('Перевыпустить'), danger: true);
     if (!ok || !mounted) return;
     setState(() => _busy = true);

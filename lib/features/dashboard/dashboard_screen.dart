@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import '../../core/network/vpn_connection_controller.dart';
 import '../../core/theme/app_widgets.dart';
 import '../../core/theme/kago_motion.dart';
 import '../../core/theme/kago_theme.dart';
+import '../account/key_reissue.dart';
 import '../guest/guest_telegram.dart';
 import '../subscriptions/config_builder.dart';
 import '../subscriptions/subscription_providers.dart';
@@ -457,6 +459,14 @@ class DashboardScreen extends ConsumerWidget {
         await reconnect(context, ref);
       }
     } catch (error) {
+      // 404: the key may have been re-issued elsewhere (or the server does
+      // not let this User-Agent in — then nothing is replaced).
+      if (error is DioException &&
+          error.response?.statusCode == 404 &&
+          context.mounted &&
+          await KeyReissue.sync(context, ref, force: true)) {
+        return;
+      }
       if (context.mounted) {
         _showError(context, tr('Не удалось обновить подписку.'),
             details: '$error');

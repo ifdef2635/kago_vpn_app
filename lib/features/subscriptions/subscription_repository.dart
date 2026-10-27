@@ -192,6 +192,42 @@ class SubscriptionRepository {
     return profile;
   }
 
+  /// Forgets the saved subscription [url] (an old link replaced by a new one);
+  /// the profile the core runs is not touched.
+  Future<void> forget(String url) async {
+    final stored = await _storage.read(key: _key);
+    if (stored == null) return;
+    final decoded = jsonDecode(stored);
+    if (decoded is! List<dynamic>) return;
+    final kept = decoded
+        .whereType<Map<String, dynamic>>()
+        .where((item) => item['url'] != url)
+        .toList();
+    await _storage.write(key: _key, value: jsonEncode(kept));
+  }
+
+  /// The panel no longer knows the link [url]: a re-issued key answers 404
+  /// (Remnawave; 410 from other panels). Other failures — offline, the panel
+  /// down — are not "gone".
+  Future<bool> linkGone(String url, {Dio? dio}) async {
+    try {
+      await fetch(
+          dio ??
+              Dio(BaseOptions(
+                  connectTimeout: const Duration(seconds: 10),
+                  receiveTimeout: const Duration(seconds: 15))),
+          validateSubscriptionUrl(url),
+          method: 'GET',
+          deviceHeaders: await _deviceHeaders());
+      return false;
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      return status == 404 || status == 410;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Sign-out: forgets every saved subscription and deletes the profile the
   /// core runs (the free Telegram access stays available).
   Future<void> clear() async {

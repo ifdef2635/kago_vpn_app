@@ -13,6 +13,7 @@ import '../core/network/vpn_connection_controller.dart';
 import '../core/theme/app_widgets.dart';
 import '../core/theme/kago_theme.dart';
 import '../features/account/account_screen.dart';
+import '../features/account/key_reissue.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/guest/guest_telegram.dart';
 import '../features/proxies/proxies_screen.dart';
@@ -75,7 +76,8 @@ class RootShell extends ConsumerWidget {
     final wide = MediaQuery.sizeOf(context).width >= 760;
     return _ExitGuard(
         child: UpdatePrompt(
-            child: _buildShell(context, ref, index, select, wide)));
+            child: KeyReissueWatch(
+                child: _buildShell(context, ref, index, select, wide))));
   }
 
   Widget _buildShell(BuildContext context, WidgetRef ref, int index,

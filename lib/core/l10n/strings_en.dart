@@ -204,8 +204,8 @@ const stringsEn = <String, String>{
   'Уже есть аккаунт?': 'Already have an account?',
   'Нет аккаунта?': 'No account?',
   'Перевыпустить ключ?': 'Re-issue the key?',
-  'Старая ссылка перестанет работать. На этом устройстве подписка обновится автоматически, на остальных её нужно добавить заново.':
-      'The old link will stop working. On this device the subscription updates automatically; on other devices add it again.',
+  'Старая ссылка перестанет работать. Приложение KaGo VPN с входом в этот аккаунт получит новую само, на других устройствах и в других приложениях подписку нужно добавить заново.':
+      'The old link will stop working. KaGo VPN signed in to this account picks up the new one by itself; on other devices and in other apps add the subscription again.',
   'Перевыпустить': 'Re-issue',
   'Не удалось загрузить подписку': 'Could not load the subscription',
   'Повторить': 'Retry',

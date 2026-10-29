@@ -531,8 +531,7 @@ class _SubscriptionCard extends StatelessWidget {
               'used': formatBytes(profile.usedBytes),
               'total': formatBytes(profile.totalBytes)
             })
-          : tr('{used} использовано',
-              <String, Object?>{'used': formatBytes(profile.usedBytes)});
+          : tr('Безлимит');
       final expires = profile.expiresAt;
       details = expires == null
           ? used
@@ -726,7 +725,7 @@ class _TrafficMetrics extends ConsumerWidget {
         ? ref.watch(connectionsSnapshotProvider).asData?.value
         : null;
     if (compact) {
-      Widget metric(String label, String value, String? total) => Expanded(
+      Widget metric(String label, String value) => Expanded(
           child: Container(
               padding: const EdgeInsets.only(top: 12),
               decoration: BoxDecoration(
@@ -743,25 +742,16 @@ class _TrafficMetrics extends ConsumerWidget {
                         style: const TextStyle(
                             fontSize: KaGoText.title,
                             fontWeight: KaGoWeight.semiBold)),
-                    if (total != null)
-                      Text(total,
-                          style: TextStyle(
-                              fontSize: KaGoText.meta,
-                              color: context.kago.muted)),
                   ])));
       return RepaintBoundary(
           child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-            metric(
-                tr('Загрузка'),
-                traffic == null ? '—' : formatSpeed(traffic.downloadSpeed),
-                traffic == null ? null : formatBytes(traffic.downloadTotal)),
+            metric(tr('Загрузка'),
+                traffic == null ? '—' : formatSpeed(traffic.downloadSpeed)),
             const SizedBox(width: 10),
-            metric(
-                tr('Отдача'),
-                traffic == null ? '—' : formatSpeed(traffic.uploadSpeed),
-                traffic == null ? null : formatBytes(traffic.uploadTotal)),
+            metric(tr('Отдача'),
+                traffic == null ? '—' : formatSpeed(traffic.uploadSpeed)),
           ]));
     }
     return RepaintBoundary(
@@ -774,12 +764,7 @@ class _TrafficMetrics extends ConsumerWidget {
                       label: tr('Загрузка'),
                       value: traffic == null
                           ? '—'
-                          : formatSpeed(traffic.downloadSpeed),
-                      caption: traffic == null
-                          ? null
-                          : tr('всего {v}', <String, Object?>{
-                              'v': formatBytes(traffic.downloadTotal)
-                            }))),
+                          : formatSpeed(traffic.downloadSpeed))),
               Container(width: 1, height: 34, color: context.kago.border),
               const SizedBox(width: 14),
               Expanded(
@@ -788,36 +773,26 @@ class _TrafficMetrics extends ConsumerWidget {
                       label: tr('Отдача'),
                       value: traffic == null
                           ? '—'
-                          : formatSpeed(traffic.uploadSpeed),
-                      caption: traffic == null
-                          ? null
-                          : tr('всего {v}', <String, Object?>{
-                              'v': formatBytes(traffic.uploadTotal)
-                            }))),
+                          : formatSpeed(traffic.uploadSpeed))),
             ])));
   }
 }
 
 /// One counter of the hero card (`.hero__metric`).
 class _Metric extends StatelessWidget {
-  const _Metric(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      this.caption});
+  const _Metric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
   final IconData icon;
   final String label;
   final String value;
-  final String? caption;
   @override
   Widget build(BuildContext context) => Row(children: <Widget>[
         Icon(icon, color: context.kago.accent, size: 18),
         const SizedBox(width: 10),
-        Expanded(
-            child: MetricValue(
-                value: value,
-                label: caption == null ? label : '$label · $caption',
-                size: 18)),
+        Expanded(child: MetricValue(value: value, label: label, size: 18)),
       ]);
 }
 
@@ -1041,18 +1016,8 @@ class _MobileDashboard extends ConsumerWidget {
               _ServerIpLine(connected: connected),
             ])),
           ] else ...<Widget>[
-            Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                spacing: 16,
-                runSpacing: 8,
-                children: <Widget>[
-                  Text(tr('Передача данных'),
-                      style: TextStyle(
-                          fontSize: KaGoText.caption, color: p.muted)),
-                  Text(tr('За эту сессию'),
-                      style: TextStyle(
-                          fontSize: KaGoText.caption, color: p.accent)),
-                ]),
+            Text(tr('Передача данных'),
+                style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
             const SizedBox(height: 10),
             _TrafficMetrics(active: connected, compact: true),
             const SizedBox(height: 22),

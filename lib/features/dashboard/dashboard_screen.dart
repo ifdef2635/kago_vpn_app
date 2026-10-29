@@ -903,67 +903,71 @@ class _MobileDashboard extends ConsumerWidget {
             SurfaceCard(
                 onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
                 padding: const EdgeInsets.all(16),
-                child: groups.when(
-                  data: (items) {
-                    final group = _primaryGroup(items);
-                    final delay = _delayText(
-                        items, ref.watch(proxyDelaysProvider), connected);
-                    return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(tr('Ваш сервер'),
-                              style: TextStyle(
-                                  fontSize: KaGoText.caption, color: p.muted)),
-                          const SizedBox(height: 10),
-                          Row(children: <Widget>[
-                            Icon(Icons.public_outlined,
-                                size: 26, color: p.muted),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                  Text(
-                                      group?.selected ??
-                                          group?.name ??
-                                          tr('Войдите в аккаунт'),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontSize: KaGoText.bodySmall,
-                                          fontWeight: KaGoWeight.semiBold)),
-                                  if (group != null)
-                                    Text(group.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                            fontSize: KaGoText.caption,
-                                            color: p.muted)),
-                                ])),
-                            Icon(Icons.chevron_right, size: 20, color: p.muted),
-                          ]),
-                          if (delay != null) ...<Widget>[
-                            const SizedBox(height: 12),
-                            const Divider(),
+                child: Column(children: <Widget>[
+                  groups.when(
+                    data: (items) {
+                      final group = _primaryGroup(items);
+                      final delay = _delayText(
+                          items, ref.watch(proxyDelaysProvider), connected);
+                      return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(tr('Ваш сервер'),
+                                style: TextStyle(
+                                    fontSize: KaGoText.caption,
+                                    color: p.muted)),
                             const SizedBox(height: 10),
-                            Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: Text(delay,
-                                    style: TextStyle(
-                                        fontSize: KaGoText.caption,
-                                        color: p.success))),
-                          ],
-                          const SizedBox(height: KaGoSpace.md),
-                          const Divider(),
-                          _ServerIpLine(connected: connected),
-                        ]);
-                  },
-                  loading: () => const LinearProgressIndicator(minHeight: 2),
-                  error: (_, __) => Text(
-                      tr('Не удалось загрузить список серверов.'),
-                      style: TextStyle(color: p.muted)),
-                )),
+                            Row(children: <Widget>[
+                              Icon(Icons.public_outlined,
+                                  size: 26, color: p.muted),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                    Text(
+                                        group?.selected ??
+                                            group?.name ??
+                                            tr('Войдите в аккаунт'),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: KaGoText.bodySmall,
+                                            fontWeight: KaGoWeight.semiBold)),
+                                    if (group != null)
+                                      Text(group.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                              fontSize: KaGoText.caption,
+                                              color: p.muted)),
+                                  ])),
+                              Icon(Icons.chevron_right,
+                                  size: 20, color: p.muted),
+                            ]),
+                            if (delay != null) ...<Widget>[
+                              const SizedBox(height: 12),
+                              const Divider(),
+                              const SizedBox(height: 10),
+                              Align(
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: Text(delay,
+                                      style: TextStyle(
+                                          fontSize: KaGoText.caption,
+                                          color: p.success))),
+                            ],
+                          ]);
+                    },
+                    loading: () => const LinearProgressIndicator(minHeight: 2),
+                    error: (_, __) => Text(
+                        tr('Не удалось загрузить список серверов.'),
+                        style: TextStyle(color: p.muted)),
+                  ),
+                  const SizedBox(height: KaGoSpace.md),
+                  const Divider(),
+                  _ServerIpLine(connected: connected)
+                ])),
           const SizedBox(height: 16),
           KagoPressFeedback(
               enabled: !busy,
@@ -991,7 +995,7 @@ class _MobileDashboard extends ConsumerWidget {
                                   ? tr('Подключить Telegram')
                                   : tr('Подключить VPN'))))),
           const SizedBox(height: 26),
-          if (guest) ...<Widget>[
+          if (guest && !connected) ...<Widget>[
             Text(tr('Подключение'),
                 style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
             const SizedBox(height: 10),
@@ -1015,7 +1019,7 @@ class _MobileDashboard extends ConsumerWidget {
               const Divider(),
               _ServerIpLine(connected: connected),
             ])),
-          ] else ...<Widget>[
+          ] else if (!guest) ...<Widget>[
             Text(tr('Передача данных'),
                 style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
             const SizedBox(height: 10),

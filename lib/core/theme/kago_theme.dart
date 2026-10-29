@@ -5,16 +5,15 @@ import 'package:flutter/material.dart';
 /// Fallback fonts that draw country flag emoji (Windows).
 const kagoFlagFonts = <String>['KagoFlags'];
 
-/// The interface font of usekago.net's design system (assets/fonts, OFL):
-/// headings in Black, text in Medium.
-const kagoFontFamily = 'Onest';
+/// Шрифт согласованных мобильных макетов, SIL OFL (assets/fonts).
+const kagoFontFamily = 'IBM Plex Sans';
 
 /// Corner radii of the design system (`--radius-*` of globals.css).
 abstract final class KaGoRadius {
   static const double sm = 8;
   static const double md = 12;
-  static const double lg = 16;
-  static const double xl = 20;
+  static const double lg = 12;
+  static const double xl = 16;
 
   /// Pills and chips (`border-radius: 999px`).
   static const double pill = 999;
@@ -25,19 +24,17 @@ abstract final class KaGoRadius {
 
 /// Font weights of the design system.
 abstract final class KaGoWeight {
-  /// Body text (Onest Medium).
-  static const body = FontWeight.w500;
+  /// Основной текст макета.
+  static const body = FontWeight.w400;
   static const semiBold = FontWeight.w600;
-  static const bold = FontWeight.w700;
-  static const extraBold = FontWeight.w800;
+  static const bold = FontWeight.w600;
+  static const extraBold = FontWeight.w600;
 
-  /// Headings (Onest Black).
-  static const heading = FontWeight.w900;
+  /// Заголовки без синтетических сверхжирных начертаний.
+  static const heading = FontWeight.w600;
 }
 
-/// Colors of usekago.net: a light blue-grey page with white cards, a royal
-/// blue for buttons and links, and a navy hero card. The dark variant keeps
-/// the same hues for the site's moon toggle.
+/// Палитра мобильных макетов: нейтральные поверхности и синий акцент.
 @immutable
 class KaGoPalette extends ThemeExtension<KaGoPalette> {
   const KaGoPalette({
@@ -123,68 +120,62 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
   /// The card shadow of the site (`--color-shadow`).
   final Color shadow;
 
-  // From the site's globals.css (`:root` and `html[data-theme="dark"]`).
-  // Text colors are slightly darker where the site's value is below WCAG AA.
   static const light = KaGoPalette(
-    brand: Color(0xFF2B5FD0), // --color-primary
-    brandStrong: Color(0xFF1E47A8), // --color-primary-strong
-    accent: Color(0xFF2B5FD0),
-    accentSoft: Color(0xFFE8F0FF), // --color-primary-light
-    accentTint: Color(0xFFD2E1FF), // --color-primary-tint
-    // Page and borders a step darker than usekago.net: on a monitor the
-    // site's #EDF2FA page and #E2E8F0 borders left white cards hard to see.
-    canvas: Color(0xFFE3E9F3), // --color-page-bg #EDF2FA, darkened
-    surface: Color(0xFFFFFFFF), // --color-bg
-    surfaceRaised: Color(0xFFEEF2F9), // --color-surface #F4F8FE, darkened
-    border: Color(0xFFCCD6E6), // --color-border #E2E8F0, darkened
-    borderLight: Color(0xFFDCE4F0), // --color-border-light #EAEFF7, darkened
-    text: Color(0xFF13203F), // --color-text-h
-    muted: Color(0xFF42526B), // --color-text-body
-    hint: Color(0xFF64748B), // --color-text-muted (--color-text-hint is < AA)
-    danger: Color(0xFFC62828), // --color-danger #DC2626, darkened for AA
+    brand: Color(0xFF2B5FD0),
+    brandStrong: Color(0xFF1E47A8),
+    accent: Color(0xFF2253AD),
+    accentSoft: Color(0xFFEEF3FC),
+    accentTint: Color(0xFFD2E1FF),
+    canvas: Color(0xFFFAFBFC),
+    surface: Color(0xFFFFFFFF),
+    surfaceRaised: Color(0xFFF3F6FA),
+    border: Color(0xFFD9DFE6),
+    borderLight: Color(0xFFD9DFE6),
+    text: Color(0xFF202830),
+    muted: Color(0xFF606B79),
+    hint: Color(0xFF606B79),
+    danger: Color(0xFFC62828),
     warning: Color(0xFFA35200),
-    success: Color(0xFF12723A), // --color-success #15A34A, darkened for AA
-    successSoft: Color(0xFFE7F8EE), // --color-success-bg
-    telegram: Color(0xFF1C87BC), // --color-tg #229ED9, darkened for AA
-    heroStart: Color(0xFF16223F), // --color-navy
-    heroEnd: Color(0xFF1E2E54), // --color-navy2
-    heroAccent: Color(0xFF1E47A8), // --color-primary-strong
-    heroBlob: Color(0xFF5B8CF5),
-    heroGlow: Color(0xFF22C55E),
+    success: Color(0xFF18744F),
+    successSoft: Color(0xFFF1F7F3),
+    telegram: Color(0xFF166B99),
+    heroStart: Color(0xFF202830),
+    heroEnd: Color(0xFF202830),
+    heroAccent: Color(0xFF2253AD),
+    heroBlob: Color(0xFF2253AD),
+    heroGlow: Color(0xFF18744F),
     heroText: Color(0xFFFFFFFF),
-    heroMuted: Color(0xFFC3CFEA),
-    shadow: Color(0x1A14285A), // --color-shadow rgba(20,40,90,.10)
+    heroMuted: Color(0xFFD9DFE6),
+    shadow: Color(0x00000000),
   );
 
   static const dark = KaGoPalette(
-    // White on the site's dark primary (#5B8CF5) is below AA, so filled
-    // buttons keep the light primary; links and icons use the dark one.
-    brand: Color(0xFF2B5FD0),
-    brandStrong: Color(0xFF1E47A8),
-    accent: Color(0xFF5B8CF5), // --color-primary
-    accentSoft: Color(0xFF17243F), // --color-primary-light
-    accentTint: Color(0xFF213256), // --color-primary-tint
-    canvas: Color(0xFF080B14), // --color-page-bg
-    surface: Color(0xFF121A2E), // --color-bg
-    surfaceRaised: Color(0xFF16203A), // --color-surface2
-    border: Color(0xFF283452), // --color-border
-    borderLight: Color(0xFF1E2842), // --color-border-light
-    text: Color(0xFFEEF3FB), // --color-text-h
-    muted: Color(0xFF8E9CB8), // --color-text-muted #8493B0, lifted for AA
-    hint: Color(0xFF7C8BA8), // --color-text-hint, lifted for AA
-    danger: Color(0xFFF87171), // --color-danger
+    brand: Color(0xFF315EB2),
+    brandStrong: Color(0xFF244D9B),
+    accent: Color(0xFFA5C0FF),
+    accentSoft: Color(0xFF253957),
+    accentTint: Color(0xFF7399E0),
+    canvas: Color(0xFF10161D),
+    surface: Color(0xFF1A232C),
+    surfaceRaised: Color(0xFF1C2937),
+    border: Color(0xFF34414E),
+    borderLight: Color(0xFF34414E),
+    text: Color(0xFFE7EDF2),
+    muted: Color(0xFFACBAC8),
+    hint: Color(0xFFA4B3C2),
+    danger: Color(0xFFF87171),
     warning: Color(0xFFF5B544),
-    success: Color(0xFF34D671), // --color-success
-    successSoft: Color(0xFF10271D), // --color-success-bg
-    telegram: Color(0xFF3BB4E8), // --color-tg
-    heroStart: Color(0xFF0C1426), // --color-navy
-    heroEnd: Color(0xFF1B2A4E), // --color-navy2
-    heroAccent: Color(0xFF2B4FA8),
-    heroBlob: Color(0xFF5B8CF5),
-    heroGlow: Color(0xFF22C55E),
+    success: Color(0xFF84DFAB),
+    successSoft: Color(0xFF1B3027),
+    telegram: Color(0xFF6FC6EE),
+    heroStart: Color(0xFF1A232C),
+    heroEnd: Color(0xFF1A232C),
+    heroAccent: Color(0xFF315EB2),
+    heroBlob: Color(0xFF315EB2),
+    heroGlow: Color(0xFF78DAA5),
     heroText: Color(0xFFFFFFFF),
-    heroMuted: Color(0xFFC3CFEA),
-    shadow: Color(0x80000000), // --color-shadow rgba(0,0,0,.5)
+    heroMuted: Color(0xFFB9C8D8),
+    shadow: Color(0x00000000),
   );
 
   /// Dark palette on pure black for OLED screens.
@@ -293,11 +284,8 @@ extension KaGoPaletteContext on BuildContext {
   KaGoPalette get kago =>
       Theme.of(this).extension<KaGoPalette>() ?? KaGoPalette.light;
 
-  /// The card shadow of the design system (`0 4px 24px var(--color-shadow)`).
-  List<BoxShadow> get kagoCardShadow => <BoxShadow>[
-        BoxShadow(
-            color: kago.shadow, blurRadius: 24, offset: const Offset(0, 4))
-      ];
+  /// Плоские карточки из согласованного макета.
+  List<BoxShadow> get kagoCardShadow => const <BoxShadow>[];
 }
 
 abstract final class KaGoTheme {
@@ -424,7 +412,7 @@ abstract final class KaGoTheme {
           foregroundColor: Colors.white,
           disabledBackgroundColor: p.surfaceRaised,
           disabledForegroundColor: p.hint,
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,
@@ -439,7 +427,7 @@ abstract final class KaGoTheme {
           foregroundColor: p.accent,
           backgroundColor: p.accentSoft,
           side: BorderSide(color: p.accentTint, width: 1.5),
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,

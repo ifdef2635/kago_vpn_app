@@ -1052,8 +1052,10 @@ class _MobileDashboard extends ConsumerWidget {
                   ])),
             ])),
           ] else ...<Widget>[
-            Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 16,
+                runSpacing: 8,
                 children: <Widget>[
                   Text(tr('Передача данных'),
                       style: TextStyle(fontSize: 12, color: p.muted)),

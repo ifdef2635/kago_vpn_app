@@ -559,7 +559,7 @@ abstract final class KaGoTheme {
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(KaGoRadius.sheet),
+            borderRadius: BorderRadius.circular(KaGoRadius.xl),
             side: BorderSide(color: p.border)),
         titleTextStyle: heading(KaGoText.title),
         contentTextStyle: body(KaGoText.secondary, color: p.muted),

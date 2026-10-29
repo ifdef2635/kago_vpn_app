@@ -339,6 +339,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await MihomoMacosSystemProxy().setBypassRussian(value);
       } else {
         await MihomoWindowsSystemProxy().setBypassRussian(value);
+        // TUN has no system proxy: its rules change with a restart.
+        if (ref.read(mihomoProcessProvider).allTraffic) await _reconnect();
       }
     } catch (error) {
       _error(tr('Не удалось сохранить.'), details: '$error');

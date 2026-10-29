@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kago_vpn/core/network/mihomo_windows_core_updater.dart';
+import 'package:kago_vpn/core/network/mihomo_windows_system_proxy.dart';
 import 'package:kago_vpn/core/network/mihomo_windows_tun.dart';
 import 'package:kago_vpn/features/subscriptions/config_builder.dart';
 
@@ -146,6 +147,7 @@ rules:
     config['secret'] = 'secret';
     MihomoWindowsTun.enableTun(config);
     MihomoConfigBuilder.ensureDns(config);
+    MihomoWindowsTun.directRussian(config);
     return jsonEncode(config);
   }
 
@@ -187,6 +189,19 @@ rules:
     final launcher = MihomoWindowsTun.waitingLauncherArguments(text).last;
     expect(launcher, contains('-Wait -PassThru'));
     expect(launcher, contains(r'exit $p.ExitCode'));
+  });
+
+  test('Russian sites go direct by rules ahead of the subscription', () {
+    final config = <String, dynamic>{
+      'rules': <String>['MATCH,Proxy'],
+    };
+    MihomoWindowsTun.directRussian(config);
+    final rules = config['rules'] as List<Object?>;
+    expect(rules.first, 'DOMAIN-SUFFIX,ru,DIRECT');
+    expect(rules, contains('DOMAIN-SUFFIX,xn--p1ai,DIRECT'));
+    expect(rules, contains('DOMAIN-SUFFIX,vk.com,DIRECT'));
+    expect(rules.last, 'MATCH,Proxy');
+    expect(rules, hasLength(MihomoWindowsSystemProxy.russianBypass.length + 1));
   });
 
   test('the app config is plain JSON the service accepts', () {

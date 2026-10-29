@@ -39,6 +39,18 @@ class MihomoWindowsSystemProxy {
   ];
   static const bypassRussianKey = 'kago.windows.bypassRussian';
 
+  /// "Russian sites directly" is on (the switch is shown only when the
+  /// subscription has no rules of its own for them).
+  static Future<bool> bypassRussianEnabled() async {
+    try {
+      return (await SharedPreferences.getInstance())
+              .getBool(bypassRussianKey) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// The ProxyOverride value for the current setting.
   static String overrideFor({required bool bypassRussian}) => bypassRussian
       ? <String>[proxyBypass, ...russianBypass].join(';')

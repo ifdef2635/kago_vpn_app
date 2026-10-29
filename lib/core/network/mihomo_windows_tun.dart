@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'mihomo_windows_core_updater.dart';
+import 'mihomo_windows_system_proxy.dart';
 
 /// "All traffic through VPN" on Windows: the core runs with administrator
 /// rights and creates a TUN adapter (wintun, built into Mihomo), so UDP —
@@ -82,6 +83,18 @@ abstract final class MihomoWindowsTun {
     tun['strict-route'] = true;
     tun['dns-hijack'] = const <String>['any:53'];
     config['tun'] = tun;
+  }
+
+  /// "Russian sites directly" in TUN mode: the system proxy's exception list
+  /// ([MihomoWindowsSystemProxy.russianBypass]) as DIRECT rules ahead of the
+  /// subscription's (in place).
+  static void directRussian(Map<String, dynamic> config) {
+    final rules = config['rules'];
+    config['rules'] = <Object?>[
+      for (final pattern in MihomoWindowsSystemProxy.russianBypass)
+        'DOMAIN-SUFFIX,${pattern.replaceFirst('*.', '')},DIRECT',
+      if (rules is List) ...rules,
+    ];
   }
 
   static String sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();

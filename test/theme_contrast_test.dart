@@ -20,10 +20,17 @@ void main() {
   for (final entry in palettes.entries) {
     final p = entry.value;
     test('${entry.key}: text and icons are readable (WCAG AA 4.5:1)', () {
-      for (final surface in <Color>[p.canvas, p.surface, p.surfaceRaised]) {
+      for (final surface in <Color>[
+        p.canvas,
+        p.surface,
+        p.surfaceRaised,
+        p.accentSoft
+      ]) {
         for (final foreground in <Color>[
           p.text,
           p.muted,
+          p.hint,
+          p.telegram,
           p.accent,
           p.danger,
           p.warning,
@@ -35,6 +42,8 @@ void main() {
       }
       expect(_contrast(p.accent, p.accentSoft), greaterThanOrEqualTo(4.5),
           reason: 'accent on its tinted chip');
+      expect(_contrast(p.accentStrong, p.accentTint), greaterThanOrEqualTo(4.5),
+          reason: 'secondary button text on hover fill');
       expect(_contrast(p.success, p.successSoft), greaterThanOrEqualTo(4.5),
           reason: 'success on its pill');
     });

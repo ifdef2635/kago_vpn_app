@@ -248,6 +248,12 @@ class MihomoProcessManager {
       if (windowsTun) {
         MihomoWindowsTun.enableTun(config);
         MihomoConfigBuilder.ensureDns(config);
+        // Without the system proxy its exception list does nothing: the
+        // same sites go direct by rules.
+        if (!routesRussia &&
+            await MihomoWindowsSystemProxy.bypassRussianEnabled()) {
+          MihomoWindowsTun.directRussian(config);
+        }
       }
     }
     final host = controllerUri.host == '::1' ? '[::1]' : controllerUri.host;
@@ -262,7 +268,7 @@ class MihomoProcessManager {
       final started = await _startWindowsTun(binary, configFile,
           allowElevation: allowElevation);
       if (started) {
-        await _awaitWindowsTun(controller, directory, routesRussia);
+        await _awaitWindowsTun(controller, directory);
         return;
       }
       // Declined: the usual system proxy (UDP apps go around the VPN).
@@ -384,10 +390,12 @@ class MihomoProcessManager {
         config: configFile);
   }
 
-  /// Waits for the elevated core's controller, then turns the system proxy on
-  /// and watches the core (it is not our child: no exit code).
+  /// Waits for the elevated core's controller and watches the core (it is
+  /// not our child: no exit code). No system proxy: the TUN adapter already
+  /// takes all traffic, and a proxy on 127.0.0.1 broke Microsoft Store apps
+  /// (Xbox, Mail, games), which may not connect to loopback.
   Future<void> _awaitWindowsTun(
-      MihomoController controller, String directory, bool routesRussia) async {
+      MihomoController controller, String directory) async {
     _windowsTunDir = directory;
     Object? lastError;
     for (var attempt = 0; attempt < 40; attempt++) {
@@ -395,7 +403,6 @@ class MihomoProcessManager {
       try {
         await controller.version();
         _writeLog(tr('Mihomo controller готов.'));
-        await _enableSystemProxy(routesRussia: routesRussia);
         _writeLog(tr('Весь трафик идёт через VPN (TUN).'));
         var misses = 0;
         _windowsTunWatch =

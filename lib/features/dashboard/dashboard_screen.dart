@@ -181,64 +181,70 @@ class DashboardScreen extends ConsumerWidget {
             child: SurfaceCard(
                 padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
                 onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
-                child: groups.when(
-                  data: (items) {
-                    final group = _primaryGroup(items);
-                    final node = group?.selected;
-                    final delay = _delayText(
-                        items, ref.watch(proxyDelaysProvider), connected);
-                    return Row(children: <Widget>[
-                      const IconChip(Icons.public_rounded),
-                      const SizedBox(width: 14),
-                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                            Text(tr('Ваш сервер'),
-                                style: TextStyle(
-                                    fontSize: KaGoText.caption,
-                                    color: p.muted)),
-                            const SizedBox(height: 2),
-                            Text(node ?? group?.name ?? tr('Войдите в аккаунт'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: KaGoText.bodySmall,
-                                    fontWeight: KaGoWeight.extraBold,
-                                    color: p.text)),
-                            if (group != null)
-                              Text(
-                                  node != null
-                                      ? (delay == null
-                                          ? group.name
-                                          : '${group.name} · $delay')
-                                      : tr(
-                                          '{length} серверов',
-                                          <String, Object?>{
-                                              'length': group.nodes.length
-                                            }),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                child: Column(children: <Widget>[
+                  groups.when(
+                    data: (items) {
+                      final group = _primaryGroup(items);
+                      final node = group?.selected;
+                      final delay = _delayText(
+                          items, ref.watch(proxyDelaysProvider), connected);
+                      return Row(children: <Widget>[
+                        const IconChip(Icons.public_rounded),
+                        const SizedBox(width: 14),
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                              Text(tr('Ваш сервер'),
                                   style: TextStyle(
                                       fontSize: KaGoText.caption,
                                       color: p.muted)),
-                          ])),
-                      Icon(Icons.chevron_right_rounded, color: p.hint),
-                    ]);
-                  },
-                  loading: () => const LinearProgressIndicator(minHeight: 2),
-                  error: (_, __) => Text(
-                      !Platform.isAndroid && !coreRunning
-                          ? tr(
-                              'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
-                          : tr(
-                              'Контроллер недоступен — проверьте адрес в настройках.'),
-                      style: TextStyle(
-                          color: p.muted, fontSize: KaGoText.caption)),
-                )),
+                              const SizedBox(height: 2),
+                              Text(
+                                  node ??
+                                      group?.name ??
+                                      tr('Войдите в аккаунт'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: KaGoText.bodySmall,
+                                      fontWeight: KaGoWeight.extraBold,
+                                      color: p.text)),
+                              if (group != null)
+                                Text(
+                                    node != null
+                                        ? (delay == null
+                                            ? group.name
+                                            : '${group.name} · $delay')
+                                        : tr(
+                                            '{length} серверов',
+                                            <String, Object?>{
+                                                'length': group.nodes.length
+                                              }),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontSize: KaGoText.caption,
+                                        color: p.muted)),
+                            ])),
+                        Icon(Icons.chevron_right_rounded, color: p.hint),
+                      ]);
+                    },
+                    loading: () => const LinearProgressIndicator(minHeight: 2),
+                    error: (_, __) => Text(
+                        !Platform.isAndroid && !coreRunning
+                            ? tr(
+                                'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
+                            : tr(
+                                'Контроллер недоступен — проверьте адрес в настройках.'),
+                        style: TextStyle(
+                            color: p.muted, fontSize: KaGoText.caption)),
+                  ),
+                  const SizedBox(height: KaGoSpace.md),
+                  const Divider(),
+                  _ServerIpLine(connected: connected)
+                ])),
           ),
-          const SizedBox(height: 12),
-          KagoEntrance(order: 5, child: _IpCard(connected: connected)),
         ]);
   }
 
@@ -647,112 +653,61 @@ double _trafficActivity(ConnectionsSnapshot? traffic) {
 
 /// "Ваш IP": the address the internet currently sees, with country, city and
 /// provider. Tap the eye to hide it for screenshots.
-final _mobileIpExpandedProvider = StateProvider<bool>((ref) => false);
-
-class _IpCard extends ConsumerWidget {
-  const _IpCard({required this.connected, this.compact = false});
+/// IP показывается рядом с выбранным сервером; результат другого маршрута скрыт.
+class _ServerIpLine extends ConsumerWidget {
+  const _ServerIpLine({required this.connected});
   final bool connected;
-  final bool compact;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ip = ref.watch(ipInfoProvider);
     final hidden = ref.watch(ipHiddenProvider);
     final looked = ip.valueOrNull;
-    // A previous result from the other state (VPN on/off) is stale.
     final info = looked != null && (looked.viaVpn ?? connected) == connected
         ? looked
         : null;
-    final loading = ip.isLoading;
     final failed = ip.hasError && info == null;
-    // Free Telegram access: only Telegram goes through the VPN, so the IP
-    // the sites see is the user's own.
     final guest = connected && ref.watch(guestModeActiveProvider);
-    final title = guest
-        ? tr('Ваш IP (через VPN идёт только Telegram)')
-        : connected
-            ? tr('IP через VPN')
-            : tr('Ваш IP');
-    final String address;
-    if (info != null) {
-      address = hidden ? '•••.•••.•••.•••' : info.ip;
-    } else {
-      address = failed ? tr('Не определён') : tr('Определяем…');
-    }
-    final details = <String>[
-      if (info != null && info.place.isNotEmpty) info.place,
-      if (info?.isp != null) info!.isp!,
-    ].join(' · ');
-    if (compact && (hidden || !ref.watch(_mobileIpExpandedProvider))) {
-      return Row(children: <Widget>[
-        Icon(Icons.public_outlined, size: 16, color: context.kago.muted),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(title,
+    final title = connected && !guest ? tr('IP через VPN') : tr('Ваш IP');
+    final address = hidden
+        ? '•••.•••.•••.•••'
+        : info?.ip ?? (failed ? tr('Не определён') : tr('Определяем…'));
+    return Row(key: const ValueKey<String>('server-ip'), children: <Widget>[
+      Icon(Icons.public_outlined, size: 16, color: context.kago.muted),
+      const SizedBox(width: KaGoSpace.sm),
+      Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+            Text(title,
                 style: TextStyle(
-                    fontSize: KaGoText.caption, color: context.kago.muted))),
-        TextButton(
-            onPressed: () {
-              ref.read(_mobileIpExpandedProvider.notifier).state = true;
-              ref.read(ipHiddenProvider.notifier).state = false;
-            },
-            child: Text(tr('Показать IP'))),
-      ]);
-    }
-    return SurfaceCard(
-        padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
-        child: Row(children: <Widget>[
-          IconChip(Icons.public_rounded,
-              child: info != null && info.flag.isNotEmpty && !hidden
-                  ? Text(info.flag,
-                      style: const TextStyle(fontSize: KaGoText.titleLarge))
-                  : null),
-          const SizedBox(width: 14),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                Text(title,
-                    style: TextStyle(
-                        fontSize: KaGoText.caption, color: context.kago.muted)),
-                const SizedBox(height: 1),
-                SelectableText(address,
-                    style: TextStyle(
-                        fontSize: KaGoText.body,
-                        fontWeight: KaGoWeight.extraBold,
-                        color:
-                            failed ? context.kago.muted : context.kago.text)),
-                if (details.isNotEmpty && !hidden)
-                  Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Text(details,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: KaGoText.caption,
-                              color: context.kago.muted))),
-              ])),
-          IconButton(
-              tooltip: hidden ? tr('Показать IP') : tr('Скрыть IP'),
-              onPressed: () =>
-                  ref.read(ipHiddenProvider.notifier).state = !hidden,
-              icon: Icon(
-                  hidden
-                      ? Icons.visibility_off_rounded
-                      : Icons.visibility_rounded,
-                  color: context.kago.muted)),
-          loading
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2)))
-              : IconButton(
-                  tooltip: tr('Проверить IP'),
-                  onPressed: () => ref.invalidate(ipInfoProvider),
-                  icon: Icon(Icons.refresh_rounded, color: context.kago.muted)),
-        ]));
+                    fontSize: KaGoText.meta, color: context.kago.muted)),
+            SelectableText(address,
+                maxLines: 2,
+                style: TextStyle(
+                    fontSize: KaGoText.label, color: context.kago.text)),
+          ])),
+      if (ip.isLoading)
+        const Padding(
+            padding: EdgeInsets.all(12),
+            child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))),
+      if (failed)
+        IconButton(
+            tooltip: tr('Проверить IP'),
+            onPressed: () => ref.invalidate(ipInfoProvider),
+            icon: const Icon(Icons.refresh, size: 18)),
+      IconButton(
+          tooltip: hidden ? tr('Показать IP') : tr('Скрыть IP'),
+          onPressed: () => ref.read(ipHiddenProvider.notifier).state = !hidden,
+          icon: Icon(
+              hidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 18,
+              color: context.kago.muted)),
+    ]);
   }
 }
 
@@ -1024,6 +979,9 @@ class _MobileDashboard extends ConsumerWidget {
                                         fontSize: KaGoText.caption,
                                         color: p.success))),
                           ],
+                          const SizedBox(height: KaGoSpace.md),
+                          const Divider(),
+                          _ServerIpLine(connected: connected),
                         ]);
                   },
                   loading: () => const LinearProgressIndicator(minHeight: 2),
@@ -1063,19 +1021,24 @@ class _MobileDashboard extends ConsumerWidget {
                 style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
             const SizedBox(height: 10),
             SurfaceCard(
-                child: Row(children: <Widget>[
-              const IconChip(Icons.send_outlined),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                    const Text('Telegram',
-                        style: TextStyle(fontWeight: KaGoWeight.semiBold)),
-                    Text(tr('Доступен без подписки'),
-                        style: TextStyle(
-                            fontSize: KaGoText.caption, color: p.muted)),
-                  ])),
+                child: Column(children: <Widget>[
+              Row(children: <Widget>[
+                const IconChip(Icons.send_outlined),
+                const SizedBox(width: KaGoSpace.md),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                      const Text('Telegram',
+                          style: TextStyle(fontWeight: KaGoWeight.semiBold)),
+                      Text(tr('Доступен без подписки'),
+                          style: TextStyle(
+                              fontSize: KaGoText.caption, color: p.muted)),
+                    ])),
+              ]),
+              const SizedBox(height: KaGoSpace.md),
+              const Divider(),
+              _ServerIpLine(connected: connected),
             ])),
           ] else ...<Widget>[
             Wrap(
@@ -1099,8 +1062,6 @@ class _MobileDashboard extends ConsumerWidget {
                 onAction: onRefresh,
                 compact: true),
           ],
-          const SizedBox(height: 16),
-          _IpCard(connected: connected, compact: true),
         ]);
   }
 }

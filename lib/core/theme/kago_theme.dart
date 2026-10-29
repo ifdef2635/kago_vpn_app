@@ -365,6 +365,7 @@ abstract final class KaGoTheme {
         borderRadius: BorderRadius.circular(KaGoRadius.button));
     TextStyle heading(double size, {FontWeight weight = KaGoWeight.heading}) =>
         TextStyle(
+            fontFamily: kagoFontFamily,
             fontSize: size,
             fontWeight: weight,
             letterSpacing: size >= 24 ? -.6 : -.2,
@@ -373,6 +374,7 @@ abstract final class KaGoTheme {
     TextStyle body(double size,
             {FontWeight weight = KaGoWeight.body, Color? color}) =>
         TextStyle(
+            fontFamily: kagoFontFamily,
             fontSize: size,
             fontWeight: weight,
             height: size >= KaGoText.body ? 1.6 : 1.5,

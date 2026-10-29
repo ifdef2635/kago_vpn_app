@@ -359,7 +359,7 @@ abstract final class KaGoTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: p.accentSoft,
+        indicatorColor: Colors.transparent,
         indicatorShape: const StadiumBorder(),
         iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
             color: states.contains(WidgetState.selected) ? p.accent : p.muted)),
@@ -368,7 +368,7 @@ abstract final class KaGoTheme {
             fontSize: 11,
             fontWeight: states.contains(WidgetState.selected)
                 ? KaGoWeight.bold
-                : KaGoWeight.semiBold,
+                : KaGoWeight.body,
             color: states.contains(WidgetState.selected) ? p.accent : p.muted)),
       ),
       navigationRailTheme: NavigationRailThemeData(

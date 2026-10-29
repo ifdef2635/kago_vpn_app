@@ -78,9 +78,10 @@ class AccountScreen extends ConsumerWidget {
                               style:
                                   Theme.of(context).textTheme.headlineMedium),
                           const SizedBox(height: 6),
-                          Text(
-                              tr('Управляйте подпиской, устройствами и аккаунтом в одном месте.'),
-                              style: TextStyle(color: p.muted, fontSize: 14)),
+                          Text(tr('Управляйте подпиской, устройствами и аккаунтом в одном месте.'),
+                              style: TextStyle(
+                                  color: p.muted,
+                                  fontSize: KaGoText.secondary)),
                         ]),
                   ),
                   if (signedIn != null)
@@ -121,7 +122,8 @@ class AccountScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             Center(
                 child: Text('© KAGO · usekago.net',
-                    style: TextStyle(color: p.muted, fontSize: 12))),
+                    style:
+                        TextStyle(color: p.muted, fontSize: KaGoText.caption))),
           ],
         ),
       ),
@@ -498,7 +500,7 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                     ? tr('Создайте аккаунт KAGO')
                     : tr('Войдите в личный кабинет KAGO'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: p.muted, fontSize: 13)),
+                style: TextStyle(color: p.muted, fontSize: KaGoText.label)),
             const SizedBox(height: 18),
             if (!_register) ...<Widget>[
               // Telegram first: most accounts were created by the bot.
@@ -509,7 +511,8 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                     minimumSize: const Size.fromHeight(50),
                     shape: const StadiumBorder(),
                     textStyle: const TextStyle(
-                        fontSize: 15, fontWeight: KaGoWeight.extraBold)),
+                        fontSize: KaGoText.bodySmall,
+                        fontWeight: KaGoWeight.extraBold)),
                 onPressed: _busy ? null : _telegram,
                 icon: const Icon(Icons.telegram, size: 22),
                 label: Text(tr('Войти через Telegram')),
@@ -520,7 +523,8 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                 Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Text(tr('или по email'),
-                        style: TextStyle(color: p.muted, fontSize: 12))),
+                        style: TextStyle(
+                            color: p.muted, fontSize: KaGoText.caption))),
                 Expanded(child: Divider(color: p.border)),
               ]),
               const SizedBox(height: 16),
@@ -568,7 +572,8 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
             if (_error != null) ...<Widget>[
               const SizedBox(height: 12),
               Text(_error!,
-                  style: TextStyle(color: p.danger, fontSize: 13, height: 1.3)),
+                  style: TextStyle(
+                      color: p.danger, fontSize: KaGoText.label, height: 1.3)),
             ],
             const SizedBox(height: 16),
             FilledButton(
@@ -589,7 +594,8 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
                 children: <Widget>[
                   Text(
                       _register ? tr('Уже есть аккаунт?') : tr('Нет аккаунта?'),
-                      style: TextStyle(color: p.muted, fontSize: 13)),
+                      style:
+                          TextStyle(color: p.muted, fontSize: KaGoText.label)),
                   TextButton(
                       onPressed: _busy
                           ? null
@@ -624,7 +630,7 @@ class _HeroFrame extends StatelessWidget {
     final light = Theme.of(context).brightness == Brightness.light;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(KaGoRadius.xl),
+        borderRadius: BorderRadius.circular(KaGoRadius.hero),
         gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -819,7 +825,7 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
               Text(sub.planName.isEmpty ? 'KAGO' : sub.planName,
                   style: TextStyle(
                       color: context.kago.heroText,
-                      fontSize: 24,
+                      fontSize: KaGoText.heading,
                       fontWeight: KaGoWeight.heading,
                       letterSpacing: -.4)),
               const SizedBox(height: 4),
@@ -831,8 +837,8 @@ class _AccountHeroState extends ConsumerState<_AccountHero> {
                       }),
                     if (sub.isTrial) tr('Пробный период'),
                   ].join(' · '),
-                  style:
-                      TextStyle(color: context.kago.heroMuted, fontSize: 13)),
+                  style: TextStyle(
+                      color: context.kago.heroMuted, fontSize: KaGoText.label)),
               const SizedBox(height: 16),
               // One power button in the app (home tab); here only putting
               // the subscription on a device that does not have it yet.
@@ -942,11 +948,12 @@ class _HeroMessage extends StatelessWidget {
           Text(title,
               style: TextStyle(
                   color: context.kago.heroText,
-                  fontSize: 22,
+                  fontSize: KaGoText.titleLarge,
                   fontWeight: KaGoWeight.heading)),
           const SizedBox(height: 6),
           Text(text,
-              style: TextStyle(color: context.kago.heroMuted, fontSize: 13.5)),
+              style: TextStyle(
+                  color: context.kago.heroMuted, fontSize: KaGoText.secondary)),
           const SizedBox(height: 16),
           Wrap(spacing: 10, runSpacing: 10, children: actions),
         ],
@@ -1028,8 +1035,9 @@ class _HeroStat extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(label,
-                  style:
-                      TextStyle(color: context.kago.heroMuted, fontSize: 12)),
+                  style: TextStyle(
+                      color: context.kago.heroMuted,
+                      fontSize: KaGoText.caption)),
             ),
             const SizedBox(height: 6),
             SizedBox(
@@ -1040,7 +1048,7 @@ class _HeroStat extends StatelessWidget {
                 child: Text(value,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: KaGoText.title,
                         fontWeight: KaGoWeight.heading)),
               ),
             ),
@@ -1105,7 +1113,7 @@ class _Chip extends StatelessWidget {
         child: Text(text,
             style: TextStyle(
                 color: context.kago.accent,
-                fontSize: 12,
+                fontSize: KaGoText.caption,
                 fontWeight: KaGoWeight.extraBold)),
       );
 }
@@ -1177,12 +1185,12 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
             error is KagoApiException && error.status == 404
                 ? tr('Устройства появятся после оформления подписки.')
                 : tr('Не удалось загрузить устройства. Попробуйте позже.'),
-            style: TextStyle(color: p.muted, fontSize: 13)),
+            style: TextStyle(color: p.muted, fontSize: KaGoText.label)),
         data: (devices) {
           if (devices == null || devices.devices.isEmpty) {
             return Text(
                 tr('Устройств пока нет. Устройство появится здесь после первого подключения по ссылке подписки.'),
-                style: TextStyle(color: p.muted, fontSize: 13));
+                style: TextStyle(color: p.muted, fontSize: KaGoText.label));
           }
           return Column(children: <Widget>[
             for (final device in devices.devices)
@@ -1218,7 +1226,8 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
                                       .whereType<String>()
                                       .where((s) => s.isNotEmpty)
                                       .join(' · '),
-                              style: TextStyle(color: p.muted, fontSize: 12)),
+                              style: TextStyle(
+                                  color: p.muted, fontSize: KaGoText.caption)),
                         ]),
                   ),
                   _busy == device.hwid
@@ -1298,7 +1307,8 @@ class _PromoCardState extends ConsumerState<_PromoCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(tr('Есть код? Активируйте его и получите бонус к подписке.'),
-                  style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                  style: TextStyle(
+                      color: context.kago.muted, fontSize: KaGoText.label)),
               const SizedBox(height: 12),
               Row(children: <Widget>[
                 Expanded(
@@ -1350,7 +1360,9 @@ class _ProfileCard extends ConsumerWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(label, style: TextStyle(color: p.muted, fontSize: 12)),
+                    Text(label,
+                        style: TextStyle(
+                            color: p.muted, fontSize: KaGoText.caption)),
                     Text(value,
                         style: const TextStyle(fontWeight: KaGoWeight.bold)),
                   ]),
@@ -1368,7 +1380,7 @@ class _ProfileCard extends ConsumerWidget {
           child: Text(ok ? '✓ $yes' : no,
               style: TextStyle(
                   color: ok ? p.success : p.muted,
-                  fontSize: 11,
+                  fontSize: KaGoText.meta,
                   fontWeight: KaGoWeight.extraBold)),
         );
     return _Card(
@@ -1422,7 +1434,7 @@ class _ProfileCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
                 tr('Привяжите Telegram, чтобы входить через бота и в приложении.'),
-                style: TextStyle(color: p.muted, fontSize: 12)),
+                style: TextStyle(color: p.muted, fontSize: KaGoText.caption)),
             const SizedBox(height: 8),
             FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: telegramBlue),
@@ -1568,7 +1580,7 @@ class _ReferralCard extends ConsumerWidget {
               children: <Widget>[
                 Text(
                     tr('Приглашайте друзей по своей ссылке. За каждого, кто оформит подписку, вы оба получите +30 дней бесплатно.'),
-                    style: TextStyle(color: p.muted, fontSize: 13)),
+                    style: TextStyle(color: p.muted, fontSize: KaGoText.label)),
                 const SizedBox(height: 12),
                 Row(children: <Widget>[
                   Expanded(
@@ -1592,7 +1604,8 @@ class _ReferralCard extends ConsumerWidget {
                     child: Row(children: <Widget>[
                       Expanded(
                           child: SelectableText(referral.link,
-                              style: const TextStyle(fontSize: 13))),
+                              style:
+                                  const TextStyle(fontSize: KaGoText.label))),
                       IconButton(
                           tooltip: tr('Копировать'),
                           onPressed: () async {
@@ -1609,8 +1622,10 @@ class _ReferralCard extends ConsumerWidget {
                         color: p.accentSoft,
                         borderRadius: BorderRadius.circular(KaGoRadius.md)),
                     child: Text(
-                        tr('Реферальная программа доступна после подтверждения почты. Подтвердите email в разделе «Аккаунт» выше.'),
-                        style: TextStyle(color: p.text, fontSize: 13)),
+                        tr(
+                            'Реферальная программа доступна после подтверждения почты. Подтвердите email в разделе «Аккаунт» выше.'),
+                        style:
+                            TextStyle(color: p.text, fontSize: KaGoText.label)),
                   ),
               ]);
         },
@@ -1639,10 +1654,11 @@ class _Counter extends StatelessWidget {
       child: Column(children: <Widget>[
         Text('$value',
             style: TextStyle(
-                fontSize: 22,
+                fontSize: KaGoText.titleLarge,
                 fontWeight: KaGoWeight.heading,
                 color: success ? p.success : p.text)),
-        Text(label, style: TextStyle(color: p.muted, fontSize: 12)),
+        Text(label,
+            style: TextStyle(color: p.muted, fontSize: KaGoText.caption)),
       ]),
     );
   }
@@ -1752,7 +1768,7 @@ class _Pill extends StatelessWidget {
           Text(label,
               style: TextStyle(
                   color: color,
-                  fontSize: 12,
+                  fontSize: KaGoText.caption,
                   fontWeight: KaGoWeight.extraBold)),
         ]),
       );
@@ -1834,7 +1850,8 @@ class _FormDialogState extends State<_FormDialog> {
             children: <Widget>[
               if (widget.note != null) ...<Widget>[
                 Text(widget.note!,
-                    style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                    style: TextStyle(
+                        color: context.kago.muted, fontSize: KaGoText.label)),
                 const SizedBox(height: 12),
               ],
               for (var i = 0; i < widget.fields.length; i++) ...<Widget>[
@@ -1864,7 +1881,8 @@ class _FormDialogState extends State<_FormDialog> {
               if (_error != null) ...<Widget>[
                 const SizedBox(height: 12),
                 Text(_error!,
-                    style: TextStyle(color: context.kago.danger, fontSize: 13)),
+                    style: TextStyle(
+                        color: context.kago.danger, fontSize: KaGoText.label)),
               ],
             ]),
         actions: <Widget>[

@@ -135,11 +135,12 @@ class DashboardScreen extends ConsumerWidget {
                             children: <Widget>[
                           Text(state,
                               style: TextStyle(
-                                  fontSize: 17,
+                                  fontSize: KaGoText.lead,
                                   fontWeight: KaGoWeight.heading,
                                   color: p.text)),
                           Text(hint,
-                              style: TextStyle(fontSize: 12, color: p.muted)),
+                              style: TextStyle(
+                                  fontSize: KaGoText.caption, color: p.muted)),
                         ])),
                   ]),
                   const SizedBox(height: 20),
@@ -194,13 +195,15 @@ class DashboardScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                             Text(tr('Ваш сервер'),
-                                style: TextStyle(fontSize: 12, color: p.muted)),
+                                style: TextStyle(
+                                    fontSize: KaGoText.caption,
+                                    color: p.muted)),
                             const SizedBox(height: 2),
                             Text(node ?? group?.name ?? tr('Войдите в аккаунт'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    fontSize: 15,
+                                    fontSize: KaGoText.bodySmall,
                                     fontWeight: KaGoWeight.extraBold,
                                     color: p.text)),
                             if (group != null)
@@ -216,8 +219,9 @@ class DashboardScreen extends ConsumerWidget {
                                             }),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style:
-                                      TextStyle(fontSize: 12, color: p.muted)),
+                                  style: TextStyle(
+                                      fontSize: KaGoText.caption,
+                                      color: p.muted)),
                           ])),
                       Icon(Icons.chevron_right_rounded, color: p.hint),
                     ]);
@@ -229,7 +233,8 @@ class DashboardScreen extends ConsumerWidget {
                               'Ядро не запущено. Нажмите кнопку питания ниже, чтобы запустить VPN.')
                           : tr(
                               'Контроллер недоступен — проверьте адрес в настройках.'),
-                      style: TextStyle(color: p.muted, fontSize: 12)),
+                      style: TextStyle(
+                          color: p.muted, fontSize: KaGoText.caption)),
                 )),
           ),
           const SizedBox(height: 12),
@@ -541,7 +546,8 @@ class _SubscriptionCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 13, fontWeight: KaGoWeight.semiBold))),
+                              fontSize: KaGoText.label,
+                              fontWeight: KaGoWeight.semiBold))),
                   TextButton(
                       onPressed: busy ? null : onAction,
                       child: busy
@@ -561,7 +567,8 @@ class _SubscriptionCard extends StatelessWidget {
                   const SizedBox(height: 10),
                 ],
                 Text(details,
-                    style: TextStyle(fontSize: 12, color: context.kago.muted)),
+                    style: TextStyle(
+                        fontSize: KaGoText.caption, color: context.kago.muted)),
               ]));
     }
     return SurfaceCard(
@@ -577,14 +584,15 @@ class _SubscriptionCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 15,
+                        fontSize: KaGoText.bodySmall,
                         fontWeight: KaGoWeight.extraBold,
                         color: context.kago.text)),
                 const SizedBox(height: 2),
                 Text(details,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: context.kago.muted)),
+                    style: TextStyle(
+                        fontSize: KaGoText.caption, color: context.kago.muted)),
               ])),
           TextButton(
               onPressed: busy ? null : onAction,
@@ -681,7 +689,8 @@ class _IpCard extends ConsumerWidget {
         const SizedBox(width: 8),
         Expanded(
             child: Text(title,
-                style: TextStyle(fontSize: 12, color: context.kago.muted))),
+                style: TextStyle(
+                    fontSize: KaGoText.caption, color: context.kago.muted))),
         TextButton(
             onPressed: () {
               ref.read(_mobileIpExpandedProvider.notifier).state = true;
@@ -695,7 +704,8 @@ class _IpCard extends ConsumerWidget {
         child: Row(children: <Widget>[
           IconChip(Icons.public_rounded,
               child: info != null && info.flag.isNotEmpty && !hidden
-                  ? Text(info.flag, style: const TextStyle(fontSize: 22))
+                  ? Text(info.flag,
+                      style: const TextStyle(fontSize: KaGoText.titleLarge))
                   : null),
           const SizedBox(width: 14),
           Expanded(
@@ -703,11 +713,12 @@ class _IpCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                 Text(title,
-                    style: TextStyle(fontSize: 12, color: context.kago.muted)),
+                    style: TextStyle(
+                        fontSize: KaGoText.caption, color: context.kago.muted)),
                 const SizedBox(height: 1),
                 SelectableText(address,
                     style: TextStyle(
-                        fontSize: 16,
+                        fontSize: KaGoText.body,
                         fontWeight: KaGoWeight.extraBold,
                         color:
                             failed ? context.kago.muted : context.kago.text)),
@@ -718,7 +729,8 @@ class _IpCard extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 12, color: context.kago.muted))),
+                              fontSize: KaGoText.caption,
+                              color: context.kago.muted))),
               ])),
           IconButton(
               tooltip: hidden ? tr('Показать IP') : tr('Скрыть IP'),
@@ -768,16 +780,19 @@ class _TrafficMetrics extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(label,
-                        style:
-                            TextStyle(fontSize: 12, color: context.kago.muted)),
+                        style: TextStyle(
+                            fontSize: KaGoText.caption,
+                            color: context.kago.muted)),
                     const SizedBox(height: 4),
                     Text(value,
                         style: const TextStyle(
-                            fontSize: 19, fontWeight: KaGoWeight.semiBold)),
+                            fontSize: KaGoText.title,
+                            fontWeight: KaGoWeight.semiBold)),
                     if (total != null)
                       Text(total,
                           style: TextStyle(
-                              fontSize: 11, color: context.kago.muted)),
+                              fontSize: KaGoText.meta,
+                              color: context.kago.muted)),
                   ])));
       return RepaintBoundary(
           child: Row(
@@ -903,7 +918,7 @@ class _MobileDashboard extends ConsumerWidget {
           const _MobileBrand(),
           const SizedBox(height: 30),
           Text(tr('Состояние соединения'),
-              style: TextStyle(fontSize: 12, color: p.muted)),
+              style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
           const SizedBox(height: 8),
           Semantics(
               liveRegion: true,
@@ -919,14 +934,15 @@ class _MobileDashboard extends ConsumerWidget {
                 Expanded(
                     child: Text(state,
                         style: TextStyle(
-                            fontSize: 25,
+                            fontSize: KaGoText.appTitle,
                             height: 1.2,
                             fontWeight: KaGoWeight.heading,
                             letterSpacing: -.4,
                             color: p.text))),
               ])),
           const SizedBox(height: 8),
-          Text(detail, style: TextStyle(fontSize: 13, color: p.muted)),
+          Text(detail,
+              style: TextStyle(fontSize: KaGoText.label, color: p.muted)),
           if (problem != null) ...<Widget>[
             const SizedBox(height: 12),
             KagoPill(problem!, color: p.danger, dot: true),
@@ -939,11 +955,14 @@ class _MobileDashboard extends ConsumerWidget {
                     children: <Widget>[
                   Text(tr('Без подписки доступен Telegram'),
                       style: const TextStyle(
-                          fontSize: 14, fontWeight: KaGoWeight.semiBold)),
+                          fontSize: KaGoText.secondary,
+                          fontWeight: KaGoWeight.semiBold)),
                   const SizedBox(height: 6),
                   Text(tr('После подключения через VPN будет работать только Telegram. Остальные сайты продолжат работать напрямую.'),
-                      style:
-                          TextStyle(fontSize: 12, height: 1.5, color: p.muted)),
+                      style: TextStyle(
+                          fontSize: KaGoText.caption,
+                          height: 1.5,
+                          color: p.muted)),
                   const SizedBox(height: 4),
                   TextButton(
                       onPressed: () =>
@@ -963,7 +982,8 @@ class _MobileDashboard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(tr('Ваш сервер'),
-                              style: TextStyle(fontSize: 12, color: p.muted)),
+                              style: TextStyle(
+                                  fontSize: KaGoText.caption, color: p.muted)),
                           const SizedBox(height: 10),
                           Row(children: <Widget>[
                             Icon(Icons.public_outlined,
@@ -981,14 +1001,15 @@ class _MobileDashboard extends ConsumerWidget {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: KaGoText.bodySmall,
                                           fontWeight: KaGoWeight.semiBold)),
                                   if (group != null)
                                     Text(group.name,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                            fontSize: 12, color: p.muted)),
+                                            fontSize: KaGoText.caption,
+                                            color: p.muted)),
                                 ])),
                             Icon(Icons.chevron_right, size: 20, color: p.muted),
                           ]),
@@ -1000,7 +1021,8 @@ class _MobileDashboard extends ConsumerWidget {
                                 alignment: AlignmentDirectional.centerEnd,
                                 child: Text(delay,
                                     style: TextStyle(
-                                        fontSize: 12, color: p.success))),
+                                        fontSize: KaGoText.caption,
+                                        color: p.success))),
                           ],
                         ]);
                   },
@@ -1010,32 +1032,35 @@ class _MobileDashboard extends ConsumerWidget {
                       style: TextStyle(color: p.muted)),
                 )),
           const SizedBox(height: 16),
-          SizedBox(
-              width: double.infinity,
-              child: connected || recovering
-                  ? OutlinedButton.icon(
-                      onPressed: busy ? null : onToggle,
-                      style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 54),
-                          backgroundColor: p.surfaceRaised,
-                          foregroundColor: p.text,
-                          side: BorderSide(color: p.border)),
-                      icon: _ConnectionIcon(busy: busy),
-                      label: Text(tr('Отключить VPN')))
-                  : FilledButton.icon(
-                      onPressed: busy ? null : onToggle,
-                      style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 54)),
-                      icon: _ConnectionIcon(busy: busy),
-                      label: Text(busy
-                          ? tr('Подключение…')
-                          : guest
-                              ? tr('Подключить Telegram')
-                              : tr('Подключить VPN')))),
+          KagoPressFeedback(
+              enabled: !busy,
+              child: SizedBox(
+                  width: double.infinity,
+                  child: connected || recovering
+                      ? OutlinedButton.icon(
+                          onPressed: busy ? null : onToggle,
+                          style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 54),
+                              backgroundColor: p.accentSoft,
+                              foregroundColor: p.accentStrong,
+                              side:
+                                  BorderSide(color: p.accentTint, width: 1.5)),
+                          icon: _ConnectionIcon(busy: busy),
+                          label: Text(tr('Отключить VPN')))
+                      : FilledButton.icon(
+                          onPressed: busy ? null : onToggle,
+                          style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 54)),
+                          icon: _ConnectionIcon(busy: busy),
+                          label: Text(busy
+                              ? tr('Подключение…')
+                              : guest
+                                  ? tr('Подключить Telegram')
+                                  : tr('Подключить VPN'))))),
           const SizedBox(height: 26),
           if (guest) ...<Widget>[
             Text(tr('Подключение'),
-                style: TextStyle(fontSize: 12, color: p.muted)),
+                style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
             const SizedBox(height: 10),
             SurfaceCard(
                 child: Row(children: <Widget>[
@@ -1048,7 +1073,8 @@ class _MobileDashboard extends ConsumerWidget {
                     const Text('Telegram',
                         style: TextStyle(fontWeight: KaGoWeight.semiBold)),
                     Text(tr('Доступен без подписки'),
-                        style: TextStyle(fontSize: 12, color: p.muted)),
+                        style: TextStyle(
+                            fontSize: KaGoText.caption, color: p.muted)),
                   ])),
             ])),
           ] else ...<Widget>[
@@ -1058,9 +1084,11 @@ class _MobileDashboard extends ConsumerWidget {
                 runSpacing: 8,
                 children: <Widget>[
                   Text(tr('Передача данных'),
-                      style: TextStyle(fontSize: 12, color: p.muted)),
+                      style: TextStyle(
+                          fontSize: KaGoText.caption, color: p.muted)),
                   Text(tr('За эту сессию'),
-                      style: TextStyle(fontSize: 12, color: p.accent)),
+                      style: TextStyle(
+                          fontSize: KaGoText.caption, color: p.accent)),
                 ]),
             const SizedBox(height: 10),
             _TrafficMetrics(active: connected, compact: true),
@@ -1098,14 +1126,14 @@ class _MobileBrand extends StatelessWidget {
           children: <Widget>[
             Text('KAGO.',
                 style: TextStyle(
-                    fontSize: 21,
+                    fontSize: KaGoText.titleLarge,
                     letterSpacing: .4,
                     fontWeight: KaGoWeight.semiBold,
                     color: context.kago.text)),
             const SizedBox(width: 5),
             Text('VPN',
                 style: TextStyle(
-                    fontSize: 11,
+                    fontSize: KaGoText.meta,
                     letterSpacing: .5,
                     color: context.kago.muted)),
           ]);

@@ -42,9 +42,9 @@ class ConnectionsScreen extends ConsumerWidget {
       body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: <Widget>[
-            Text(
-                tr('Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.'),
-                style: TextStyle(color: context.kago.muted, fontSize: 13)),
+            Text(tr('Активные сетевые сессии ядра Mihomo. Список обновляется автоматически.'),
+                style: TextStyle(
+                    color: context.kago.muted, fontSize: KaGoText.label)),
             const SizedBox(height: 14),
             snapshot.when(
               loading: () => const LoadingPanel(),
@@ -109,19 +109,20 @@ class _ConnectionTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: KaGoWeight.extraBold)),
                   const SizedBox(height: 4),
                   Text('${item.destination} · ${item.network} · ${item.rule}',
-                      style:
-                          TextStyle(fontSize: 11, color: context.kago.muted)),
+                      style: TextStyle(
+                          fontSize: KaGoText.meta, color: context.kago.muted)),
                   if (item.chain.isNotEmpty)
                     Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Text(item.chain,
                             style: TextStyle(
-                                fontSize: 11, color: context.kago.accent))),
+                                fontSize: KaGoText.meta,
+                                color: context.kago.accent))),
                   const SizedBox(height: 7),
                   Text(
                       '↓ ${formatBytes(item.download)}    ↑ ${formatBytes(item.upload)}',
-                      style:
-                          TextStyle(fontSize: 11, color: context.kago.muted)),
+                      style: TextStyle(
+                          fontSize: KaGoText.meta, color: context.kago.muted)),
                 ])),
             IconButton(
                 tooltip: tr('Закрыть соединение'),

@@ -69,7 +69,7 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
             const SizedBox(height: 2),
             Text('KAGO.',
                 style: TextStyle(
-                    fontSize: 21,
+                    fontSize: KaGoText.titleLarge,
                     letterSpacing: .4,
                     fontWeight: KaGoWeight.semiBold,
                     color: context.kago.text)),
@@ -172,7 +172,8 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
                       foregroundColor: context.kago.text,
                       side: BorderSide(color: context.kago.border),
                       textStyle: const TextStyle(
-                          fontSize: 12, fontFamily: kagoFontFamily)),
+                          fontSize: KaGoText.caption,
+                          fontFamily: kagoFontFamily)),
                   icon: pending.isNotEmpty
                       ? const SizedBox(
                           width: 16,
@@ -185,15 +186,19 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
                 child: Text(
-                    tr('VPN выключен. Выбрать сервер и проверить задержку можно после подключения.'),
-                    style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                    tr(
+                        'VPN выключен. Выбрать сервер и проверить задержку можно после подключения.'),
+                    style: TextStyle(
+                        color: context.kago.muted, fontSize: KaGoText.label)),
               )
             else if (mode == ProxyMode.global)
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
                 child: Text(
-                    tr('Глобальный режим: весь трафик идёт через выбранный сервер, правила подписки не действуют.'),
-                    style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                    tr(
+                        'Глобальный режим: весь трафик идёт через выбранный сервер, правила подписки не действуют.'),
+                    style: TextStyle(
+                        color: context.kago.muted, fontSize: KaGoText.label)),
               ),
             const SizedBox(height: 14),
             groupsAsync.when(
@@ -250,7 +255,8 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(icon),
               title: Text(title),
-              subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+              subtitle: Text(subtitle,
+                  style: const TextStyle(fontSize: KaGoText.caption)),
               trailing: ref.read(effectiveProxyModeProvider) == value
                   ? const Icon(Icons.check_rounded)
                   : null));
@@ -406,7 +412,7 @@ class _GroupSection extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: KaGoText.label,
                                   fontWeight: KaGoWeight.semiBold,
                                   letterSpacing: -.2,
                                   color: p.text)),
@@ -416,13 +422,16 @@ class _GroupSection extends ConsumerWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    fontSize: 12, height: 1.3, color: p.muted)),
+                                    fontSize: KaGoText.caption,
+                                    height: 1.3,
+                                    color: p.muted)),
                           ],
                           const SizedBox(height: 3),
                           Text(_groupDetail(group.type, selected),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12.5, color: p.muted)),
+                              style: TextStyle(
+                                  fontSize: KaGoText.label, color: p.muted)),
                         ]),
                   ),
                   if (group.nodes.any(_testable))
@@ -646,66 +655,68 @@ class _NodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-          color: selected ? p.accentSoft : p.surface,
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
-          border:
-              Border.all(color: selected ? p.accentTint : p.border, width: 1)),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
-          child: Stack(children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 10, 9),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.only(right: 22),
-                      child: Text(node.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 12,
-                              height: 1.25,
-                              fontWeight: KaGoWeight.bold,
-                              color: p.text)),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(children: <Widget>[
-                      Expanded(
-                          child: Text(detail,
-                              maxLines: 1,
+    return KagoPressFeedback(
+        enabled: onTap != null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+              color: selected ? p.accentSoft : p.surface,
+              borderRadius: BorderRadius.circular(KaGoRadius.card),
+              border: Border.all(
+                  color: selected ? p.accentTint : p.border, width: 1)),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(KaGoRadius.card),
+              child: Stack(children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 10, 9),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 22),
+                          child: Text(node.name,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: .3,
-                                  color: p.muted))),
-                      const SizedBox(width: 6),
-                      _DelayLabel(
-                          delay: delay, testing: testing, onTest: onTest),
-                    ]),
-                  ]),
+                                  fontSize: KaGoText.caption,
+                                  height: 1.25,
+                                  fontWeight: KaGoWeight.bold,
+                                  color: p.text)),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: <Widget>[
+                          Expanded(
+                              child: Text(detail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: KaGoText.meta,
+                                      letterSpacing: .3,
+                                      color: p.muted))),
+                          const SizedBox(width: 6),
+                          _DelayLabel(
+                              delay: delay, testing: testing, onTest: onTest),
+                        ]),
+                      ]),
+                ),
+                Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Icon(
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        size: 16,
+                        color: selected ? p.accent : p.hint)),
+              ]),
             ),
-            Positioned(
-                top: 10,
-                right: 10,
-                child: Icon(
-                    selected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    size: 16,
-                    color: selected ? p.accent : p.hint)),
-          ]),
-        ),
-      ),
-    );
+          ),
+        ));
   }
 }
 
@@ -731,12 +742,13 @@ class _DelayLabel extends StatelessWidget {
     final Widget label;
     if (value == null) {
       if (onTest == null) {
-        return Text('—', style: TextStyle(fontSize: 12, color: p.muted));
+        return Text('—',
+            style: TextStyle(fontSize: KaGoText.caption, color: p.muted));
       }
       label = Icon(Icons.bolt_rounded, size: 17, color: p.muted);
     } else if (value <= 0) {
-      label =
-          Text(tr('Таймаут'), style: TextStyle(fontSize: 12, color: p.danger));
+      label = Text(tr('Таймаут'),
+          style: TextStyle(fontSize: KaGoText.caption, color: p.danger));
     } else {
       final color = value < 600
           ? p.success
@@ -745,7 +757,9 @@ class _DelayLabel extends StatelessWidget {
               : p.danger;
       label = Text(tr('{value} мс', <String, Object?>{'value': value}),
           style: TextStyle(
-              fontSize: 12, fontWeight: KaGoWeight.bold, color: color));
+              fontSize: KaGoText.caption,
+              fontWeight: KaGoWeight.bold,
+              color: color));
     }
     if (onTest == null) return label;
     return Tooltip(
@@ -807,8 +821,9 @@ class _ServerAction extends StatelessWidget {
             borderRadius: BorderRadius.circular(8)),
         child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
           Text(label,
-              style:
-                  TextStyle(fontSize: 12, color: selected ? p.accent : p.text)),
+              style: TextStyle(
+                  fontSize: KaGoText.caption,
+                  color: selected ? p.accent : p.text)),
           const SizedBox(width: 6),
           Icon(icon, size: 16, color: selected ? p.accent : p.muted),
         ]));

@@ -374,7 +374,7 @@ class _SiteSessionScreenState extends State<SiteSessionScreen> {
           title: Text(
               _login ? tr('Вход через Telegram') : tr('Кабинет на сайте'),
               style: const TextStyle(
-                  fontSize: 17, fontWeight: KaGoWeight.extraBold)),
+                  fontSize: KaGoText.lead, fontWeight: KaGoWeight.extraBold)),
           actions: <Widget>[
             if (!_login && !popupOpen)
               TextButton(
@@ -516,7 +516,8 @@ class _Notice extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       color: error ? p.danger.withValues(alpha: .12) : p.accentSoft,
       child: Text(text,
-          style: TextStyle(fontSize: 13, color: error ? p.danger : p.text)),
+          style: TextStyle(
+              fontSize: KaGoText.label, color: error ? p.danger : p.text)),
     );
   }
 }
@@ -552,7 +553,8 @@ class _TelegramCover extends StatelessWidget {
                 Text(tr('Вход через Telegram'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 24, fontWeight: KaGoWeight.heading)),
+                        fontSize: KaGoText.heading,
+                        fontWeight: KaGoWeight.heading)),
                 const SizedBox(height: 10),
                 Text(tr('Подтвердите вход в Telegram — пароль не нужен. Аккаунт KAGO и подписка подключатся автоматически.'),
                     textAlign: TextAlign.center,
@@ -573,7 +575,8 @@ class _TelegramCover extends StatelessWidget {
                               const SizedBox(height: 14),
                               Text(status ?? '',
                                   style: TextStyle(
-                                      color: p.muted, fontSize: 13.5)),
+                                      color: p.muted,
+                                      fontSize: KaGoText.secondary)),
                             ])
                       : Column(
                           key: const ValueKey<String>('ready'),
@@ -589,7 +592,8 @@ class _TelegramCover extends StatelessWidget {
                                   child: Text(error!,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                          color: p.danger, fontSize: 13)),
+                                          color: p.danger,
+                                          fontSize: KaGoText.label)),
                                 ),
                                 const SizedBox(height: 16),
                               ],
@@ -600,7 +604,7 @@ class _TelegramCover extends StatelessWidget {
                                     minimumSize: const Size.fromHeight(54),
                                     shape: const StadiumBorder(),
                                     textStyle: const TextStyle(
-                                        fontSize: 16,
+                                        fontSize: KaGoText.body,
                                         fontWeight: KaGoWeight.extraBold)),
                                 onPressed: onContinue,
                                 icon: const Icon(Icons.telegram, size: 24),
@@ -614,7 +618,8 @@ class _TelegramCover extends StatelessWidget {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(tr('Вход через официальный сайт Telegram'),
-                        style: TextStyle(fontSize: 12, color: p.muted)),
+                        style: TextStyle(
+                            fontSize: KaGoText.caption, color: p.muted)),
                   ),
                 ]),
               ]),

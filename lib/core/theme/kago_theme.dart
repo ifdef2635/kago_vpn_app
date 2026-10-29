@@ -331,8 +331,11 @@ extension KaGoPaletteContext on BuildContext {
   KaGoPalette get kago =>
       Theme.of(this).extension<KaGoPalette>() ?? KaGoPalette.light;
 
-  /// Плоские карточки из согласованного макета.
-  List<BoxShadow> get kagoCardShadow => const <BoxShadow>[];
+  /// Мягкая тень кабинета из DESIGN.md: глубина сначала задаётся тоном.
+  List<BoxShadow> get kagoCardShadow => <BoxShadow>[
+        BoxShadow(
+            color: kago.shadow, blurRadius: 14, offset: const Offset(0, 2)),
+      ];
 }
 
 abstract final class KaGoTheme {
@@ -406,7 +409,7 @@ abstract final class KaGoTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: Colors.transparent,
+        indicatorColor: p.accentSoft,
         indicatorShape: const StadiumBorder(),
         iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
             color: states.contains(WidgetState.selected) ? p.accent : p.muted)),
@@ -437,19 +440,23 @@ abstract final class KaGoTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.surfaceRaised,
+        fillColor: WidgetStateColor.resolveWith((states) =>
+            states.contains(WidgetState.focused) ? p.surface : p.surfaceRaised),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         hintStyle: body(KaGoText.secondary, color: p.hint),
-        labelStyle: body(KaGoText.secondary, color: p.muted),
+        labelStyle:
+            body(KaGoText.label, weight: KaGoWeight.bold, color: p.muted),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           borderSide: BorderSide(color: p.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           borderSide: BorderSide(color: p.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           borderSide: BorderSide(color: p.accent, width: 1.5),
         ),
       ),
@@ -466,6 +473,19 @@ abstract final class KaGoTheme {
               fontSize: KaGoText.bodySmall,
               fontWeight: KaGoWeight.bold),
           shape: button,
+        ).copyWith(
+          animationDuration: const Duration(milliseconds: 150),
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled)
+                  ? p.surfaceRaised
+                  : states.contains(WidgetState.pressed) ||
+                          states.contains(WidgetState.hovered)
+                      ? p.brandStrong
+                      : p.brand),
+          side: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.focused)
+                  ? BorderSide(color: p.accent, width: 2)
+                  : BorderSide.none),
         ),
       ),
       // `.btn-secondary`: a tinted pill with a primary outline.
@@ -479,8 +499,22 @@ abstract final class KaGoTheme {
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,
               fontSize: KaGoText.bodySmall,
-              fontWeight: KaGoWeight.semiBold),
+              fontWeight: FontWeight.w500),
           shape: button,
+        ).copyWith(
+          animationDuration: const Duration(milliseconds: 150),
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.pressed)
+                  ? p.accentTint
+                  : p.accentSoft),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? p.hint : p.accentStrong),
+          side: WidgetStateProperty.resolveWith((states) => BorderSide(
+              color: states.contains(WidgetState.focused)
+                  ? p.accent
+                  : p.accentTint,
+              width: states.contains(WidgetState.focused) ? 2 : 1.5)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -516,14 +550,14 @@ abstract final class KaGoTheme {
             fontFamily: kagoFontFamily,
             fontSize: KaGoText.label,
             fontWeight: KaGoWeight.body,
-            color: p.accent),
+            color: p.accentStrong),
         shape: const StadiumBorder(),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(KaGoRadius.lg),
+            borderRadius: BorderRadius.circular(KaGoRadius.sheet),
             side: BorderSide(color: p.border)),
         titleTextStyle: heading(KaGoText.title),
         contentTextStyle: body(KaGoText.secondary, color: p.muted),
@@ -533,7 +567,7 @@ abstract final class KaGoTheme {
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.vertical(top: Radius.circular(KaGoRadius.xl))),
+                BorderRadius.vertical(top: Radius.circular(KaGoRadius.sheet))),
       ),
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,

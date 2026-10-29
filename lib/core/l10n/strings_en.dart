@@ -1,6 +1,10 @@
 /// English. Keys are the Russian source strings (see l10n.dart); a
 /// missing key falls back to Russian. `test/l10n_test.dart` checks coverage.
 const stringsEn = <String, String>{
+  'Проверить': 'Test',
+  'Правила': 'Rules',
+  'Очистить поиск': 'Clear search',
+  'Поиск страны или сервера': 'Search country or server',
   'Отключить VPN': 'Disconnect VPN',
   'За эту сессию': 'This session',
   'Передача данных': 'Data transfer',

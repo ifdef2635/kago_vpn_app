@@ -883,7 +883,7 @@ class _MobileDashboard extends ConsumerWidget {
             : connected
                 ? tr('VPN включён')
                 : tr('VPN выключен');
-    final detail = guest
+    final detail = guest && connected
         ? tr('Через VPN работает только Telegram')
         : !connected
             ? tr('Сейчас сайты открываются напрямую')

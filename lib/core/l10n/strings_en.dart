@@ -1,6 +1,24 @@
 /// English. Keys are the Russian source strings (see l10n.dart); a
 /// missing key falls back to Russian. `test/l10n_test.dart` checks coverage.
 const stringsEn = <String, String>{
+  'Отключить VPN': 'Disconnect VPN',
+  'За эту сессию': 'This session',
+  'Передача данных': 'Data transfer',
+  'Доступен без подписки': 'Available without a subscription',
+  'Подключить VPN': 'Connect VPN',
+  'Подключить Telegram': 'Connect Telegram',
+  'Войти в KAGO': 'Sign in to KAGO',
+  'После подключения через VPN будет работать только Telegram. Остальные сайты продолжат работать напрямую.':
+      'Once connected, only Telegram will use the VPN. Other websites will continue to connect directly.',
+  'Без подписки доступен Telegram':
+      'Telegram is available without a subscription',
+  'Состояние соединения': 'Connection status',
+  'Маршрутизация по правилам подписки':
+      'Routing follows your subscription rules',
+  'Сейчас сайты открываются напрямую': 'Websites currently connect directly',
+  'Через VPN работает только Telegram': 'Only Telegram uses the VPN',
+  'VPN выключен': 'VPN is off',
+  'VPN включён': 'VPN is on',
   'Восстанавливаем соединение': 'Restoring connection',
   'Соединение прервалось. Повторяем подключение.':
       'Connection interrupted. Trying again.',

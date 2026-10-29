@@ -19,6 +19,7 @@ import '../../core/theme/kago_motion.dart';
 import '../../core/theme/kago_theme.dart';
 import '../account/key_reissue.dart';
 import '../guest/guest_telegram.dart';
+import '../proxies/proxy_mode.dart';
 import '../subscriptions/config_builder.dart';
 import '../subscriptions/subscription_providers.dart';
 import '../subscriptions/subscription_repository.dart';
@@ -58,6 +59,17 @@ class DashboardScreen extends ConsumerWidget {
         };
     final p = context.kago;
     final width = MediaQuery.sizeOf(context).width;
+    if (width < 760) {
+      return _MobileDashboard(
+        connected: connected,
+        starting: starting,
+        recovering: recovering,
+        guest: guestNeeded || guestActive && connected,
+        problem: problem,
+        onToggle: () => toggleVpn(context, ref, androidConnected),
+        onRefresh: () => refreshSubscription(context, ref, profile.valueOrNull),
+      );
+    }
     final side = width > 760 ? 44.0 : 16.0;
     final state = recovering
         ? tr('Восстанавливаем соединение')
@@ -488,7 +500,11 @@ final _subscriptionRefreshingProvider = StateProvider<bool>((ref) => false);
 
 class _SubscriptionCard extends StatelessWidget {
   const _SubscriptionCard(
-      {required this.profile, required this.busy, required this.onAction});
+      {required this.profile,
+      required this.busy,
+      required this.onAction,
+      this.compact = false});
+  final bool compact;
   final ImportedSubscription? profile;
   final bool busy;
   final VoidCallback onAction;
@@ -512,6 +528,41 @@ class _SubscriptionCard extends StatelessWidget {
           : '$used · ${tr('до {date}', <String, Object?>{
                   'date': formatLongDate(expires)
                 })}';
+    }
+    if (compact) {
+      return SurfaceCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(children: <Widget>[
+                  Expanded(
+                      child: Text(profile?.name ?? tr('Нет подписки'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: KaGoWeight.semiBold))),
+                  TextButton(
+                      onPressed: busy ? null : onAction,
+                      child: busy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Text(
+                              profile == null ? tr('Войти') : tr('Обновить'))),
+                ]),
+                if (profile != null && profile.totalBytes > 0) ...<Widget>[
+                  LinearProgressIndicator(
+                      value: (profile.usedBytes / profile.totalBytes)
+                          .clamp(0.0, 1.0),
+                      minHeight: 5,
+                      borderRadius: BorderRadius.circular(4)),
+                  const SizedBox(height: 10),
+                ],
+                Text(details,
+                    style: TextStyle(fontSize: 12, color: context.kago.muted)),
+              ]));
     }
     return SurfaceCard(
         padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
@@ -588,9 +639,12 @@ double _trafficActivity(ConnectionsSnapshot? traffic) {
 
 /// "Ваш IP": the address the internet currently sees, with country, city and
 /// provider. Tap the eye to hide it for screenshots.
+final _mobileIpExpandedProvider = StateProvider<bool>((ref) => false);
+
 class _IpCard extends ConsumerWidget {
-  const _IpCard({required this.connected});
+  const _IpCard({required this.connected, this.compact = false});
   final bool connected;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -621,6 +675,21 @@ class _IpCard extends ConsumerWidget {
       if (info != null && info.place.isNotEmpty) info.place,
       if (info?.isp != null) info!.isp!,
     ].join(' · ');
+    if (compact && (hidden || !ref.watch(_mobileIpExpandedProvider))) {
+      return Row(children: <Widget>[
+        Icon(Icons.public_outlined, size: 16, color: context.kago.muted),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(title,
+                style: TextStyle(fontSize: 12, color: context.kago.muted))),
+        TextButton(
+            onPressed: () {
+              ref.read(_mobileIpExpandedProvider.notifier).state = true;
+              ref.read(ipHiddenProvider.notifier).state = false;
+            },
+            child: Text(tr('Показать IP'))),
+      ]);
+    }
     return SurfaceCard(
         padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
         child: Row(children: <Widget>[
@@ -679,8 +748,9 @@ class _IpCard extends ConsumerWidget {
 /// traffic poll, so the rest of the dashboard is not rebuilt every second, and
 /// polling runs only while the dashboard tab is visible and a core is running.
 class _TrafficMetrics extends ConsumerWidget {
-  const _TrafficMetrics({required this.active});
+  const _TrafficMetrics({required this.active, this.compact = false});
   final bool active;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -688,6 +758,42 @@ class _TrafficMetrics extends ConsumerWidget {
     final traffic = active && visible
         ? ref.watch(connectionsSnapshotProvider).asData?.value
         : null;
+    if (compact) {
+      Widget metric(String label, String value, String? total) => Expanded(
+          child: Container(
+              padding: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: context.kago.border))),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(label,
+                        style:
+                            TextStyle(fontSize: 12, color: context.kago.muted)),
+                    const SizedBox(height: 4),
+                    Text(value,
+                        style: const TextStyle(
+                            fontSize: 19, fontWeight: KaGoWeight.semiBold)),
+                    if (total != null)
+                      Text(total,
+                          style: TextStyle(
+                              fontSize: 11, color: context.kago.muted)),
+                  ])));
+      return RepaintBoundary(
+          child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+            metric(
+                tr('Загрузка'),
+                traffic == null ? '—' : formatSpeed(traffic.downloadSpeed),
+                traffic == null ? null : formatBytes(traffic.downloadTotal)),
+            const SizedBox(width: 10),
+            metric(
+                tr('Отдача'),
+                traffic == null ? '—' : formatSpeed(traffic.uploadSpeed),
+                traffic == null ? null : formatBytes(traffic.uploadTotal)),
+          ]));
+    }
     return RepaintBoundary(
         child: InsetTile(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -743,4 +849,261 @@ class _Metric extends StatelessWidget {
                 label: caption == null ? label : '$label · $caption',
                 size: 18)),
       ]);
+}
+
+class _MobileDashboard extends ConsumerWidget {
+  const _MobileDashboard(
+      {required this.connected,
+      required this.starting,
+      required this.recovering,
+      required this.guest,
+      required this.problem,
+      required this.onToggle,
+      required this.onRefresh});
+  final bool connected;
+  final bool starting;
+  final bool recovering;
+  final bool guest;
+  final String? problem;
+  final VoidCallback onToggle;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.kago;
+    final busy = starting || ref.watch(desktopVpnBusyProvider);
+    final groups = ref.watch(proxyGroupsProvider);
+    final mode = ref.watch(effectiveProxyModeProvider);
+    final profile = ref.watch(importedSubscriptionProvider).valueOrNull;
+    final state = recovering
+        ? tr('Восстанавливаем соединение')
+        : starting || busy && !connected
+            ? tr('Подключение…')
+            : connected
+                ? tr('VPN включён')
+                : tr('VPN выключен');
+    final detail = guest
+        ? tr('Через VPN работает только Telegram')
+        : !connected
+            ? tr('Сейчас сайты открываются напрямую')
+            : ref.watch(anonymousActiveProvider)
+                ? tr('Анонимный режим')
+                : mode == ProxyMode.global
+                    ? tr('Весь трафик идёт через выбранный сервер')
+                    : tr('Маршрутизация по правилам подписки');
+    final tone = recovering || starting
+        ? p.warning
+        : connected
+            ? p.success
+            : p.muted;
+    return ListView(
+        padding: const EdgeInsets.fromLTRB(22, 16, 22, 24),
+        children: <Widget>[
+          const _MobileBrand(),
+          const SizedBox(height: 30),
+          Text(tr('Состояние соединения'),
+              style: TextStyle(fontSize: 12, color: p.muted)),
+          const SizedBox(height: 8),
+          Semantics(
+              liveRegion: true,
+              child: Row(children: <Widget>[
+                IconChip(
+                    connected
+                        ? Icons.verified_user_outlined
+                        : Icons.shield_outlined,
+                    size: 36,
+                    color: tone,
+                    background: connected ? p.successSoft : p.surfaceRaised),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(state,
+                        style: TextStyle(
+                            fontSize: 25,
+                            height: 1.2,
+                            fontWeight: KaGoWeight.heading,
+                            letterSpacing: -.4,
+                            color: p.text))),
+              ])),
+          const SizedBox(height: 8),
+          Text(detail, style: TextStyle(fontSize: 13, color: p.muted)),
+          if (problem != null) ...<Widget>[
+            const SizedBox(height: 12),
+            KagoPill(problem!, color: p.danger, dot: true),
+          ],
+          const SizedBox(height: 24),
+          if (guest && !connected) ...<Widget>[
+            SurfaceCard(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                  Text(tr('Без подписки доступен Telegram'),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: KaGoWeight.semiBold)),
+                  const SizedBox(height: 6),
+                  Text(tr('После подключения через VPN будет работать только Telegram. Остальные сайты продолжат работать напрямую.'),
+                      style:
+                          TextStyle(fontSize: 12, height: 1.5, color: p.muted)),
+                  const SizedBox(height: 4),
+                  TextButton(
+                      onPressed: () =>
+                          ref.read(rootTabIndexProvider.notifier).state = 2,
+                      child: Text(tr('Войти в KAGO'))),
+                ])),
+          ] else
+            SurfaceCard(
+                onTap: () => ref.read(rootTabIndexProvider.notifier).state = 1,
+                padding: const EdgeInsets.all(16),
+                child: groups.when(
+                  data: (items) {
+                    final group = _primaryGroup(items);
+                    final delay = _delayText(
+                        items, ref.watch(proxyDelaysProvider), connected);
+                    return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(tr('Ваш сервер'),
+                              style: TextStyle(fontSize: 12, color: p.muted)),
+                          const SizedBox(height: 10),
+                          Row(children: <Widget>[
+                            Icon(Icons.public_outlined,
+                                size: 26, color: p.muted),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                  Text(
+                                      group?.selected ??
+                                          group?.name ??
+                                          tr('Войдите в аккаунт'),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: KaGoWeight.semiBold)),
+                                  if (group != null)
+                                    Text(group.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            fontSize: 12, color: p.muted)),
+                                ])),
+                            Icon(Icons.chevron_right, size: 20, color: p.muted),
+                          ]),
+                          if (delay != null) ...<Widget>[
+                            const SizedBox(height: 12),
+                            const Divider(),
+                            const SizedBox(height: 10),
+                            Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Text(delay,
+                                    style: TextStyle(
+                                        fontSize: 12, color: p.success))),
+                          ],
+                        ]);
+                  },
+                  loading: () => const LinearProgressIndicator(minHeight: 2),
+                  error: (_, __) => Text(
+                      tr('Не удалось загрузить список серверов.'),
+                      style: TextStyle(color: p.muted)),
+                )),
+          const SizedBox(height: 16),
+          SizedBox(
+              width: double.infinity,
+              child: connected || recovering
+                  ? OutlinedButton.icon(
+                      onPressed: busy ? null : onToggle,
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 54),
+                          backgroundColor: p.surfaceRaised,
+                          foregroundColor: p.text,
+                          side: BorderSide(color: p.border)),
+                      icon: _ConnectionIcon(busy: busy),
+                      label: Text(tr('Отключить VPN')))
+                  : FilledButton.icon(
+                      onPressed: busy ? null : onToggle,
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 54)),
+                      icon: _ConnectionIcon(busy: busy),
+                      label: Text(busy
+                          ? tr('Подключение…')
+                          : guest
+                              ? tr('Подключить Telegram')
+                              : tr('Подключить VPN')))),
+          const SizedBox(height: 26),
+          if (guest) ...<Widget>[
+            Text(tr('Подключение'),
+                style: TextStyle(fontSize: 12, color: p.muted)),
+            const SizedBox(height: 10),
+            SurfaceCard(
+                child: Row(children: <Widget>[
+              const IconChip(Icons.send_outlined),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                    const Text('Telegram',
+                        style: TextStyle(fontWeight: KaGoWeight.semiBold)),
+                    Text(tr('Доступен без подписки'),
+                        style: TextStyle(fontSize: 12, color: p.muted)),
+                  ])),
+            ])),
+          ] else ...<Widget>[
+            Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Text(tr('Передача данных'),
+                      style: TextStyle(fontSize: 12, color: p.muted)),
+                  Text(tr('За эту сессию'),
+                      style: TextStyle(fontSize: 12, color: p.accent)),
+                ]),
+            const SizedBox(height: 10),
+            _TrafficMetrics(active: connected, compact: true),
+            const SizedBox(height: 22),
+            _SubscriptionCard(
+                profile: profile,
+                busy: ref.watch(_subscriptionRefreshingProvider),
+                onAction: onRefresh,
+                compact: true),
+          ],
+          const SizedBox(height: 16),
+          _IpCard(connected: connected, compact: true),
+        ]);
+  }
+}
+
+class _ConnectionIcon extends StatelessWidget {
+  const _ConnectionIcon({required this.busy});
+  final bool busy;
+  @override
+  Widget build(BuildContext context) => busy
+      ? const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2))
+      : const Icon(Icons.power_settings_new, size: 18);
+}
+
+class _MobileBrand extends StatelessWidget {
+  const _MobileBrand();
+  @override
+  Widget build(BuildContext context) => Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: <Widget>[
+            Text('KAGO.',
+                style: TextStyle(
+                    fontSize: 21,
+                    letterSpacing: .4,
+                    fontWeight: KaGoWeight.semiBold,
+                    color: context.kago.text)),
+            const SizedBox(width: 5),
+            Text('VPN',
+                style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: .5,
+                    color: context.kago.muted)),
+          ]);
 }

@@ -871,7 +871,8 @@ class _MobileDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.kago;
-    final busy = starting || ref.watch(desktopVpnBusyProvider);
+    final operationBusy = ref.watch(desktopVpnBusyProvider);
+    final busy = !recovering && (starting || operationBusy);
     final groups = ref.watch(proxyGroupsProvider);
     final mode = ref.watch(effectiveProxyModeProvider);
     final profile = ref.watch(importedSubscriptionProvider).valueOrNull;

@@ -1064,15 +1064,43 @@ class _Card extends StatelessWidget {
       {required this.icon,
       required this.title,
       required this.child,
-      this.trailing});
+      this.trailing,
+      this.collapsible = false});
   final IconData icon;
   final String title;
   final Widget child;
   final Widget? trailing;
+  final bool collapsible;
 
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
+    if (collapsible) {
+      return SurfaceCard(
+          padding: EdgeInsets.zero,
+          child: ExpansionTile(
+            key: const PageStorageKey<String>('account-devices'),
+            maintainState: true,
+            tilePadding: const EdgeInsets.all(KaGoSpace.lg),
+            childrenPadding: const EdgeInsets.fromLTRB(
+                KaGoSpace.lg, 0, KaGoSpace.lg, KaGoSpace.lg),
+            iconColor: p.accent,
+            collapsedIconColor: p.muted,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            leading: IconChip(icon, size: 40),
+            title: Row(children: <Widget>[
+              Expanded(
+                  child: Text(title,
+                      style: Theme.of(context).textTheme.titleMedium)),
+              if (trailing != null) ...<Widget>[
+                const SizedBox(width: KaGoSpace.sm),
+                trailing!
+              ],
+            ]),
+            children: <Widget>[child],
+          ));
+    }
     return SurfaceCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1174,6 +1202,7 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
     return _Card(
       icon: Icons.devices_rounded,
       title: tr('Устройства'),
+      collapsible: true,
       trailing: value == null
           ? null
           : _Chip('${value.current} / ${value.max > 0 ? value.max : '∞'}'),
@@ -1194,43 +1223,34 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
           }
           return Column(children: <Widget>[
             for (final device in devices.devices)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
-                decoration: BoxDecoration(
-                    color: p.surfaceRaised,
-                    borderRadius: BorderRadius.circular(KaGoRadius.md),
-                    border: Border.all(color: p.border)),
-                child: Row(children: <Widget>[
-                  Icon(_icon(device), color: p.accent, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                              device.model?.isNotEmpty == true
-                                  ? device.model!
-                                  : device.platform ?? tr('Устройство'),
-                              style: const TextStyle(
-                                  fontWeight: KaGoWeight.extraBold)),
-                          Text(
-                              [device.platform, device.osVersion]
-                                      .whereType<String>()
-                                      .where((s) => s.isNotEmpty)
-                                      .join(' · ')
-                                      .isEmpty
-                                  ? device.hwid.substring(
-                                      0, device.hwid.length.clamp(0, 12))
-                                  : [device.platform, device.osVersion]
-                                      .whereType<String>()
-                                      .where((s) => s.isNotEmpty)
-                                      .join(' · '),
-                              style: TextStyle(
-                                  color: p.muted, fontSize: KaGoText.caption)),
-                        ]),
-                  ),
-                  _busy == device.hwid
+              Column(children: <Widget>[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_icon(device), color: p.accent, size: 22),
+                  title: Text(
+                      device.model?.isNotEmpty == true
+                          ? device.model!
+                          : device.platform ?? tr('Устройство'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: KaGoText.secondary,
+                          fontWeight: KaGoWeight.semiBold)),
+                  subtitle: Text(
+                      [device.platform, device.osVersion]
+                              .whereType<String>()
+                              .where((s) => s.isNotEmpty)
+                              .join(' · ')
+                              .isEmpty
+                          ? device.hwid
+                              .substring(0, device.hwid.length.clamp(0, 12))
+                          : [device.platform, device.osVersion]
+                              .whereType<String>()
+                              .where((s) => s.isNotEmpty)
+                              .join(' · '),
+                      style: TextStyle(
+                          color: p.muted, fontSize: KaGoText.caption)),
+                  trailing: _busy == device.hwid
                       ? const Padding(
                           padding: EdgeInsets.all(12),
                           child: SizedBox(
@@ -1243,8 +1263,9 @@ class _DevicesCardState extends ConsumerState<_DevicesCard> {
                               _busy != null ? null : () => _remove(device),
                           icon: Icon(Icons.delete_outline_rounded,
                               color: p.danger)),
-                ]),
-              ),
+                ),
+                if (!identical(device, devices.devices.last)) const Divider(),
+              ]),
             if (devices.devices.length > 1)
               Align(
                 alignment: Alignment.centerLeft,

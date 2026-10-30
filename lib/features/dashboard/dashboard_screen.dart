@@ -162,8 +162,6 @@ class DashboardScreen extends ConsumerWidget {
                         onPressed: () =>
                             toggleVpn(context, ref, androidConnected));
                   }),
-                  const SizedBox(height: 20),
-                  _TrafficMetrics(active: connected),
                 ])),
           ),
           const SizedBox(height: 12),
@@ -710,92 +708,6 @@ class _ServerIpLine extends ConsumerWidget {
   }
 }
 
-/// Upload/download cards. Only this widget listens to the once-per-second
-/// traffic poll, so the rest of the dashboard is not rebuilt every second, and
-/// polling runs only while the dashboard tab is visible and a core is running.
-class _TrafficMetrics extends ConsumerWidget {
-  const _TrafficMetrics({required this.active, this.compact = false});
-  final bool active;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final visible = ref.watch(rootTabIndexProvider) == 0;
-    final traffic = active && visible
-        ? ref.watch(connectionsSnapshotProvider).asData?.value
-        : null;
-    if (compact) {
-      Widget metric(String label, String value) => Expanded(
-          child: Container(
-              padding: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: context.kago.border))),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(label,
-                        style: TextStyle(
-                            fontSize: KaGoText.caption,
-                            color: context.kago.muted)),
-                    const SizedBox(height: 4),
-                    Text(value,
-                        style: const TextStyle(
-                            fontSize: KaGoText.title,
-                            fontWeight: KaGoWeight.semiBold)),
-                  ])));
-      return RepaintBoundary(
-          child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-            metric(tr('Загрузка'),
-                traffic == null ? '—' : formatSpeed(traffic.downloadSpeed)),
-            const SizedBox(width: 10),
-            metric(tr('Отдача'),
-                traffic == null ? '—' : formatSpeed(traffic.uploadSpeed)),
-          ]));
-    }
-    return RepaintBoundary(
-        child: InsetTile(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(children: <Widget>[
-              Expanded(
-                  child: _Metric(
-                      icon: Icons.arrow_downward_rounded,
-                      label: tr('Загрузка'),
-                      value: traffic == null
-                          ? '—'
-                          : formatSpeed(traffic.downloadSpeed))),
-              Container(width: 1, height: 34, color: context.kago.border),
-              const SizedBox(width: 14),
-              Expanded(
-                  child: _Metric(
-                      icon: Icons.arrow_upward_rounded,
-                      label: tr('Отдача'),
-                      value: traffic == null
-                          ? '—'
-                          : formatSpeed(traffic.uploadSpeed))),
-            ])));
-  }
-}
-
-/// One counter of the hero card (`.hero__metric`).
-class _Metric extends StatelessWidget {
-  const _Metric({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Row(children: <Widget>[
-        Icon(icon, color: context.kago.accent, size: 18),
-        const SizedBox(width: 10),
-        Expanded(child: MetricValue(value: value, label: label, size: 18)),
-      ]);
-}
-
 class _MobileDashboard extends ConsumerWidget {
   const _MobileDashboard(
       {required this.connected,
@@ -1020,11 +932,6 @@ class _MobileDashboard extends ConsumerWidget {
               _ServerIpLine(connected: connected),
             ])),
           ] else if (!guest) ...<Widget>[
-            Text(tr('Передача данных'),
-                style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
-            const SizedBox(height: 10),
-            _TrafficMetrics(active: connected, compact: true),
-            const SizedBox(height: 22),
             _SubscriptionCard(
                 profile: profile,
                 busy: ref.watch(_subscriptionRefreshingProvider),

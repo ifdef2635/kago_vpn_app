@@ -167,6 +167,8 @@ void main() {
   for (final theme in <ThemeMode>[ThemeMode.light, ThemeMode.dark]) {
     for (final screen in <String>[
       'connected',
+      'disconnected',
+      'unlimited',
       'guest',
       'guest_connected',
       'servers'
@@ -177,7 +179,8 @@ void main() {
         final container = await _pump(tester,
             theme: theme,
             guest: screen.startsWith('guest'),
-            connected: screen != 'guest',
+            connected: screen != 'guest' && screen != 'disconnected',
+            limited: screen != 'unlimited',
             tab: screen == 'servers' ? 1 : 0);
         expect(tester.takeException(), isNull);
         expect(find.byType(NavigationDestination), findsNWidgets(4));
@@ -190,6 +193,7 @@ void main() {
           expect(container.read(rootTabIndexProvider), 1);
           container.read(rootTabIndexProvider.notifier).state = 0;
           await tester.pump(const Duration(seconds: 1));
+          await tester.pump(const Duration(milliseconds: 300));
         } else if (screen == 'guest') {
           expect(find.text('Подключить Telegram'), findsOneWidget);
           expect(
@@ -200,9 +204,32 @@ void main() {
               find.byKey(const ValueKey<String>('server-ip')), findsOneWidget);
           expect(find.text('IP через VPN'), findsNothing);
           expect(find.text('Ваш IP'), findsOneWidget);
-        } else {
+        } else if (screen == 'servers') {
           expect(find.byType(TextField), findsOneWidget);
           expect(find.text('Нидерланды · NL-1'), findsNWidgets(2));
+        }
+        if (screen != 'servers') {
+          expect(find.byType(KagoLogo), findsOneWidget);
+          expect(find.text('Передача данных'), findsNothing);
+          expect(find.text('Загрузка'), findsNothing);
+          expect(find.text('Отдача'), findsNothing);
+          expect(find.text('4.8 МБ/с'), findsNothing);
+          expect(find.text('860 КБ/с'), findsNothing);
+          final action = find.widgetWithText(
+              screen == 'guest' || screen == 'disconnected'
+                  ? FilledButton
+                  : OutlinedButton,
+              screen == 'guest'
+                  ? 'Подключить Telegram'
+                  : screen == 'disconnected'
+                      ? 'Подключить VPN'
+                      : 'Отключить VPN');
+          final navTop = tester.getTopLeft(find.byType(NavigationBar)).dy;
+          final buttonBottom = tester.getBottomRight(action).dy;
+          expect(navTop - buttonBottom, inInclusiveRange(12, 24));
+          final scroll =
+              tester.state<ScrollableState>(find.byType(Scrollable).first);
+          expect(scroll.position.maxScrollExtent, lessThanOrEqualTo(1));
         }
         await _render(tester, '${theme.name}_$screen');
         await tester.pumpWidget(const SizedBox());
@@ -270,6 +297,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.textContaining('Безлимит'), findsOneWidget);
     expect(find.textContaining('33.0 ГБ'), findsNothing);
+    expect(find.text('4.8 МБ/с'), findsNothing);
+    expect(find.text('860 КБ/с'), findsNothing);
     expect(find.text('1.2 ГБ'), findsNothing);
     expect(find.text('218 МБ'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
@@ -281,6 +310,15 @@ void main() {
     expect(find.textContaining('33.0 ГБ из 100 ГБ'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.text('218 МБ'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('desktop dashboard also omits speed counters', (tester) async {
+    await _pump(tester, width: 1000);
+    expect(find.text('Загрузка'), findsNothing);
+    expect(find.text('Отдача'), findsNothing);
+    expect(find.text('4.8 МБ/с'), findsNothing);
+    expect(find.text('860 КБ/с'), findsNothing);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
   for (final tab in <int>[0, 1]) {

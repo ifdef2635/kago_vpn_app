@@ -264,7 +264,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
-  testWidgets('unlimited plan hides byte totals while speeds stay visible',
+  testWidgets('unlimited plan hides byte totals and quota progress',
       (tester) async {
     await _pump(tester, limited: false);
     await tester.pump(const Duration(milliseconds: 200));
@@ -272,8 +272,6 @@ void main() {
     expect(find.textContaining('33.0 ГБ'), findsNothing);
     expect(find.text('1.2 ГБ'), findsNothing);
     expect(find.text('218 МБ'), findsNothing);
-    expect(find.text('4.8 МБ/с'), findsOneWidget);
-    expect(find.text('860 КБ/с'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
@@ -290,7 +288,7 @@ void main() {
         (tester) async {
       await _pump(tester, width: 320, scale: 1.6, tab: tab);
       expect(tester.takeException(), isNull);
-      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

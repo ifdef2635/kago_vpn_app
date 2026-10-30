@@ -538,40 +538,48 @@ class _SubscriptionCard extends StatelessWidget {
                 })}';
     }
     if (compact) {
-      return SurfaceCard(
-          padding: const EdgeInsets.all(16),
+      return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Row(children: <Widget>[
                   Expanded(
-                      child: Text(profile?.name ?? tr('Нет подписки'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: KaGoText.label,
-                              fontWeight: KaGoWeight.semiBold))),
-                  TextButton(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                        Text(profile?.name ?? tr('Нет подписки'),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: KaGoText.label,
+                                fontWeight: KaGoWeight.semiBold)),
+                        const SizedBox(height: 4),
+                        Text(details,
+                            style: TextStyle(
+                                fontSize: KaGoText.caption,
+                                color: context.kago.muted)),
+                      ])),
+                  IconButton(
+                      tooltip: profile == null ? tr('Войти') : tr('Обновить'),
                       onPressed: busy ? null : onAction,
-                      child: busy
+                      icon: busy
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(
-                              profile == null ? tr('Войти') : tr('Обновить'))),
+                          : Icon(profile == null
+                              ? Icons.login_rounded
+                              : Icons.refresh_rounded)),
                 ]),
                 if (profile != null && profile.totalBytes > 0) ...<Widget>[
+                  const SizedBox(height: 10),
                   LinearProgressIndicator(
                       value: (profile.usedBytes / profile.totalBytes)
                           .clamp(0.0, 1.0),
-                      minHeight: 5,
+                      minHeight: 4,
                       borderRadius: BorderRadius.circular(4)),
-                  const SizedBox(height: 10),
                 ],
-                Text(details,
-                    style: TextStyle(
-                        fontSize: KaGoText.caption, color: context.kago.muted)),
               ]));
     }
     return SurfaceCard(
@@ -957,15 +965,14 @@ class _ConnectionIcon extends StatelessWidget {
 class _MobileBrand extends StatelessWidget {
   const _MobileBrand();
   @override
-  Widget build(BuildContext context) => Column(
-          children: <Widget>[
-            const KagoLogo(size: 72),
-            const SizedBox(height: 12),
-            Text('KAGO.',
-                style: TextStyle(
-                    fontSize: KaGoText.titleLarge,
-                    letterSpacing: -.5,
-                    fontWeight: KaGoWeight.appTitle,
-                    color: context.kago.text)),
-          ]);
+  Widget build(BuildContext context) => Column(children: <Widget>[
+        const KagoLogo(size: 72),
+        const SizedBox(height: 12),
+        Text('KAGO.',
+            style: TextStyle(
+                fontSize: KaGoText.titleLarge,
+                letterSpacing: -.5,
+                fontWeight: KaGoWeight.appTitle,
+                color: context.kago.text)),
+      ]);
 }

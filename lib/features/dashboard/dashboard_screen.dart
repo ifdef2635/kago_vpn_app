@@ -897,17 +897,19 @@ class _MobileDashboard extends ConsumerWidget {
                       ? OutlinedButton.icon(
                           onPressed: busy ? null : onToggle,
                           style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 54),
+                              minimumSize: const Size(0, 56),
+                              shape: const StadiumBorder(),
                               backgroundColor: p.accentSoft,
                               foregroundColor: p.accentStrong,
                               side:
                                   BorderSide(color: p.accentTint, width: 1.5)),
-                          icon: _ConnectionIcon(busy: busy),
+                          icon: _ConnectionIcon(busy: busy, connected: true),
                           label: Text(tr('Отключить VPN')))
                       : FilledButton.icon(
                           onPressed: busy ? null : onToggle,
                           style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 54)),
+                              minimumSize: const Size(0, 56),
+                              shape: const StadiumBorder()),
                           icon: _ConnectionIcon(busy: busy),
                           label: Text(busy
                               ? tr('Подключение…')
@@ -951,15 +953,17 @@ class _MobileDashboard extends ConsumerWidget {
 }
 
 class _ConnectionIcon extends StatelessWidget {
-  const _ConnectionIcon({required this.busy});
+  const _ConnectionIcon({required this.busy, this.connected = false});
   final bool busy;
+  final bool connected;
   @override
   Widget build(BuildContext context) => busy
       ? const SizedBox(
           width: 18,
           height: 18,
           child: CircularProgressIndicator(strokeWidth: 2))
-      : const Icon(Icons.power_settings_new, size: 18);
+      : Icon(connected ? Icons.stop_rounded : Icons.play_arrow_rounded,
+          size: 22);
 }
 
 class _MobileBrand extends StatelessWidget {

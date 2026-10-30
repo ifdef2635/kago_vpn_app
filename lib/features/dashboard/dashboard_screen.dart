@@ -1050,21 +1050,15 @@ class _ConnectionIcon extends StatelessWidget {
 class _MobileBrand extends StatelessWidget {
   const _MobileBrand();
   @override
-  Widget build(BuildContext context) => Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+  Widget build(BuildContext context) => Column(
           children: <Widget>[
+            const KagoLogo(size: 72),
+            const SizedBox(height: 12),
             Text('KAGO.',
                 style: TextStyle(
                     fontSize: KaGoText.titleLarge,
-                    letterSpacing: .4,
-                    fontWeight: KaGoWeight.semiBold,
+                    letterSpacing: -.5,
+                    fontWeight: KaGoWeight.appTitle,
                     color: context.kago.text)),
-            const SizedBox(width: 5),
-            Text('VPN',
-                style: TextStyle(
-                    fontSize: KaGoText.meta,
-                    letterSpacing: .5,
-                    color: context.kago.muted)),
           ]);
 }

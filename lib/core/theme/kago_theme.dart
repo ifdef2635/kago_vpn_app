@@ -5,16 +5,20 @@ import 'package:flutter/material.dart';
 /// Fallback fonts that draw country flag emoji (Windows).
 const kagoFlagFonts = <String>['KagoFlags'];
 
-/// The interface font of usekago.net's design system (assets/fonts, OFL):
-/// headings in Black, text in Medium.
+/// Единое семейство KAGO из DESIGN.md, локальные файлы SIL OFL.
 const kagoFontFamily = 'Onest';
 
 /// Corner radii of the design system (`--radius-*` of globals.css).
 abstract final class KaGoRadius {
+  static const double xs = 4;
   static const double sm = 8;
   static const double md = 12;
   static const double lg = 16;
   static const double xl = 20;
+  static const double card = 14;
+  static const double panel = 18;
+  static const double hero = 22;
+  static const double sheet = 24;
 
   /// Pills and chips (`border-radius: 999px`).
   static const double pill = 999;
@@ -25,25 +29,56 @@ abstract final class KaGoRadius {
 
 /// Font weights of the design system.
 abstract final class KaGoWeight {
-  /// Body text (Onest Medium).
-  static const body = FontWeight.w500;
+  /// Основной текст макета.
+  static const body = FontWeight.w400;
   static const semiBold = FontWeight.w600;
   static const bold = FontWeight.w700;
   static const extraBold = FontWeight.w800;
 
-  /// Headings (Onest Black).
-  static const heading = FontWeight.w900;
+  /// Заголовки бренда: Onest ExtraBold, основной текст — Regular.
+  static const heading = FontWeight.w800;
+  static const appTitle = FontWeight.w900;
 }
 
-/// Colors of usekago.net: a light blue-grey page with white cards, a royal
-/// blue for buttons and links, and a navy hero card. The dark variant keeps
-/// the same hues for the site's moon toggle.
+/// Роли типографики DESIGN.md в логических пикселях Flutter.
+/// Размер текста дополнительно масштабируется настройками системы.
+abstract final class KaGoText {
+  static const double display = 34;
+  static const double pageTitle = 32;
+  static const double appTitle = 26;
+  static const double headingLarge = 30;
+  static const double heading = 24;
+  static const double titleLarge = 22;
+  static const double title = 20;
+  static const double lead = 18;
+  static const double body = 16;
+  static const double bodySmall = 15;
+  static const double secondary = 14;
+  static const double label = 13;
+  static const double caption = 12;
+  static const double meta = 11;
+}
+
+/// Отступы из DESIGN.md; карточки приложения плотнее маркетинговых секций.
+abstract final class KaGoSpace {
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 24;
+  static const double xxl = 32;
+  static const double section = 48;
+  static const double page = 64;
+}
+
+/// Signal Cobalt, Ice Wash и Night Navy из фирменной системы KAGO.
 @immutable
 class KaGoPalette extends ThemeExtension<KaGoPalette> {
   const KaGoPalette({
     required this.brand,
     required this.brandStrong,
     required this.accent,
+    required this.accentStrong,
     required this.accentSoft,
     required this.accentTint,
     required this.canvas,
@@ -77,6 +112,9 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
 
   /// Links, icons, selected states.
   final Color accent;
+
+  /// Текст на более насыщенной подложке, включая hover вторичных кнопок.
+  final Color accentStrong;
 
   /// Tinted backgrounds behind accent icons and chips
   /// (`--color-primary-light`).
@@ -123,68 +161,65 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
   /// The card shadow of the site (`--color-shadow`).
   final Color shadow;
 
-  // From the site's globals.css (`:root` and `html[data-theme="dark"]`).
-  // Text colors are slightly darker where the site's value is below WCAG AA.
   static const light = KaGoPalette(
-    brand: Color(0xFF2B5FD0), // --color-primary
-    brandStrong: Color(0xFF1E47A8), // --color-primary-strong
+    brand: Color(0xFF2B5FD0),
+    brandStrong: Color(0xFF1E47A8),
     accent: Color(0xFF2B5FD0),
-    accentSoft: Color(0xFFE8F0FF), // --color-primary-light
-    accentTint: Color(0xFFD2E1FF), // --color-primary-tint
-    // Page and borders a step darker than usekago.net: on a monitor the
-    // site's #EDF2FA page and #E2E8F0 borders left white cards hard to see.
-    canvas: Color(0xFFE3E9F3), // --color-page-bg #EDF2FA, darkened
-    surface: Color(0xFFFFFFFF), // --color-bg
-    surfaceRaised: Color(0xFFEEF2F9), // --color-surface #F4F8FE, darkened
-    border: Color(0xFFCCD6E6), // --color-border #E2E8F0, darkened
-    borderLight: Color(0xFFDCE4F0), // --color-border-light #EAEFF7, darkened
-    text: Color(0xFF13203F), // --color-text-h
-    muted: Color(0xFF42526B), // --color-text-body
-    hint: Color(0xFF64748B), // --color-text-muted (--color-text-hint is < AA)
-    danger: Color(0xFFC62828), // --color-danger #DC2626, darkened for AA
-    warning: Color(0xFFA35200),
-    success: Color(0xFF12723A), // --color-success #15A34A, darkened for AA
-    successSoft: Color(0xFFE7F8EE), // --color-success-bg
-    telegram: Color(0xFF1C87BC), // --color-tg #229ED9, darkened for AA
-    heroStart: Color(0xFF16223F), // --color-navy
-    heroEnd: Color(0xFF1E2E54), // --color-navy2
-    heroAccent: Color(0xFF1E47A8), // --color-primary-strong
+    accentStrong: Color(0xFF1E47A8),
+    accentSoft: Color(0xFFE8F0FF),
+    accentTint: Color(0xFFD2E1FF),
+    canvas: Color(0xFFEDF2FA),
+    surface: Color(0xFFFFFFFF),
+    surfaceRaised: Color(0xFFF4F8FE),
+    border: Color(0xFFE2E8F0),
+    borderLight: Color(0xFFEAEFF7),
+    text: Color(0xFF13203F),
+    muted: Color(0xFF42526B),
+    hint: Color(0xFF5B6B84),
+    // Текстовые функциональные оттенки слегка темнее образца: AA на Ice Wash.
+    danger: Color(0xFFD12525),
+    warning: Color(0xFF92400E),
+    success: Color(0xFF147A3A),
+    successSoft: Color(0xFFE7F8EE),
+    telegram: Color(0xFF1772A5),
+    heroStart: Color(0xFF16223F),
+    heroEnd: Color(0xFF1E2E54),
+    heroAccent: Color(0xFF1E47A8),
     heroBlob: Color(0xFF5B8CF5),
     heroGlow: Color(0xFF22C55E),
     heroText: Color(0xFFFFFFFF),
     heroMuted: Color(0xFFC3CFEA),
-    shadow: Color(0x1A14285A), // --color-shadow rgba(20,40,90,.10)
+    shadow: Color(0x1A14285A),
   );
 
   static const dark = KaGoPalette(
-    // White on the site's dark primary (#5B8CF5) is below AA, so filled
-    // buttons keep the light primary; links and icons use the dark one.
-    brand: Color(0xFF2B5FD0),
-    brandStrong: Color(0xFF1E47A8),
-    accent: Color(0xFF5B8CF5), // --color-primary
-    accentSoft: Color(0xFF17243F), // --color-primary-light
-    accentTint: Color(0xFF213256), // --color-primary-tint
-    canvas: Color(0xFF080B14), // --color-page-bg
-    surface: Color(0xFF121A2E), // --color-bg
-    surfaceRaised: Color(0xFF16203A), // --color-surface2
-    border: Color(0xFF283452), // --color-border
-    borderLight: Color(0xFF1E2842), // --color-border-light
-    text: Color(0xFFEEF3FB), // --color-text-h
-    muted: Color(0xFF8E9CB8), // --color-text-muted #8493B0, lifted for AA
-    hint: Color(0xFF7C8BA8), // --color-text-hint, lifted for AA
-    danger: Color(0xFFF87171), // --color-danger
-    warning: Color(0xFFF5B544),
-    success: Color(0xFF34D671), // --color-success
-    successSoft: Color(0xFF10271D), // --color-success-bg
-    telegram: Color(0xFF3BB4E8), // --color-tg
-    heroStart: Color(0xFF0C1426), // --color-navy
-    heroEnd: Color(0xFF1B2A4E), // --color-navy2
-    heroAccent: Color(0xFF2B4FA8),
+    brand: Color(0xFF3563D4),
+    brandStrong: Color(0xFF2A55BD),
+    accent: Color(0xFF5B8CF5),
+    accentStrong: Color(0xFF82A6F9),
+    accentSoft: Color(0xFF17243F),
+    accentTint: Color(0xFF213256),
+    canvas: Color(0xFF080B14),
+    surface: Color(0xFF121A2E),
+    surfaceRaised: Color(0xFF16203A),
+    border: Color(0xFF283452),
+    borderLight: Color(0xFF1E2842),
+    text: Color(0xFFEEF3FB),
+    muted: Color(0xFF8E9CB8),
+    hint: Color(0xFF808EAB),
+    danger: Color(0xFFF87171),
+    warning: Color(0xFFFDE68A),
+    success: Color(0xFF34D671),
+    successSoft: Color(0xFF10271D),
+    telegram: Color(0xFF3BB4E8),
+    heroStart: Color(0xFF16223F),
+    heroEnd: Color(0xFF1E2E54),
+    heroAccent: Color(0xFF1E47A8),
     heroBlob: Color(0xFF5B8CF5),
     heroGlow: Color(0xFF22C55E),
     heroText: Color(0xFFFFFFFF),
     heroMuted: Color(0xFFC3CFEA),
-    shadow: Color(0x80000000), // --color-shadow rgba(0,0,0,.5)
+    shadow: Color(0x80000000),
   );
 
   /// Dark palette on pure black for OLED screens.
@@ -201,6 +236,7 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
     Color? brand,
     Color? brandStrong,
     Color? accent,
+    Color? accentStrong,
     Color? accentSoft,
     Color? accentTint,
     Color? canvas,
@@ -229,6 +265,7 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
         brand: brand ?? this.brand,
         brandStrong: brandStrong ?? this.brandStrong,
         accent: accent ?? this.accent,
+        accentStrong: accentStrong ?? this.accentStrong,
         accentSoft: accentSoft ?? this.accentSoft,
         accentTint: accentTint ?? this.accentTint,
         canvas: canvas ?? this.canvas,
@@ -262,6 +299,7 @@ class KaGoPalette extends ThemeExtension<KaGoPalette> {
       brand: mix(brand, other.brand),
       brandStrong: mix(brandStrong, other.brandStrong),
       accent: mix(accent, other.accent),
+      accentStrong: mix(accentStrong, other.accentStrong),
       accentSoft: mix(accentSoft, other.accentSoft),
       accentTint: mix(accentTint, other.accentTint),
       canvas: mix(canvas, other.canvas),
@@ -293,10 +331,10 @@ extension KaGoPaletteContext on BuildContext {
   KaGoPalette get kago =>
       Theme.of(this).extension<KaGoPalette>() ?? KaGoPalette.light;
 
-  /// The card shadow of the design system (`0 4px 24px var(--color-shadow)`).
+  /// Мягкая тень кабинета из DESIGN.md: глубина сначала задаётся тоном.
   List<BoxShadow> get kagoCardShadow => <BoxShadow>[
         BoxShadow(
-            color: kago.shadow, blurRadius: 24, offset: const Offset(0, 4))
+            color: kago.shadow, blurRadius: 14, offset: const Offset(0, 2)),
       ];
 }
 
@@ -327,17 +365,19 @@ abstract final class KaGoTheme {
         borderRadius: BorderRadius.circular(KaGoRadius.button));
     TextStyle heading(double size, {FontWeight weight = KaGoWeight.heading}) =>
         TextStyle(
+            fontFamily: kagoFontFamily,
             fontSize: size,
             fontWeight: weight,
             letterSpacing: size >= 24 ? -.6 : -.2,
-            height: 1.25,
+            height: size >= KaGoText.appTitle ? 1.15 : 1.3,
             color: p.text);
     TextStyle body(double size,
             {FontWeight weight = KaGoWeight.body, Color? color}) =>
         TextStyle(
+            fontFamily: kagoFontFamily,
             fontSize: size,
             fontWeight: weight,
-            height: 1.45,
+            height: size >= KaGoText.body ? 1.6 : 1.5,
             color: color ?? p.text);
     return ThemeData(
       useMaterial3: true,
@@ -366,7 +406,7 @@ abstract final class KaGoTheme {
         foregroundColor: p.text,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: heading(20),
+        titleTextStyle: heading(KaGoText.title),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: p.surface,
@@ -377,10 +417,10 @@ abstract final class KaGoTheme {
             color: states.contains(WidgetState.selected) ? p.accent : p.muted)),
         labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
             fontFamily: kagoFontFamily,
-            fontSize: 11,
+            fontSize: KaGoText.meta,
             fontWeight: states.contains(WidgetState.selected)
                 ? KaGoWeight.bold
-                : KaGoWeight.semiBold,
+                : KaGoWeight.body,
             color: states.contains(WidgetState.selected) ? p.accent : p.muted)),
       ),
       navigationRailTheme: NavigationRailThemeData(
@@ -392,29 +432,33 @@ abstract final class KaGoTheme {
         selectedLabelTextStyle: TextStyle(
             fontFamily: kagoFontFamily,
             color: p.accent,
-            fontSize: 12,
+            fontSize: KaGoText.caption,
             fontWeight: KaGoWeight.bold),
         unselectedLabelTextStyle: TextStyle(
             fontFamily: kagoFontFamily,
             color: p.muted,
-            fontSize: 12,
+            fontSize: KaGoText.caption,
             fontWeight: KaGoWeight.body),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.surfaceRaised,
-        hintStyle: body(14, color: p.hint),
-        labelStyle: body(14, color: p.muted),
+        fillColor: WidgetStateColor.resolveWith((states) =>
+            states.contains(WidgetState.focused) ? p.surface : p.surfaceRaised),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        hintStyle: body(KaGoText.secondary, color: p.hint),
+        labelStyle:
+            body(KaGoText.label, weight: KaGoWeight.bold, color: p.muted),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           borderSide: BorderSide(color: p.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           borderSide: BorderSide(color: p.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
+          borderRadius: BorderRadius.circular(KaGoRadius.sm),
           borderSide: BorderSide(color: p.accent, width: 1.5),
         ),
       ),
@@ -424,13 +468,26 @@ abstract final class KaGoTheme {
           foregroundColor: Colors.white,
           disabledBackgroundColor: p.surfaceRaised,
           disabledForegroundColor: p.hint,
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,
-              fontSize: 15,
+              fontSize: KaGoText.bodySmall,
               fontWeight: KaGoWeight.bold),
           shape: button,
+        ).copyWith(
+          animationDuration: const Duration(milliseconds: 150),
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled)
+                  ? p.surfaceRaised
+                  : states.contains(WidgetState.pressed) ||
+                          states.contains(WidgetState.hovered)
+                      ? p.brandStrong
+                      : p.brand),
+          side: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.focused)
+                  ? BorderSide(color: p.accent, width: 2)
+                  : BorderSide.none),
         ),
       ),
       // `.btn-secondary`: a tinted pill with a primary outline.
@@ -439,13 +496,27 @@ abstract final class KaGoTheme {
           foregroundColor: p.accent,
           backgroundColor: p.accentSoft,
           side: BorderSide(color: p.accentTint, width: 1.5),
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,
-              fontSize: 15,
-              fontWeight: KaGoWeight.semiBold),
+              fontSize: KaGoText.bodySmall,
+              fontWeight: FontWeight.w500),
           shape: button,
+        ).copyWith(
+          animationDuration: const Duration(milliseconds: 150),
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.pressed)
+                  ? p.accentTint
+                  : p.accentSoft),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? p.hint : p.accentStrong),
+          side: WidgetStateProperty.resolveWith((states) => BorderSide(
+              color: states.contains(WidgetState.focused)
+                  ? p.accent
+                  : p.accentTint,
+              width: states.contains(WidgetState.focused) ? 2 : 1.5)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -453,7 +524,7 @@ abstract final class KaGoTheme {
           foregroundColor: p.accent,
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,
-              fontSize: 14,
+              fontSize: KaGoText.secondary,
               fontWeight: KaGoWeight.semiBold),
           shape: button,
         ),
@@ -467,7 +538,7 @@ abstract final class KaGoTheme {
           side: BorderSide(color: p.border),
           textStyle: const TextStyle(
               fontFamily: kagoFontFamily,
-              fontSize: 13,
+              fontSize: KaGoText.label,
               fontWeight: KaGoWeight.semiBold),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(KaGoRadius.button)),
@@ -479,31 +550,31 @@ abstract final class KaGoTheme {
         side: BorderSide(color: p.accentTint),
         labelStyle: TextStyle(
             fontFamily: kagoFontFamily,
-            fontSize: 13,
+            fontSize: KaGoText.label,
             fontWeight: KaGoWeight.body,
-            color: p.accent),
+            color: p.accentStrong),
         shape: const StadiumBorder(),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(KaGoRadius.lg),
+            borderRadius: BorderRadius.circular(KaGoRadius.xl),
             side: BorderSide(color: p.border)),
-        titleTextStyle: heading(19),
-        contentTextStyle: body(14, color: p.muted),
+        titleTextStyle: heading(KaGoText.title),
+        contentTextStyle: body(KaGoText.secondary, color: p.muted),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.vertical(top: Radius.circular(KaGoRadius.xl))),
+                BorderRadius.vertical(top: Radius.circular(KaGoRadius.sheet))),
       ),
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,
-        titleTextStyle: body(14, weight: KaGoWeight.semiBold),
-        subtitleTextStyle: body(12, color: p.muted),
+        titleTextStyle: body(KaGoText.secondary, weight: KaGoWeight.semiBold),
+        subtitleTextStyle: body(KaGoText.caption, color: p.muted),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(KaGoRadius.md)),
       ),
@@ -518,7 +589,9 @@ abstract final class KaGoTheme {
             color: p.heroStart,
             borderRadius: BorderRadius.circular(KaGoRadius.sm)),
         textStyle: const TextStyle(
-            fontFamily: kagoFontFamily, fontSize: 12, color: Colors.white),
+            fontFamily: kagoFontFamily,
+            fontSize: KaGoText.caption,
+            color: Colors.white),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: p.accent,
@@ -533,22 +606,23 @@ abstract final class KaGoTheme {
             borderRadius: BorderRadius.circular(KaGoRadius.md)),
         contentTextStyle: TextStyle(
             fontFamily: kagoFontFamily,
-            fontSize: 14,
+            fontSize: KaGoText.secondary,
             fontWeight: KaGoWeight.body,
             color: brightness == Brightness.light ? Colors.white : p.text),
       ),
       textTheme: TextTheme(
-        headlineMedium: heading(28),
-        headlineSmall: heading(24),
-        titleLarge: heading(20),
-        titleMedium: heading(16, weight: KaGoWeight.extraBold),
-        titleSmall: body(13, weight: KaGoWeight.bold),
-        bodyLarge: body(15),
-        bodyMedium: body(14),
-        bodySmall: body(12, color: p.muted),
-        labelLarge: body(14, weight: KaGoWeight.semiBold),
-        labelMedium: body(12, weight: KaGoWeight.semiBold),
-        labelSmall: body(11, weight: KaGoWeight.semiBold, color: p.muted),
+        headlineMedium: heading(KaGoText.pageTitle),
+        headlineSmall: heading(KaGoText.appTitle, weight: KaGoWeight.appTitle),
+        titleLarge: heading(KaGoText.title),
+        titleMedium: heading(KaGoText.lead),
+        titleSmall: body(KaGoText.label, weight: KaGoWeight.bold),
+        bodyLarge: body(KaGoText.body),
+        bodyMedium: body(KaGoText.secondary),
+        bodySmall: body(KaGoText.caption, color: p.muted),
+        labelLarge: body(KaGoText.secondary, weight: KaGoWeight.semiBold),
+        labelMedium: body(KaGoText.caption, weight: KaGoWeight.semiBold),
+        labelSmall:
+            body(KaGoText.meta, weight: KaGoWeight.semiBold, color: p.muted),
       ),
     );
   }

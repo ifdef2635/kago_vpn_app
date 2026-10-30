@@ -246,11 +246,13 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
                                       'Через VPN идут только отмеченные приложения, остальные — напрямую.'),
                                   _ => tr('Все приложения работают через VPN.'),
                                 },
-                                style: TextStyle(color: p.muted, fontSize: 13)),
+                                style: TextStyle(
+                                    color: p.muted, fontSize: KaGoText.label)),
                             const SizedBox(height: 4),
-                            Text(
-                                tr('Изменения применяются при следующем подключении VPN.'),
-                                style: TextStyle(color: p.muted, fontSize: 12)),
+                            Text(tr('Изменения применяются при следующем подключении VPN.'),
+                                style: TextStyle(
+                                    color: p.muted,
+                                    fontSize: KaGoText.caption)),
                             if (_bySubscription.isNotEmpty &&
                                 _mode != 'include') ...<Widget>[
                               const SizedBox(height: 4),
@@ -260,8 +262,9 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
                                       <String, Object?>{
                                         'n': _bySubscription.length
                                       }),
-                                  style:
-                                      TextStyle(color: p.muted, fontSize: 12)),
+                                  style: TextStyle(
+                                      color: p.muted,
+                                      fontSize: KaGoText.caption)),
                             ],
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
@@ -313,7 +316,8 @@ class _AppRoutingScreenState extends State<AppRoutingScreen> {
                                 : app.package,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: p.muted)),
+                            style: TextStyle(
+                                fontSize: KaGoText.meta, color: p.muted)),
                       );
                     },
                   ),

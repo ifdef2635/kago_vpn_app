@@ -233,7 +233,7 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
               if (widget.release.notes.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 12),
                 Text(widget.release.notes,
-                    style: TextStyle(color: muted, fontSize: 13)),
+                    style: TextStyle(color: muted, fontSize: KaGoText.label)),
               ],
             ]);
       case _Stage.downloading:
@@ -251,7 +251,7 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
                           'total': formatBytes(_total),
                         })
                       : tr('Скачивание…'),
-                  style: TextStyle(color: muted, fontSize: 13)),
+                  style: TextStyle(color: muted, fontSize: KaGoText.label)),
             ]);
       case _Stage.installing:
         return Row(children: <Widget>[
@@ -287,7 +287,7 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
               const SizedBox(height: 12),
               Text(
                   tr('После установки защиту можно снова включить там же (Windows 11 с обновлением от апреля 2026 года; в более старых версиях включить её обратно можно только переустановкой Windows).'),
-                  style: TextStyle(color: muted, fontSize: 13)),
+                  style: TextStyle(color: muted, fontSize: KaGoText.label)),
             ]);
       case _Stage.failed:
         return Text(tr('Не удалось обновить: {error}',

@@ -47,7 +47,8 @@ void showCriticalError(BuildContext context, String text, {String? details}) {
                       const SizedBox(height: 12),
                       SelectableText(more,
                           style: TextStyle(
-                              fontSize: 12, color: dialogContext.kago.muted)),
+                              fontSize: KaGoText.caption,
+                              color: dialogContext.kago.muted)),
                     ],
                   ]),
             ),
@@ -95,21 +96,23 @@ class SurfaceCard extends StatelessWidget {
     final p = context.kago;
     final light = Theme.of(context).brightness == Brightness.light;
     final radius = BorderRadius.circular(KaGoRadius.lg);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: light && !accent ? context.kagoCardShadow : null,
-      ),
-      child: Material(
-        color: accent ? p.accentSoft : p.surface,
-        shape: RoundedRectangleBorder(
+    return KagoPressFeedback(
+        enabled: onTap != null,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             borderRadius: radius,
-            side: BorderSide(color: accent ? p.accentTint : p.border)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-            onTap: onTap, child: Padding(padding: padding, child: child)),
-      ),
-    );
+            boxShadow: light && !accent ? context.kagoCardShadow : null,
+          ),
+          child: Material(
+            color: accent ? p.accentSoft : p.surface,
+            shape: RoundedRectangleBorder(
+                borderRadius: radius,
+                side: BorderSide(color: accent ? p.accentTint : p.border)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+                onTap: onTap, child: Padding(padding: padding, child: child)),
+          ),
+        ));
   }
 }
 
@@ -200,7 +203,9 @@ class KagoPill extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    fontSize: 13, fontWeight: KaGoWeight.body, color: tone))),
+                    fontSize: KaGoText.label,
+                    fontWeight: KaGoWeight.body,
+                    color: tone))),
       ]),
     );
   }
@@ -256,7 +261,9 @@ class MetricValue extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  fontSize: 12, fontWeight: KaGoWeight.body, color: p.muted)),
+                  fontSize: KaGoText.caption,
+                  fontWeight: KaGoWeight.body,
+                  color: p.muted)),
         ]);
   }
 }
@@ -433,4 +440,43 @@ class _TelegramPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TelegramPainter old) => old.color != color;
+}
+
+/// Обратная связь на нажатие из DESIGN.md без подмены действий дочернего виджета.
+class KagoPressFeedback extends StatefulWidget {
+  const KagoPressFeedback(
+      {super.key, required this.child, this.enabled = true});
+  final Widget child;
+  final bool enabled;
+  @override
+  State<KagoPressFeedback> createState() => _KagoPressFeedbackState();
+}
+
+class _KagoPressFeedbackState extends State<KagoPressFeedback> {
+  bool _pressed = false;
+  @override
+  void didUpdateWidget(KagoPressFeedback oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) _pressed = false;
+  }
+
+  void _setPressed(bool pressed) {
+    if (_pressed != pressed && mounted) setState(() => _pressed = pressed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return Listener(
+      onPointerDown: widget.enabled ? (_) => _setPressed(true) : null,
+      onPointerUp: (_) => _setPressed(false),
+      onPointerCancel: (_) => _setPressed(false),
+      child: AnimatedScale(
+        scale: widget.enabled && _pressed && !reduced ? .97 : 1,
+        duration: reduced ? Duration.zero : const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
 }

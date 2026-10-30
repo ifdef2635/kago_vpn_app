@@ -35,20 +35,20 @@ class RootShell extends ConsumerWidget {
   static List<NavigationDestination> get _destinations =>
       <NavigationDestination>[
         NavigationDestination(
-            icon: const Icon(Icons.space_dashboard_outlined),
-            selectedIcon: const Icon(Icons.space_dashboard),
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_outlined),
             label: tr('Главная')),
         NavigationDestination(
-            icon: const Icon(Icons.hub_outlined),
-            selectedIcon: const Icon(Icons.hub),
+            icon: const Icon(Icons.dns_outlined),
+            selectedIcon: const Icon(Icons.dns_outlined),
             label: tr('Серверы')),
         NavigationDestination(
             icon: const Icon(Icons.person_outline_rounded),
-            selectedIcon: const Icon(Icons.person_rounded),
+            selectedIcon: const Icon(Icons.person_outline_rounded),
             label: tr('Кабинет')),
         NavigationDestination(
-            icon: const Icon(Icons.tune_rounded),
-            selectedIcon: const Icon(Icons.tune_rounded),
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings_outlined),
             label: tr('Настройки')),
       ];
 
@@ -96,20 +96,20 @@ class RootShell extends ConsumerWidget {
                   child: _BrandMark()),
               destinations: <NavigationRailDestination>[
                 NavigationRailDestination(
-                    icon: const Icon(Icons.space_dashboard_outlined),
-                    selectedIcon: const Icon(Icons.space_dashboard),
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home_outlined),
                     label: Text(tr('Главная'))),
                 NavigationRailDestination(
-                    icon: const Icon(Icons.hub_outlined),
-                    selectedIcon: const Icon(Icons.hub),
+                    icon: const Icon(Icons.dns_outlined),
+                    selectedIcon: const Icon(Icons.dns_outlined),
                     label: Text(tr('Серверы'))),
                 NavigationRailDestination(
                     icon: const Icon(Icons.person_outline_rounded),
-                    selectedIcon: const Icon(Icons.person_rounded),
+                    selectedIcon: const Icon(Icons.person_outline_rounded),
                     label: Text(tr('Кабинет'))),
                 NavigationRailDestination(
-                    icon: const Icon(Icons.tune_rounded),
-                    selectedIcon: const Icon(Icons.tune_rounded),
+                    icon: const Icon(Icons.settings_outlined),
+                    selectedIcon: const Icon(Icons.settings_outlined),
                     label: Text(tr('Настройки'))),
               ],
             ),
@@ -122,10 +122,18 @@ class RootShell extends ConsumerWidget {
       ),
       bottomNavigationBar: wide
           ? null
-          : NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: select,
-              destinations: _destinations,
+          : DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: context.kago.border))),
+              child: NavigationBar(
+                height: 68,
+                elevation: 0,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                selectedIndex: index,
+                onDestinationSelected: select,
+                destinations: _destinations,
+              ),
             ),
     );
   }

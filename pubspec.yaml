@@ -39,7 +39,7 @@ flutter:
   # this font (Twemoji, CC BY 4.0 — assets/fonts/TwemojiCountryFlags-LICENSE.md).
   fonts:
     # Шрифт дизайн-системы usekago.net (SIL OFL, assets/fonts/Onest-LICENSE.md):
-    # заголовки — Black, текст — Medium.
+    # заголовки — ExtraBold/Black, основной текст — Regular.
     - family: Onest
       fonts:
         - asset: assets/fonts/Onest-Regular.ttf

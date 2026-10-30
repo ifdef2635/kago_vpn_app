@@ -258,7 +258,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         subtitleWidget: Row(children: <Widget>[
           StatusDot(color: color, size: 8),
           const SizedBox(width: 8),
-          Text(label, style: TextStyle(fontSize: 12, color: p.muted)),
+          Text(label,
+              style: TextStyle(fontSize: KaGoText.caption, color: p.muted)),
         ]),
         trailing: _restarting
             ? const SizedBox(
@@ -405,7 +406,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   : manager.recentLogs.join('\n'),
                               style: TextStyle(
                                   fontFamily: 'monospace',
-                                  fontSize: 11,
+                                  fontSize: KaGoText.meta,
                                   color: context.kago.muted))))),
               actions: <Widget>[
                 TextButton(
@@ -513,7 +514,7 @@ class _SettingsTile extends StatelessWidget {
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: KaGoText.caption,
                                       color: context.kago.muted))),
                   ])),
               if (end != null)

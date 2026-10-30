@@ -24,7 +24,6 @@ class ProxiesScreen extends ConsumerStatefulWidget {
 
 class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
   final _search = TextEditingController();
-  bool _searching = false;
 
   @override
   void dispose() {
@@ -40,7 +39,7 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
     final mode = ref.watch(effectiveProxyModeProvider);
     final guest = ref.watch(guestModeActiveProvider);
     final pending = ref.watch(proxyDelayTestingProvider);
-    final query = _searching ? _search.text.trim().toLowerCase() : '';
+    final query = _search.text.trim().toLowerCase();
     final groups = filterProxyGroups(
         visibleProxyGroups(groupsAsync.valueOrNull ?? const <ProxyGroup>[],
             mode: mode),
@@ -57,7 +56,6 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
           if (_testable(node)) node.name,
     }.toList(growable: false);
 
-    const compact = VisualDensity.compact;
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(proxyGroupsProvider);
@@ -66,125 +64,141 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
             .catchError((Object _) => const <ProxyGroup>[]);
       },
       child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 22, 16, 28),
+          padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Row(children: <Widget>[
-                Expanded(child: SectionTitle(tr('Серверы'))),
-                if (!guest)
-                  PopupMenuButton<ProxyMode>(
-                      tooltip: tr('Режим'),
-                      icon: Icon(mode == ProxyMode.global
-                          ? Icons.public_rounded
-                          : Icons.rule_rounded),
-                      initialValue: mode,
-                      onSelected: (value) =>
-                          ref.read(proxyModeProvider.notifier).set(value),
-                      itemBuilder: (_) => <PopupMenuEntry<ProxyMode>>[
-                            _modeItem(
-                                ProxyMode.rule,
-                                Icons.rule_rounded,
-                                tr('По правилам'),
-                                tr('Как задано в подписке: российские сайты напрямую, остальное через VPN')),
-                            _modeItem(
-                                ProxyMode.global,
-                                Icons.public_rounded,
-                                tr('Глобальный'),
-                                tr('Весь трафик через сервер, выбранный в GLOBAL')),
-                          ]),
-                IconButton(
-                    tooltip: tr('Проверить задержку всех серверов'),
-                    visualDensity: compact,
-                    onPressed: online && pending.isEmpty && testNames.isNotEmpty
-                        ? () => _testDelays(ref, testNames, guest: guest)
-                        : null,
-                    icon: pending.isNotEmpty
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.network_ping_rounded)),
-                IconButton(
-                    tooltip:
-                        allExpanded ? tr('Свернуть все') : tr('Развернуть все'),
-                    visualDensity: compact,
-                    onPressed: groups.isEmpty || query.isNotEmpty
-                        ? null
-                        : () => ref
-                                .read(expandedProxyGroupsProvider.notifier)
-                                .state =
-                            allExpanded
-                                ? <String>{}
-                                : <String>{for (final g in groups) g.name},
-                    icon: Icon(allExpanded
-                        ? Icons.unfold_less_rounded
-                        : Icons.unfold_more_rounded)),
-                IconButton(
-                    tooltip: tr('Поиск'),
-                    visualDensity: compact,
-                    isSelected: _searching,
-                    onPressed: () => setState(() {
-                          _searching = !_searching;
-                          if (!_searching) _search.clear();
-                        }),
-                    icon: const Icon(Icons.search_rounded),
-                    selectedIcon: const Icon(Icons.search_off_rounded)),
-                PopupMenuButton<Object>(
-                    tooltip: tr('Ещё'),
-                    icon: const Icon(Icons.more_vert_rounded),
-                    onSelected: (value) {
-                      if (value is ProxySort) {
-                        ref.read(proxySortProvider.notifier).state = value;
-                      } else {
-                        ref.invalidate(proxyGroupsProvider);
-                      }
-                    },
-                    itemBuilder: (_) => <PopupMenuEntry<Object>>[
-                          for (final (value, label) in <(ProxySort, String)>[
-                            (ProxySort.config, tr('По порядку')),
-                            (ProxySort.delay, tr('По задержке')),
-                            (ProxySort.name, tr('По имени')),
-                          ])
-                            CheckedPopupMenuItem<Object>(
-                                value: value,
-                                checked: sort == value,
-                                child: Text(label)),
-                          const PopupMenuDivider(),
-                          PopupMenuItem<Object>(
-                              value: 'refresh',
-                              child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.refresh_rounded),
-                                  title: Text(tr('Обновить')))),
-                        ]),
-              ]),
-            ),
-            if (_searching)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
+            const SizedBox(height: 2),
+            Text('KAGO.',
+                style: TextStyle(
+                    fontSize: KaGoText.titleLarge,
+                    letterSpacing: .4,
+                    fontWeight: KaGoWeight.semiBold,
+                    color: context.kago.text)),
+            const SizedBox(height: 28),
+            Text(tr('Серверы'),
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            Tooltip(
+                message: tr('Поиск'),
                 child: TextField(
-                    controller: _search,
-                    autofocus: true,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                        isDense: true,
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        hintText: tr('Название сервера'))),
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    hintText: tr('Поиск страны или сервера'),
+                    suffixIcon: query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: tr('Очистить поиск'),
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () => setState(() => _search.clear())),
+                  ),
+                )),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+              if (!guest)
+                PopupMenuButton<ProxyMode>(
+                  tooltip: tr('Режим'),
+                  initialValue: mode,
+                  onSelected: (value) =>
+                      ref.read(proxyModeProvider.notifier).set(value),
+                  itemBuilder: (_) => <PopupMenuEntry<ProxyMode>>[
+                    _modeItem(
+                        ProxyMode.rule,
+                        Icons.rule_rounded,
+                        tr('По правилам'),
+                        tr('Как задано в подписке: российские сайты напрямую, остальное через VPN')),
+                    _modeItem(
+                        ProxyMode.global,
+                        Icons.public_rounded,
+                        tr('Глобальный'),
+                        tr('Весь трафик через сервер, выбранный в GLOBAL')),
+                  ],
+                  child: _ServerAction(
+                      label: mode == ProxyMode.global
+                          ? tr('Глобальный')
+                          : tr('Правила'),
+                      icon: Icons.chevron_right,
+                      selected: true),
+                ),
+              PopupMenuButton<Object>(
+                tooltip: tr('Ещё'),
+                onSelected: (value) {
+                  if (value is ProxySort) {
+                    ref.read(proxySortProvider.notifier).state = value;
+                  } else if (value == 'fold') {
+                    ref.read(expandedProxyGroupsProvider.notifier).state =
+                        allExpanded
+                            ? <String>{}
+                            : <String>{for (final g in groups) g.name};
+                  } else {
+                    ref.invalidate(proxyGroupsProvider);
+                  }
+                },
+                itemBuilder: (_) => <PopupMenuEntry<Object>>[
+                  for (final (value, label) in <(ProxySort, String)>[
+                    (ProxySort.config, tr('По порядку')),
+                    (ProxySort.delay, tr('По задержке')),
+                    (ProxySort.name, tr('По имени')),
+                  ])
+                    CheckedPopupMenuItem<Object>(
+                        value: value,
+                        checked: sort == value,
+                        child: Text(label)),
+                  const PopupMenuDivider(),
+                  PopupMenuItem<Object>(
+                      value: 'fold',
+                      enabled: groups.isNotEmpty && query.isEmpty,
+                      child: Text(allExpanded
+                          ? tr('Свернуть все')
+                          : tr('Развернуть все'))),
+                  PopupMenuItem<Object>(
+                      value: 'refresh', child: Text(tr('Обновить'))),
+                ],
+                child: _ServerAction(
+                    label: sort == ProxySort.delay
+                        ? tr('По задержке')
+                        : sort == ProxySort.name
+                            ? tr('По имени')
+                            : tr('По порядку'),
+                    icon: Icons.sort),
               ),
+              OutlinedButton.icon(
+                  onPressed: online && pending.isEmpty && testNames.isNotEmpty
+                      ? () => _testDelays(ref, testNames, guest: guest)
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      backgroundColor: context.kago.surface,
+                      foregroundColor: context.kago.text,
+                      side: BorderSide(color: context.kago.border),
+                      textStyle: const TextStyle(
+                          fontSize: KaGoText.caption,
+                          fontFamily: kagoFontFamily)),
+                  icon: pending.isNotEmpty
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.refresh, size: 16),
+                  label: Text(tr('Проверить'))),
+            ]),
             if (!online)
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
                 child: Text(
-                    tr('VPN выключен. Выбрать сервер и проверить задержку можно после подключения.'),
-                    style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                    tr(
+                        'VPN выключен. Выбрать сервер и проверить задержку можно после подключения.'),
+                    style: TextStyle(
+                        color: context.kago.muted, fontSize: KaGoText.label)),
               )
             else if (mode == ProxyMode.global)
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
                 child: Text(
-                    tr('Глобальный режим: весь трафик идёт через выбранный сервер, правила подписки не действуют.'),
-                    style: TextStyle(color: context.kago.muted, fontSize: 13)),
+                    tr(
+                        'Глобальный режим: весь трафик идёт через выбранный сервер, правила подписки не действуют.'),
+                    style: TextStyle(
+                        color: context.kago.muted, fontSize: KaGoText.label)),
               ),
             const SizedBox(height: 14),
             groupsAsync.when(
@@ -241,7 +255,8 @@ class _ProxiesScreenState extends ConsumerState<ProxiesScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(icon),
               title: Text(title),
-              subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+              subtitle: Text(subtitle,
+                  style: const TextStyle(fontSize: KaGoText.caption)),
               trailing: ref.read(effectiveProxyModeProvider) == value
                   ? const Icon(Icons.check_rounded)
                   : null));
@@ -371,14 +386,17 @@ class _GroupSection extends ConsumerWidget {
                 ? context.kagoCardShadow
                 : null),
         child: Material(
-          color: p.surface,
-          shape: RoundedRectangleBorder(
-              borderRadius: radius, side: BorderSide(color: p.border)),
+          color: p.canvas,
+          shape: RoundedRectangleBorder(borderRadius: radius),
           clipBehavior: Clip.antiAlias,
           child: Column(children: <Widget>[
             InkWell(
               onTap: onToggle,
-              child: Padding(
+              child: Container(
+                decoration: BoxDecoration(
+                    color: p.surface,
+                    border: Border.all(color: p.border),
+                    borderRadius: radius),
                 padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
                 child: Row(children: <Widget>[
                   if (group.icon != null)
@@ -394,8 +412,8 @@ class _GroupSection extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: KaGoWeight.heading,
+                                  fontSize: KaGoText.label,
+                                  fontWeight: KaGoWeight.semiBold,
                                   letterSpacing: -.2,
                                   color: p.text)),
                           if (group.description != null) ...<Widget>[
@@ -404,13 +422,16 @@ class _GroupSection extends ConsumerWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    fontSize: 12, height: 1.3, color: p.muted)),
+                                    fontSize: KaGoText.caption,
+                                    height: 1.3,
+                                    color: p.muted)),
                           ],
                           const SizedBox(height: 3),
                           Text(_groupDetail(group.type, selected),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12.5, color: p.muted)),
+                              style: TextStyle(
+                                  fontSize: KaGoText.label, color: p.muted)),
                         ]),
                   ),
                   if (group.nodes.any(_testable))
@@ -460,7 +481,7 @@ class _GroupSection extends ConsumerWidget {
               alignment: Alignment.topCenter,
               child: expanded
                   ? Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                      padding: const EdgeInsets.only(top: 10, bottom: 10),
                       child: _grid(context, ref, delays, pending))
                   : const SizedBox(width: double.infinity),
             ),
@@ -634,67 +655,68 @@ class _NodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.kago;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-          color: selected ? p.accentSoft : p.surfaceRaised,
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
-          border: Border.all(
-              color: selected ? p.accentTint : p.borderLight, width: 2)),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(KaGoRadius.md),
-          child: Stack(children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 10, 9),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Padding(
-                      padding: EdgeInsets.only(right: selected ? 20 : 0),
-                      child: Text(node.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 13.5,
-                              height: 1.25,
-                              fontWeight: KaGoWeight.bold,
-                              color: selected ? p.accent : p.text)),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(children: <Widget>[
-                      Expanded(
-                          child: Text(detail,
-                              maxLines: 1,
+    return KagoPressFeedback(
+        enabled: onTap != null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+              color: selected ? p.accentSoft : p.surface,
+              borderRadius: BorderRadius.circular(KaGoRadius.card),
+              border: Border.all(
+                  color: selected ? p.accentTint : p.border, width: 1)),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(KaGoRadius.card),
+              child: Stack(children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 10, 9),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 22),
+                          child: Text(node.name,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: .3,
-                                  color: p.muted))),
-                      const SizedBox(width: 6),
-                      _DelayLabel(
-                          delay: delay, testing: testing, onTest: onTest),
-                    ]),
-                  ]),
+                                  fontSize: KaGoText.caption,
+                                  height: 1.25,
+                                  fontWeight: KaGoWeight.bold,
+                                  color: p.text)),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: <Widget>[
+                          Expanded(
+                              child: Text(detail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: KaGoText.meta,
+                                      letterSpacing: .3,
+                                      color: p.muted))),
+                          const SizedBox(width: 6),
+                          _DelayLabel(
+                              delay: delay, testing: testing, onTest: onTest),
+                        ]),
+                      ]),
+                ),
+                Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Icon(
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        size: 16,
+                        color: selected ? p.accent : p.hint)),
+              ]),
             ),
-            if (selected)
-              Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                          color: p.accent, shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded,
-                          size: 12, color: Colors.white))),
-          ]),
-        ),
-      ),
-    );
+          ),
+        ));
   }
 }
 
@@ -720,12 +742,13 @@ class _DelayLabel extends StatelessWidget {
     final Widget label;
     if (value == null) {
       if (onTest == null) {
-        return Text('—', style: TextStyle(fontSize: 12, color: p.muted));
+        return Text('—',
+            style: TextStyle(fontSize: KaGoText.caption, color: p.muted));
       }
       label = Icon(Icons.bolt_rounded, size: 17, color: p.muted);
     } else if (value <= 0) {
-      label =
-          Text(tr('Таймаут'), style: TextStyle(fontSize: 12, color: p.danger));
+      label = Text(tr('Таймаут'),
+          style: TextStyle(fontSize: KaGoText.caption, color: p.danger));
     } else {
       final color = value < 600
           ? p.success
@@ -734,7 +757,9 @@ class _DelayLabel extends StatelessWidget {
               : p.danger;
       label = Text(tr('{value} мс', <String, Object?>{'value': value}),
           style: TextStyle(
-              fontSize: 12, fontWeight: KaGoWeight.bold, color: color));
+              fontSize: KaGoText.caption,
+              fontWeight: KaGoWeight.bold,
+              color: color));
     }
     if (onTest == null) return label;
     return Tooltip(
@@ -775,4 +800,32 @@ class _GroupIcon extends StatelessWidget {
             errorBuilder: (context, error, stackTrace) =>
                 const SizedBox.shrink()),
       );
+}
+
+/// Видимые действия экрана серверов с системными областями нажатия.
+class _ServerAction extends StatelessWidget {
+  const _ServerAction(
+      {required this.label, required this.icon, this.selected = false});
+  final String label;
+  final IconData icon;
+  final bool selected;
+  @override
+  Widget build(BuildContext context) {
+    final p = context.kago;
+    return Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+            color: selected ? p.accentSoft : p.surface,
+            border: Border.all(color: selected ? p.accentTint : p.border),
+            borderRadius: BorderRadius.circular(8)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+          Text(label,
+              style: TextStyle(
+                  fontSize: KaGoText.caption,
+                  color: selected ? p.accent : p.text)),
+          const SizedBox(width: 6),
+          Icon(icon, size: 16, color: selected ? p.accent : p.muted),
+        ]));
+  }
 }
